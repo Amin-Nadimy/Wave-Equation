@@ -1,3 +1,5 @@
+## How to upload a file from you computer on to GitHub ##
+
 1. Create a new repository on GitHub account.
 2. Copy its SSH key from the top of the page.
 3. Open terminal and navigate to the folder with you need to upload.
@@ -9,3 +11,9 @@
 9. it might ask your GitHub user/pass which you nrrd to provide
 10. everything is uploaded as a folder.
 Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
+
+## Useful Commands ##
+
+1- git clone <url> # clone gets a copy of your files from github and copy them on  your local computer
+                   # url is the address of sme repository which you can find when click on cloe or dwnload bottom on your github/repository
+2- git add name_of_your_repository
