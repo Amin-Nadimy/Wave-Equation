@@ -24,7 +24,19 @@ Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 7- git pull                                # is oppisit git push. if you make some changes online then using this command you can update your local machine.
 
 Merge Conflicts
+8- git log                                 # gives you the history of all commits you've done
+9- git reset --hard commit_ID              # if your not happy with the changes you've made you can reset back to the older stage using thi command ID can come from git log
+10- git reset --hard origin/master        # it resets back to the original file which was uploaded from the start
 
+Branching
+11- git branch name_of_branch              # makes another branch of you master 
+12- git checkout name_of_branch            # switch from master to the new branch 
+13- git branch -b name_of_branch           # creates and switch to the new branch
+14- git merge name_of_branch               # merch 2 differenct branches together
+15- git branch                             # showes which branch currently your working on
+16- git branch -D name_of_function
+
+Pull Requests
 
 
 
