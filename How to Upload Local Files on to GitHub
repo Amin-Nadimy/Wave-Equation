@@ -1,0 +1,11 @@
+1. Create a new repository on GitHub account.
+2. Copy its SSH key from the top of the page.
+3. Open terminal and navigate to the folder with you need to upload.
+4. In terminal type: git init   # initiates the process
+5. In terminal type: git remote add origin SSH   # Here type your SSH key in stead of word SSH 
+6. In terminal type: git remote -v    # It's just a way to check if everything is fine. you need to see (fetch) and (push)
+7. In terminal type: git add .    # Takes all the files in the repository and prepares them to be pushed.
+8. In terminal type: git commit -m "type a name like first commit"
+9. it might ask your GitHub user/pass which you nrrd to provide
+10. everything is uploaded as a folder.
+Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
