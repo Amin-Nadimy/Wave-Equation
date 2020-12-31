@@ -22,3 +22,5 @@ Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 5- git status                              # shows the status of your project
 6- git push                                # Upload al saved changes on GitHub
 7- git pull                                # is oppisit git push. if you make some changes online then using this command you can update your local machine.
+
+Merge Conflicts
