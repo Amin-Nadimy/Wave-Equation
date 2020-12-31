@@ -16,4 +16,5 @@ Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 
 1- git clone <url> # clone gets a copy of your files from github and copy them on  your local computer
                    # url is the address of sme repository which you can find when click on cloe or dwnload bottom on your github/repository
-2- git add name_of_your_repository # apply changes you've made on GitHub
+2- git add name_of_your_repository        # adds changes you've made on to therepository
+3- git commit "type a message"            # apply changes on GitHub
