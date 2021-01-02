@@ -8,8 +8,9 @@
 6. In terminal type: git remote -v    # It's just a way to check if everything is fine. you need to see (fetch) and (push)
 7. In terminal type: git add .    # Takes all the files in the repository and prepares them to be pushed.
 8. In terminal type: git commit -m "type a name like first commit"
-9. it might ask your GitHub user/pass which you nrrd to provide
-10. everything is uploaded as a folder.
+9. git push origin master
+10. it might ask your GitHub user/pass which you nrrd to provide
+11. everything is uploaded as a folder.
 Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 
 ## Useful Commands ##
