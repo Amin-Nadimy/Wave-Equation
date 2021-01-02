@@ -29,6 +29,9 @@ U1=U2=U3 = U                                # Dummy matrices to plot 3 time step
 #U_plot = np.ones((3,N*Np))    # A matrix to save 3 time steps used for plotting the results
 
 U[int(N*2*Np*.3):int(N*2*Np*.8)]=1              # Defining wave components
+x=np.linspace(0, 2, nx)
+y=np.linspace(0,2,ny)
+X, Y =np.meshgrid(x,y)           # Creating a mesh grid
 
 #--------------------------------- Initial Conds ------------------------------
 #U[:, 0]= U[:, -1] = 0
@@ -48,6 +51,7 @@ phi_2 = 1/4*(1+x)*(1-y)
 phi_3 = 1/4*(1+x)*(1+y)
 phi_4 = 1/4*(1-x)*(1+y)
 
+
 X = x_m + dx/2*x                # X=global x-coordinate, x_m=mid-point, x=natural x-coordinate
 Y = y_m + dy/2*y                # Y=global y-coordinate, y_m=mid-point, y=natural y-coordinate
 
@@ -63,21 +67,31 @@ t1 = time.time()
 sub_M = np.zeros((Np,Np))                      # local mass matrix with the size of number of degree of freedom in each element
 
 for i in range(Np):
-    for j in range(i, Np):
-        C = interpolation_func[j,0]*interpolation_func[i,0]* 1/dX * 1/dY # int(phi_j * phi_i * J_x * J_y * dxdy)
-        #print(sy.integrate(C, (x, -1, 1), (y,-1,1)))
+    for j in range(Np):
+        C = interpolation_func[j,0]*interpolation_func[i,0]*dX*dY # int(phi_j * phi_i * J_x * J_y * dxdy)
+        #print(C,i,j)    
         sub_M[i,j] = sy.integrate(C, (x, -1, 1), (y,-1,1))          # constructing upper diagonal matrix 
         sub_M[j,i] = sub_M[i,j]                                     # filling the lower diagonal entities.
 
 
-sub_M2 =  np.zeros((2*Np,2*Np))   
-for i in range(Np):
-    for j in range(Np):
-        sub_M2[i*2, j*2] = sub_M[i,j]
+sub_M2 =  np.eye(2*Np)*sub_M[0,0]
+sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-2), 2) *sub_M[0,1]
+sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-2), -2) *sub_M[0,1] 
+sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-4), 4) *sub_M[0,2]
+sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-4), -4) *sub_M[0,2]
+sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-6), 6) *sub_M[0,3] 
+sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-6), -6) *sub_M[0,3] 
+# A = np.eye(5)
+# A = A + np.diag(np.ones(4),-1)
 
-for i in range(Np):
-    for j in range(Np):
-        sub_M2[i*2+1, j*2+1] = sub_M[i,j]
+# sub_M2 =  np.zeros((2*Np,2*Np))
+# for i in range(Np):
+#     for j in range(Np):
+#         sub_M2[i*2, j*2] = sub_M[i,j]
+
+# for i in range(Np):
+#     for j in range(Np):
+#         sub_M2[i*2+1, j*2+1] = sub_M[i,j]
 
 M = np.kron(np.eye(N), sub_M2)             # Creating global mass matrix
 # plt.spy(M)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
@@ -88,12 +102,13 @@ print(str(t2-t1))
 
 # #--------------------------Stifness Matrix 'K' in Equation 44 -----------------
 
-# sub_K=np.zeros((Np,Np))                        # local stifness matrix
+sub_K=np.zeros((Np,Np))                        # local stifness matrix
                      
 # for i in range(Np):                            # Creating general local stiffness matrix
 #     for j in range(Np):
-#         C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])*1/dX*dX*dY
-#         C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])*1/dY*dX*dY
+#         C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])*dX*dY
+#         C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])*dX*dY
+#         print(C_x,C_y, i,j)
 #         sub_K[i,j] = sy.integrate(C_x, (x, -1, 1), (y,-1,1)) + sy.integrate(C_y, (x, -1, 1), (y,-1,1))
 
 # sub_K2 =  np.zeros((2*Np,2*Np))                # Expanding general local stiffness matrix
@@ -146,24 +161,29 @@ for n in range(nt):                 # Marching in time
     U=np.linalg.solve(M,RHS)    
     
     if n==1:
-        U1 = U.copy()                     # saving U(t=1)
+        U1 = U.copy().reshape((800,800))                     # saving U(t=1)
     if n==int(nt/2):
         U2 = U.copy()                    # saving U(t=nt/2)
     if n==int(nt*0.99):
         U3 = U.copy()                    # saving U(t= almost the end to time steps)
 t4 = time.time()
 #------------------------------plot initiation --------------------------------
-x=np.linspace(0,2,N*Np)
-plt.figure(1)
-plt.axis([0,L, -1,2])
-plt.plot(x, U1, label='Timestep 1')
-plt.plot(x, U2, label='Timestep 0.5*nx')
-plt.plot(x, U3, label='Timestep 0.9*nx')
-plt.xlabel('Distrance')
-plt.ylabel('U')
-plt.legend()
-plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')
+# plt.figure()        
+# ax = plt.gca(projection='3d')
+# ax.plot_surface(X, Y, U1 , label='t=0')
+# ax.plot_surface(X, Y, U2, label='t=nt/2')
+# ax.plot_surface(X, Y, U3, label='t=final')
+# ax.set_ylabel('$y$')
+# ax.set_xlabel('$x$')
+# ax.set_zlabel('$U$')
+# plt.legend()
+# plt.show()
 
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
+# surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
+# #ax.plot(x, y, U, label='Square Wave')
+# plt.show()
 
 
 
