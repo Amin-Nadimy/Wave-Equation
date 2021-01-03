@@ -10,9 +10,9 @@ C = .05                     # Courant number
 c = .1                      # Wave velocity
 dx = L/(nx-1)               # Distace stepping size
 dt = C*dx/c                 # Time stepping size
-x  = np.arange(0, nx)*dx    # or x=np.linspace(0,2,nx)
-U = np.zeros(nx)            # U is a square wave between 0 <U< 1
-U_plot = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting the results
+x  = np.arange(0, 2*nx)*dx    # or x=np.linspace(0,2,nx)
+U = np.zeros(2*(nx-1))            # U is a square wave between 0 <U< 1
+U_plot = np.zeros((3,2*nx))    # A matrix to save 3 time steps used for plotting the results
 
 #------------------------------------------------------------------------------
 # Boundary Conditions
@@ -24,25 +24,21 @@ U[int(L*nx*0.2):int(L*nx*0.5)]=1
 
 #--------------------------------Mass Matrix 'M' in Equation 29 ---------------
 t1 = time.time()                    # starting for timing the M_diag_inv calculation
-sub_M = np.array([[dx/3-1/2,dx/6-1/2],[dx/6+1/2,dx/3+1/2]]) # local mass matrix
-M=np.zeros((nx,nx))                         # generating global mass matrix
-i=0
-while i<nx:
-    M[i:i+2, i:i+2]= sub_M[0:2,0:2]
-    i+=2
+sub_M = np.array([[dx/3-1/2,dx/6-1/2],
+                  [dx/6+1/2,dx/3+1/2]]) # local mass matrix
+
+M = np.kron(np.eye((nx-1)), sub_M)
+
 t2 = time.time()                            # end point of M_diag_inv generation
 print(str(t2-t1))
 
 #--------------------------Stifness Matrix 'K' in Equation 29 -----------------
-sub_K=np.array([[-c*dt/2-c*dt/dx,-c*dt/2+c*dt/dx],[c*dt/2+c*dt/dx,c*dt/2-c*dt/dx]]) # local stifness matrix
-K = np.zeros((nx,nx))                               # generating global stifness matix
-i=0
-while i<nx:
-    K[i:i+2, i:i+2]= sub_K[0:2,0:2]
-    i+=2
+sub_K=np.array([[-c/2-c/dx,-c/2+c/dx],
+                [c/2+c/dx,c/2-c/dx]])*dt # local stifness matrix
+K = np.kron(np.eye((nx-1)), sub_K)
 
 #-------------------------------Flux in Equation 29----------------------------
-F = np.zeros((nx,nx+1))
+F = np.zeros((2*(nx-1),2*(nx-1)+1))
 i=0
 j=1
 while i<=nx-1:
@@ -65,11 +61,11 @@ for n in range(nt):                 # Marching in time
     U=np.linalg.solve(M,RHS)    
     
     if n==1:
-        U_plot[0,:] = U.copy()      # saving U(t=1)
+        U_plot[0,1:-1] = U.copy()      # saving U(t=1)
     if n==int(nt/2):
-        U_plot[1,:] = U.copy()      # saving U(t=nt/2)
+        U_plot[1,1:-1] = U.copy()      # saving U(t=nt/2)
     if n==int(nt*0.99):
-        U_plot[2,:] = U.copy()      # saving U(t= almost the end to time steps)
+        U_plot[2,1:-1] = U.copy()      # saving U(t= almost the end to time steps)
 t4 = time.time()
 #------------------------------plot initiation --------------------------------
 plt.figure(1)
