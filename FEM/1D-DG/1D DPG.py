@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-nx = 1000                   # total number of nodes(degree of freedom)
-nt = 500                   # total number of time steps
+nx = 150                   # total number of nodes(degree of freedom)
+nt = 300                   # total number of time steps
 L =  0.5                    # Totla length
 C = .05                     # Courant number
 c = .1                      # Wave velocity

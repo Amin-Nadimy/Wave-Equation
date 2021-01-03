@@ -96,7 +96,7 @@ sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-6), -6) *sub_M[0,3]
 M = np.kron(np.eye(N), sub_M2)             # Creating global mass matrix
 # plt.spy(M)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
-
+M_inv = np.linalg.inv(M)
 t2 = time.time()                            # end point of M_diag_inv generation
 print(str(t2-t1))
 
@@ -184,7 +184,6 @@ t4 = time.time()
 # surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
 # #ax.plot(x, y, U, label='Square Wave')
 # plt.show()
-
 
 
 
