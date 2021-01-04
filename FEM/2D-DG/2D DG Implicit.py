@@ -10,7 +10,7 @@ C= .05                                      # CLF number
 p_i_x = 2                                   # degree of polynomial function +1 in x-dir
 p_i_y = 2                                   # degree of polynomial function +1 in y-dir
 Np = 4                                      # number rof points at each element
-nt = 1000                                   # Number of time steps
+nt = 30                                   # Number of time steps
 nx = 21                                     # Number of x steps
 ny = 6                                      # Number of y steps
 N = (nx-1)*(ny-1)                           # number of elements
@@ -167,7 +167,7 @@ F = np.kron(np.eye(N), sub_F)             # Creating global flux matrix
 # plt.spy(K)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
 #--------------------------------RHS Constant in Equation 44-------------------
-RHS_cst = (M + K - F)
+RHS_cst = (M + K- F)
 
 ##-Matrix method----------------------------------------------------------------
 ##Mrching forward in time
@@ -177,13 +177,15 @@ for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un)           # saving U^t to be used in the next time step calculation
     U=np.linalg.solve(M,RHS)    
-    
-    if n==1:
-        U1 = U.copy().reshape((800,800))                     # saving U(t=1)
-    if n==int(nt/2):
-        U2 = U.copy()                    # saving U(t=nt/2)
-    if n==int(nt*0.99):
-        U3 = U.copy()                    # saving U(t= almost the end to time steps)
+
+U_x = []
+U_y = []   
+i=0 
+while i< len(U):
+    U_x.append([U[i]])
+    U_y.append([U[i+1]])
+    i +=2
+
 t4 = time.time()
 #------------------------------plot initiation --------------------------------
 # plt.figure()        
