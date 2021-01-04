@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-nx = 150                   # total number of nodes(degree of freedom)
-nt = 300                   # total number of time steps
+nx = 100                   # total number of nodes(degree of freedom)
+nt = 50                   # total number of time steps
 L =  0.5                    # Totla length
 C = .05                     # Courant number
 c = .1                      # Wave velocity
@@ -24,8 +24,8 @@ U[int(L*nx*0.2):int(L*nx*0.5)]=1
 
 #--------------------------------Mass Matrix 'M' in Equation 29 ---------------
 t1 = time.time()                    # starting for timing the M_diag_inv calculation
-sub_M = np.array([[dx/3-1/2,dx/6-1/2],
-                  [dx/6+1/2,dx/3+1/2]]) # local mass matrix
+sub_M = np.array([[dx/3-1/2, dx/6-1/2],
+                  [dx/6+1/2, dx/3+1/2]]) # local mass matrix
 
 M = np.kron(np.eye((nx-1)), sub_M)
 
@@ -33,8 +33,8 @@ t2 = time.time()                            # end point of M_diag_inv generation
 print(str(t2-t1))
 
 #--------------------------Stifness Matrix 'K' in Equation 29 -----------------
-sub_K=np.array([[-c/2-c/dx,-c/2+c/dx],
-                [c/2+c/dx,c/2-c/dx]])*dt # local stifness matrix
+sub_K=np.array([[-c/2-c/dx, -c/2+c/dx],
+                [c/2+c/dx, c/2-c/dx]])*dt # local stifness matrix
 K = np.kron(np.eye((nx-1)), sub_K)
 
 #-------------------------------Flux in Equation 29----------------------------

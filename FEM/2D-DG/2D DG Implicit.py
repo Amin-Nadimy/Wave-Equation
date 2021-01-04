@@ -6,10 +6,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import time
 
 #------------------------------- Parameters -----------------------------------
-C= .005                                      # CLF number
+C= .05                                      # CLF number
 p_i_x = 2                                   # degree of polynomial function +1 in x-dir
 p_i_y = 2                                   # degree of polynomial function +1 in y-dir
-Np = 4                                      # numbe rof points in each element
+Np = 4                                      # number rof points at each element
 nt = 1000                                   # Number of time steps
 nx = 21                                     # Number of x steps
 ny = 6                                      # Number of y steps
@@ -55,8 +55,8 @@ phi_4 = 1/4*(1-x)*(1+y)
 X = x_m + dx/2*x                # X=global x-coordinate, x_m=mid-point, x=natural x-coordinate
 Y = y_m + dy/2*y                # Y=global y-coordinate, y_m=mid-point, y=natural y-coordinate
 
-dX = sy.diff(X , x)             # Jacobian function (dX/dx)
-dY = sy.diff(Y, y)              # Jacobian function for (dY/dy) 
+J_x = sy.diff(X , x)             # Jacobian function (dX/dx)
+J_y = sy.diff(Y, y)              # Jacobian function for (dY/dy) 
 
 interpolation_func = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))  # Matrix form of shape functions
 dinterpolation_func_dx = sy.diff(interpolation_func,x)               # differentialsof phi_i functions  with respect to x used in K matrix
@@ -68,7 +68,7 @@ sub_M = np.zeros((Np,Np))                      # local mass matrix with the size
 
 for i in range(Np):
     for j in range(Np):
-        C = interpolation_func[j,0]*interpolation_func[i,0]*dX*dY # int(phi_j * phi_i * J_x * J_y * dxdy)
+        C = interpolation_func[j,0]*interpolation_func[i,0]*J_x*J_y # int(phi_j * phi_i * J_x * J_y * dxdy)
         #print(C,i,j)    
         sub_M[i,j] = sy.integrate(C, (x, -1, 1), (y,-1,1))          # constructing upper diagonal matrix 
         sub_M[j,i] = sub_M[i,j]                                     # filling the lower diagonal entities.
@@ -101,16 +101,18 @@ t2 = time.time()                            # end point of M_diag_inv generation
 print(str(t2-t1))
 
 # #--------------------------Stifness Matrix 'K' in Equation 44 -----------------
+### Constructing sub_K matrix using natural coordinate system
 
-sub_K=np.zeros((Np,Np))                        # local stifness matrix
+# sub_K=np.zeros((Np,Np))                        # local stifness matrix
                      
 # for i in range(Np):                            # Creating general local stiffness matrix
 #     for j in range(Np):
-#         C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])*dX*dY
-#         C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])*dX*dY
+#         C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])*1/J_x*J_x*J_y
+#         C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])*1/J_y*J_x*J_y
 #         print(C_x,C_y, i,j)
 #         sub_K[i,j] = sy.integrate(C_x, (x, -1, 1), (y,-1,1)) + sy.integrate(C_y, (x, -1, 1), (y,-1,1))
 
+### constructing global K matrix manually
 # sub_K2 =  np.zeros((2*Np,2*Np))                # Expanding general local stiffness matrix
 # for i in range(Np):
 #     for j in range(Np):
@@ -120,14 +122,30 @@ sub_K=np.zeros((Np,Np))                        # local stifness matrix
 #     for j in range(Np):
 #         sub_K2[i*2+1, j*2+1] = sub_K[i,j]
 
+
+### constructing global K matrix using kron function
 # K = np.kron(np.eye(N*2*Np), sub_K2)             # Creating global stiffness matrix
 # plt.spy(K)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
-sub_K=(dt/6)*np.array(([-dy*c_x,0,-dy*c_x,0,-dy*c_x/2,0,-dy*c_x/2,0],[0, -dx*c_y,0,-dx*c_y/2,0,-dx*c_y/2,0,-dx*c_y],
-                       [dy*c_x,0,dy*c_x,0,dy*c_x/2,0,dy*c_x,0], [0, -dx*c_y/2,0,-dx*c_y,0,-dx*c_y,0,-dx*c_y/2],
-                       [dy*c_x/2,0,dy*c_x/2,0,dy*c_x,0,dy*c_x,0],[0, dx*c_y/2,0,dx*c_y,0,dx*c_y,0,dx*c_y/2],
-                       [-dy*c_x/2,0,-dy*c_x/2,0,-dy*c_x,0,-dy*c_x,0],[0, dx*c_y,0,dx*c_y/2,0,dx*c_y/2,0,dx*c_y]))                        # local stifness matrix
+### manually compacted sub_K matrix using local coordinate system 
+# sub_K=np.zeros((Np,Np))
+# sub_K=(dt/6)*np.array(([-dy*c_x-dx*c_y , -dy*c_x-dx*c_y/2 , -dy*c_x/2-dx*c_y/2 , -dy*c_x/2-dx*c_y],
+#                        [dy*c_x-dx*c_y/2 , dy*c_x-dx*c_y , dy*c_x/2-dx*c_y , dy*c_x-dx*c_y/2], 
+#                        [dy*c_x/2+dx*c_y/2 , dy*c_x/2+dx*c_y , dy*c_x+dx*c_y , dy*c_x+dx*c_y/2],
+#                        [-dy*c_x/2+dx*c_y , -dy*c_x/2+dx*c_y/2 , -dy*c_x+dx*c_y/2 , -dy*c_x+dx*c_y]))
 
+### manually expanded sub_K matrix using local coordinate system   
+sub_K=np.zeros((Np,Np))
+sub_K=(dt/6)*np.array(([-dy*c_x,0,-dy*c_x,0,-dy*c_x/2,0,-dy*c_x/2,0],
+                       [0, -dx*c_y,0,-dx*c_y/2,0,-dx*c_y/2,0,-dx*c_y],
+                       [dy*c_x,0,dy*c_x,0,dy*c_x/2,0,dy*c_x,0], 
+                       [0, -dx*c_y/2,0,-dx*c_y,0,-dx*c_y,0,-dx*c_y/2],
+                       [dy*c_x/2,0,dy*c_x/2,0,dy*c_x,0,dy*c_x,0],
+                       [0, dx*c_y/2,0,dx*c_y,0,dx*c_y,0,dx*c_y/2],
+                       [-dy*c_x/2,0,-dy*c_x/2,0,-dy*c_x,0,-dy*c_x,0],
+                       [0, dx*c_y,0,dx*c_y/2,0,dx*c_y/2,0,dx*c_y]))                        # local stifness matrix
+
+### constructing global K matrix using kron function
 K = np.kron(np.eye(N), sub_K)             # Creating global stiffness matrix
 # plt.spy(K)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
     
