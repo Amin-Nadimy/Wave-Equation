@@ -5,7 +5,7 @@ import sympy as sy
 import time
 
 nx = 1000                   # total number of nodes(degree of freedom)
-nt = 1000                   # total number of time steps
+nt = 100                   # total number of time steps
 N_i = 2                     # numbe rof interpolation functions
 L =  0.5                    # Totla length
 C = .05                     # Courant number

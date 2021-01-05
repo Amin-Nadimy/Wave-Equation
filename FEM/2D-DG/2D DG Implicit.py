@@ -10,7 +10,7 @@ C= .05                                      # CLF number
 p_i_x = 2                                   # degree of polynomial function +1 in x-dir
 p_i_y = 2                                   # degree of polynomial function +1 in y-dir
 Np = 4                                      # number rof points at each element
-nt = 30                                   # Number of time steps
+nt = 100                                   # Number of time steps
 nx = 21                                     # Number of x steps
 ny = 6                                      # Number of y steps
 N = (nx-1)*(ny-1)                           # number of elements
@@ -23,12 +23,12 @@ c_x = 0.1                                   # Wave velocity in x-dir
 c_y = 0.1                                   # Wave velocity in y-dir
 c = (c_x**2+c_y**2)**0.5                    # speed of the wave
 dt = C*dx/c
-U = np.zeros(N*2*Np)                   # Wave matrix
-Un = np.zeros(N*2*Np)                  # Dummy variable to save current components of U
+U = np.zeros(N*Np)                   # Wave matrix
+Un = np.zeros(N*Np)                  # Dummy variable to save current components of U
 U1=U2=U3 = U                                # Dummy matrices to plot 3 time steps
 #U_plot = np.ones((3,N*Np))    # A matrix to save 3 time steps used for plotting the results
 
-U[int(N*2*Np*.3):int(N*2*Np*.8)]=1              # Defining wave components
+U[int(N*Np*.3):int(N*Np*.8)]=1              # Defining wave components
 x=np.linspace(0, 2, nx)
 y=np.linspace(0,2,ny)
 X, Y =np.meshgrid(x,y)           # Creating a mesh grid
@@ -73,14 +73,6 @@ for i in range(Np):
         sub_M[i,j] = sy.integrate(C, (x, -1, 1), (y,-1,1))          # constructing upper diagonal matrix 
         sub_M[j,i] = sub_M[i,j]                                     # filling the lower diagonal entities.
 
-
-sub_M2 =  np.eye(2*Np)*sub_M[0,0]
-sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-2), 2) *sub_M[0,1]
-sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-2), -2) *sub_M[0,1] 
-sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-4), 4) *sub_M[0,2]
-sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-4), -4) *sub_M[0,2]
-sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-6), 6) *sub_M[0,3] 
-sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-6), -6) *sub_M[0,3] 
 # A = np.eye(5)
 # A = A + np.diag(np.ones(4),-1)
 
@@ -93,7 +85,7 @@ sub_M2 = sub_M2 + np.diag(np.ones((2*Np)-6), -6) *sub_M[0,3]
 #     for j in range(Np):
 #         sub_M2[i*2+1, j*2+1] = sub_M[i,j]
 
-M = np.kron(np.eye(N), sub_M2)             # Creating global mass matrix
+M = np.kron(np.eye(N), sub_M)             # Creating global mass matrix
 # plt.spy(M)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
 M_inv = np.linalg.inv(M)
@@ -124,46 +116,30 @@ print(str(t2-t1))
 
 
 ### constructing global K matrix using kron function
-# K = np.kron(np.eye(N*2*Np), sub_K2)             # Creating global stiffness matrix
-# plt.spy(K)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
+# K = np.kron(np.eye(N*2*Np), sub_K2)     # Creating global stiffness matrix
+# plt.spy(K)                              # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
-### manually compacted sub_K matrix using local coordinate system 
-# sub_K=np.zeros((Np,Np))
-# sub_K=(dt/6)*np.array(([-dy*c_x-dx*c_y , -dy*c_x-dx*c_y/2 , -dy*c_x/2-dx*c_y/2 , -dy*c_x/2-dx*c_y],
-#                        [dy*c_x-dx*c_y/2 , dy*c_x-dx*c_y , dy*c_x/2-dx*c_y , dy*c_x-dx*c_y/2], 
-#                        [dy*c_x/2+dx*c_y/2 , dy*c_x/2+dx*c_y , dy*c_x+dx*c_y , dy*c_x+dx*c_y/2],
-#                        [-dy*c_x/2+dx*c_y , -dy*c_x/2+dx*c_y/2 , -dy*c_x+dx*c_y/2 , -dy*c_x+dx*c_y]))
-
-### manually expanded sub_K matrix using local coordinate system   
+## manually compacted sub_K matrix using local coordinate system 
 sub_K=np.zeros((Np,Np))
-sub_K=(dt/6)*np.array(([-dy*c_x,0,-dy*c_x,0,-dy*c_x/2,0,-dy*c_x/2,0],
-                       [0, -dx*c_y,0,-dx*c_y/2,0,-dx*c_y/2,0,-dx*c_y],
-                       [dy*c_x,0,dy*c_x,0,dy*c_x/2,0,dy*c_x,0], 
-                       [0, -dx*c_y/2,0,-dx*c_y,0,-dx*c_y,0,-dx*c_y/2],
-                       [dy*c_x/2,0,dy*c_x/2,0,dy*c_x,0,dy*c_x,0],
-                       [0, dx*c_y/2,0,dx*c_y,0,dx*c_y,0,dx*c_y/2],
-                       [-dy*c_x/2,0,-dy*c_x/2,0,-dy*c_x,0,-dy*c_x,0],
-                       [0, dx*c_y,0,dx*c_y/2,0,dx*c_y/2,0,dx*c_y]))                        # local stifness matrix
+sub_K=(dt/6)*np.array(([-dy*c_x-dx*c_y , -dy*c_x-dx*c_y/2 , -dy*c_x/2-dx*c_y/2 , -dy*c_x/2-dx*c_y],
+                        [dy*c_x-dx*c_y/2 , dy*c_x-dx*c_y , dy*c_x/2-dx*c_y , dy*c_x-dx*c_y/2], 
+                        [dy*c_x/2+dx*c_y/2 , dy*c_x/2+dx*c_y , dy*c_x+dx*c_y , dy*c_x+dx*c_y/2],
+                        [-dy*c_x/2+dx*c_y , -dy*c_x/2+dx*c_y/2 , -dy*c_x+dx*c_y/2 , -dy*c_x+dx*c_y]))
+
+                     # local stifness matrix
 
 ### constructing global K matrix using kron function
 K = np.kron(np.eye(N), sub_K)             # Creating global stiffness matrix
-# plt.spy(K)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
-    
-###############################################################################
-###############################################################################
-###############################################################################
+# plt.spy(K)                              
 
 #-------------------------------Flux in Equation 44----------------------------
-sub_F = dt*np.array([[-c_x,0,0,0,0,0,0,0], 
-                     [0,-c_y,0,0,0,0,0,0], 
-                     [0,0,c_x,0,0,0,0,0 ], 
-                     [0,0,0,-c_y,0,0,0,0],
-                     [0,0,0,0, c_x,0,0,0],
-                     [0,0,0,0,0, c_y,0,0],
-                     [0,0,0,0,0,0,-c_x,0],
-                     [0,0,0,0,0,0,0, c_y]])
+sub_F = dt*np.array([[-c_x-c_y,0,0,0], 
+                      [0,c_x-c_y,0,0], 
+                      [0,0,c_x+c_y,0],
+                      [0,0,0,-c_x+c_y]])
 
 F = np.kron(np.eye(N), sub_F)             # Creating global flux matrix
+
 # plt.spy(K)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
 #--------------------------------RHS Constant in Equation 44-------------------
