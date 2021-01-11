@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-nx = 100                    # total number of nodes(degree of freedom)
+nx = 500                    # total number of nodes(degree of freedom)
 nt = 1000                   # total number of time steps
 L =  0.5                     # Totla length
-C = .001                     # Courant number
+C = .01                     # Courant number
 c = .1                      # Wave velocity
 dx = L/(nx-1)               # Distace stepping size
 dt = C*dx/c                 # Time stepping size
@@ -18,7 +18,7 @@ U_plot = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting th
 
 #------------------------------------------------------------------------------
 #Initial conditions
-U[int(L*nx*0.2):int(L*nx*0.5)]=1
+U[int(L*nx*0.2):int(L*nx*0.8)]=1
 
 #------------------------------------------------------------------------------
 # Matrix A it is the LHS (mass matrix) shown in Equation 14
@@ -77,8 +77,8 @@ plt.axis([0,L, -1,1.5])
 
 # Plotting FEM-----------------------------------------------------------------
 plt.plot(x, U_plot[0,:], label='Timestep 1')
-plt.plot(x, U_plot[1,:], label='Timestep 0.5*nx')
-plt.plot(x, U_plot[2,:], label='Timestep 0.9*nx')
+plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
+plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
 plt.xlabel('Distrance')
 plt.ylabel('U')
 plt.legend()

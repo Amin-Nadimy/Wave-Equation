@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-nx = 100                        # distance which the wave travels
+nx = 500                        # distance which the wave travels
 nt = 1000                       # total number of time steps
 L =  0.5                        # Totla length
 C = 0.01                        # Courant number
@@ -91,13 +91,13 @@ plt.ylabel('U')
 # ----------------------- Plotting FDM and FEM for comparision ------------------
 # Plotting FEM-----------------------------------------------------------------
 plt.plot(x, U_plot[0,:], label='Timestep 1 FE')
-plt.plot(x, U_plot[1,:], label='Timestep 0.5*nx FE')
-plt.plot(x, U_plot[2,:], label='Timestep 0.9*nx FE')
+plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt FE')
+plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt FE')
 
 # Plotting FDM-----------------------------------------------------------------
 plt.plot(x, U_FD_plot[0,:], label='Timestep 1 FD')
-plt.plot(x, U_FD_plot[1,:], label='Timestep 0.5*nx FD')
-plt.plot(x, U_FD_plot[2,:], label='Timestep 0.9*nx FD')
+plt.plot(x, U_FD_plot[1,:], label='Timestep 0.5 nt FD')
+plt.plot(x, U_FD_plot[2,:], label='Timestep 0.9 nt FD')
 
 plt.legend()
 
