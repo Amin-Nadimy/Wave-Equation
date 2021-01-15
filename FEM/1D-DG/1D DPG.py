@@ -27,8 +27,10 @@ U[int(L*nx*0.2):int(L*nx*0.5)]=1
 t1 = time.time()                    # starting for timing the M_diag_inv calculation
 # sub_M = np.array([[dx/3-1/2, dx/6-1/2],
 #                   [dx/6+1/2, dx/3+1/2]]) # local mass matrix
-sub_M = np.array([[dx/3-1/8*dx/(32)  , dx/6-1/8*dx/(32)],
-                  [dx/6+1/8*dx/(32)  , dx/3+1/8*dx/(32)]]) # local mass matrix
+a=1
+M_prime=-dx/16
+sub_M = np.array([[dx/3-a*M_prime*1/2  , dx/6-a*M_prime*1/2],
+                  [dx/6+a*M_prime*1/2  , dx/3+a*M_prime*1/2]]) # local mass matrix
 # sub_M = np.array([[dx/3, dx/6],
 #                   [dx/6, dx/3]]) # local mass matrix
 
@@ -38,8 +40,10 @@ t2 = time.time()                            # end point of M_diag_inv generation
 print(str(t2-t1))
 
 #-------------- Stifness Matrix 'K' for Petrov-Galerking method ---------------
-sub_K=np.array([[-c/2-1/8*c/16, -c/2+1/8*c/16],
-                [ c/2+1/8*c/16,  c/2-1/8*c/16]])*dt # local stifness matrix
+b=1
+K_prime = c*dt*dx/4
+sub_K=np.array([[-c*dt/2+b*K_prime/2, -c*dt/2-b*K_prime/2],
+                [ c*dt/2-b*K_prime/2,  c*dt/2+b*K_prime/2]]) # local stifness matrix
 # sub_K=np.array([[-c/2-1/8, -c/2+1/8],
 #                 [c/2+1/8, c/2-1/8]])*dt # local stifness matrix
 # sub_K=np.array([[-c/2, -c/2],

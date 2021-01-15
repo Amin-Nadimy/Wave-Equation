@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sb
 
 #------------------------------- 2-D FDM------------------------------------------
 C= .01                           # CLF number
@@ -11,8 +12,8 @@ L = 2                            # Lengths of the domain in x and y directions
 dx = L/(nx-1)                    # dispacement legth at each time-step in x-direction
 dy = L/(ny-1)                    # dispacement legth at each time-step in y-direction
 d_displacement = (dx**2+dy**2)**0.5 # overall displacement of the wave in both directions
-x=np.linspace(0, 2, nx)
-y=np.linspace(0,2,ny)
+x=np.linspace(0, L, nx)
+y=np.linspace(0, L, ny)
 c_x = 0.1                        # Wave velocity in x-dir
 c_y = 0.1                        # Wave velocity in y-di
 c = (c_x**2+c_y**2)**0.5            # overall velocity of the wave
@@ -41,7 +42,7 @@ for n in range(nt+1):             # marching in time steps
         U3 = Un
 
 #------------------------------ Plotting the results ----------------------------        
-plt.figure()        
+plt.figure(1)        
 ax = plt.gca(projection='3d')
 ax.plot_surface(X, Y, U1 , label='t=0')
 ax.plot_surface(X, Y, U2, label='t=nt/2')
@@ -58,6 +59,14 @@ surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
 #ax.plot(x, y, U, label='Square Wave')
 plt.show()
 
+
+# z= np.zeros((10,15))
+# z[5:8,3:10]=1
+# z[9,12]=5
+# plt.figure()
+# ax = sb.heatmap(z)
+# ax.invert_yaxis()
+# plt.show()
 ######################################## 1-D  #################################
 #C = .6
 #dt = 1

@@ -21,40 +21,40 @@ U_plot = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting th
 U[int(L*nx*0.2):int(L*nx*0.8)]=1
 
 #------------------------------------------------------------------------------
-# Matrix A it is the LHS (mass matrix) shown in Equation 14
-# Matrix A it is the LHS (mass matrix) shown in Equation 14
-A = np.zeros((nx-2,nx-2))       
+# Matrix M it is the LHS (mass matrix) shown in Equation 14
+# Matrix M it is the LHS (mass matrix) shown in Equation 14
+M = np.zeros((nx-2,nx-2))       
 for i in range(nx-3):
     for j in range (nx-3):
         if j==i:
-            A[i,j] = dx/3*2
+            M[i,j] = dx/3*2
         elif j==i+1:
-            A[i,j] = dx/6
+            M[i,j] = dx/6
         elif j==i-1:
-            A[i,j] = dx/6
+            M[i,j] = dx/6
         else:
-            A[i,j] = 0
+            M[i,j] = 0
             
 #corner cells
-A[0,0] = A[nx-3, nx-3] = dx/3
-A[1,0] = A[0,1] = A[nx-3, nx-4] = A[nx-4, nx-3] = dx/6
+M[0,0] = M[nx-3, nx-3] = dx/3
+M[1,0] = M[0,1] = M[nx-3, nx-4] = M[nx-4, nx-3] = dx/6
 
-#A_inv= np.linalg.inv(A)         # Inverse of matrix A used in Equation 15
+#M_inv= np.linalg.inv(M)         # Inverse of matrix M used in Equation 15
 
 #------------------------------------------------------------------------------
-B = np.zeros((nx-2, nx-2))          # Matrix B in Equation 15
+K = np.zeros((nx-2, nx-2))          # Matrix K in Equation 15
 for i in range(nx-2):
     for j in range(nx-2):
         if  i==j+1:
-            B[i,j] = 0.5
+            K[i,j] = 0.5
         elif i==j-1:
-            B[i,j] = -0.5
-B[0,0]=-0.5
-B[nx-3,nx-3]=0.5
+            K[i,j] = -0.5
+K[0,0]=-0.5
+K[nx-3,nx-3]=0.5
 
-#----------------------------A.U^{t+1}=(A+c.dt.B).U^{t}---------equ.27-------
-# E = Matrix in formula 27. E= A+c.dt.B
-E = A+c*dt*B
+#----------------------------M.U^{t+1}=(A+c.dt.K).U^{t}---------equ.27-------
+# E = Matrix in formula 27. E= M+c.dt.K
+E = M+c*dt*K
 
 #-Matrix method----------------------------------------------------------------
 #Marching forward in time
@@ -64,7 +64,7 @@ for n in range(1, nt):                  # Marching in time
     Un = U[1:nx-1].copy()                       # un is a dummy vbl for the current known quantity
     #for j in range(1, nx):              # Marching in elements (fundamental difference)
     rhs = np.matmul(E,Un)               # making Eu in the RHS in equ 27
-    U[1:nx-1] = np.linalg.solve(A, rhs)     # linear solver to solve equ 27
+    U[1:nx-1] = np.linalg.solve(M, rhs)     # linear solver to solve equ 27
     if n==1:
         U_plot[0,:] = U.copy()
     if n==int(nt/2):
