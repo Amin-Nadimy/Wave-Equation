@@ -11,9 +11,9 @@ C= .05                                      # CLF number
 #p_i_x = 2                                   # degree of polynomial function +1 in x-dir
 #p_i_y = 2                                   # degree of polynomial function +1 in y-dir
 Np = 4                                      # number rof points at each element
-nt = 1 
-N_e_r = 4  
-N_e_c = 3
+nt = 20 
+N_e_r = 10  
+N_e_c = 10
 nx =  N_e_c * N_e_r * 2                     # total number of x steps               
 ny =  N_e_c * N_e_r * 2                     # total number of y steps                                                                 
 N = N_e_c * N_e_r                           # number of elements
@@ -21,12 +21,10 @@ L = 0.5                                       # x and y lengths
 dx = L/(N_e_r)
 dy = L/(N_e_c)
 
-
-c_x = 0.1                                   # Wave velocity in x-dir
+c_x = 0                                   # Wave velocity in x-dir
 c_y = 0.1                                   # Wave velocity in y-dir
 #c = (c_x**2+c_y**2)**0.5                    # speed of the wave
-dt = C*dx/c_x
-
+dt = C*dx*dy/(c_x*dy+c_y*dx)
 
 U = np.zeros(N*Np)                          # Wave matrix
 Un = np.zeros(N*Np)                         # Dummy variable to save current components of U
@@ -36,8 +34,7 @@ U1=U2 = U                                # Dummy matrices to plot 3 time steps
 U[int(N*Np*.3):int(N*Np*.8)]=1              # Defining wave components
 
 #--------------------------------- Initial Conds ------------------------------
-#U[:, 0]= U[:, -1] = 0
-#U[0,:] = U[-1,:] = 0
+U[0]= U[-1] = 0
 
 ###############################################################################
 ######################## Natural coordinate system ############################
@@ -65,7 +62,7 @@ dinterpolation_func_dx = sy.diff(interpolation_func,x)               # different
 dinterpolation_func_dy = sy.diff(interpolation_func,y)               # differentials of phi_i functions with respect to y used in K matrix
 
 #--------- constructing M based in Natural coordinate system -------------------
-
+t1 = time.time() 
 sub_M = np.zeros((Np,Np))                      # local mass matrix with the size of number of degree of freedom in each element
 
 for i in range(Np):
@@ -79,11 +76,13 @@ M = np.kron(np.eye(N), sub_M)                                       # Creating g
 # plt.spy(M)                                    # Useful command to crreat eye matrix with another sum_M repeated on the diagonal
 
 M_inv = np.linalg.inv(M)
-
+t2 = time.time()                            # end point of M_diag_inv generation
+print(str(t2-t1))
 # #--------------------------Stifness Matrix 'K' in Equation 44 -----------------
 ### Constructing sub_K matrix using natural coordinate system
 
 ## manually calculated sub_K matrix using local coordinate system 
+t3 = time.time()
 sub_K=np.zeros((Np,Np))
 sub_K=(dt/6)*np.array(([-dy*c_x-dx*c_y , -dy*c_x-dx*c_y/2 , -dy*c_x/2-dx*c_y/2 , -dy*c_x/2-dx*c_y],
                         [dy*c_x-dx*c_y/2 , dy*c_x-dx*c_y , dy*c_x/2-dx*c_y , dy*c_x-dx*c_y/2], 
@@ -92,10 +91,12 @@ sub_K=(dt/6)*np.array(([-dy*c_x-dx*c_y , -dy*c_x-dx*c_y/2 , -dy*c_x/2-dx*c_y/2 ,
 
 
 ### constructing global K matrix using kron function
-K = np.kron(np.eye(N), sub_K)             # Creating global stiffness matrix
+K = np.kron(np.eye(N), sub_K)            # Creating global stiffness matrix
 # plt.spy(K)                              
-
+t4 = time.time()                            # end point of M_diag_inv generation
+print(str(t4-t3))
 #-------------------------------Flux in Equation 44----------------------------
+t5 = time.time()
 
 sub_flux = np.zeros((Np , Np*N_e_r+2))          # initialisation of local flux matrix for one element
 sub_flux[0,1] = sub_flux[1,0] = -c_y*dt                         # these 4 lines define fluxes at the boundaries of one element
@@ -110,54 +111,24 @@ for n in range(N_e_c*N_e_r):
     F[i:i+sub_flux.shape[0], j:j+sub_flux.shape[1]]+=sub_flux       # copying local element into the global matrix
     i+= Np
     j+= Np
-F=F[:,N_e_r*Np-2:]                              # applying boundary condition in y-dir
-i=Np*N_e_r+3
+F=F[:,N_e_r*Np-2:] * 0.01                             # applying boundary condition in y-dir
+i=Np*N_e_r
 
 for n in range(N_e_c-1):                        # applying bc in x-dir
-    F[i,i-6]=0                                  # in upwind flux left boundary of the first element of each row = 0
+    F[i,i-3]= F[i+3, i-2] = 0                   # in upwind flux left boundary of the first element of each row = 0
     i+= N_e_r*Np                                # movig to the next row
 
-    
-    
-
-#plt.spy(F)  
-
-# sub_flux = np.zeros((N_e_r*Np , N_e_r*Np + N_e_r))          # flux matrix for only the one row including boundary points
-#                                                         # that is why it is not nXn. later on, it will become nXn.
-# i = 0
-# # considering only y-dir in one row
-# for n in range(N_e_r):
-#     sub_flux[i,i]= -c_y*dt
-#     sub_flux[i+3*N_e_r,i+4*N_e_r] = c_y*dt
-#     i+=1
-    
-# # considering only x-dir in one row, which is exactly as 1D
-# fx = np.zeros((N_e_r*2,N_e_r*2+1))
-# i=0
-# j=1
-# for n in range(N_e_r):
-#     fx[i,i]= -c_x*dt
-#     fx[j,j+1] = c_x*dt
-#     i+=2
-#     j+=2
-# fx=fx[:,1:]                                             # deleting the boundary points 
-
-# sub_flux[N_e_r:N_e_r+fx.shape[0], N_e_r*2:N_e_r*2+fx.shape[1]]+=fx   # Constructing overal flux matrix for one row only
-
-# F = np.zeros((Np*N_e_r*N_e_c,Np*N_e_r*N_e_c+N_e_r))                  # expanding sub_F to create flux for all rows and columns
-# i=0
-# j=0
-# for n in range(N_e_c):
-#     F[i:i+sub_flux.shape[0], j:j+sub_flux.shape[1]]+=sub_flux
-#     i+=N_e_r*Np
-#     j+=N_e_r*Np
-# F = F[:,N_e_r:]    
+t6 = time.time()                            # end point of M_diag_inv generation
+print(str(t6-t5))    
+  
 
 #--------------------------------RHS Constant in Equation 44-------------------
 RHS_cst = (M + K - F)
 
 ##-Matrix method----------------------------------------------------------------
 ##Mrching forward in time
+t7 = time.time()
+
 Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t) 
 for n in range(nt):                 # Marching in time
     Un = U.copy()
@@ -169,49 +140,35 @@ for n in range(nt):                 # Marching in time
     elif n==nt//2:                  # saving U at half timestep to plot
         U2=U
 
-# separating U in x and y directions
-j=0
-U_x = U_y = np.zeros(N_e_r*N_e_c*2)                            # empty array to save for U_y
-                            # empty array to save for U_x
-for i in U:
-    print(i)
-    U_y[j]=U[j]
-    j+=1
-    U_x[j]=U[j]
-    j+=1
+t8 = time.time()                            # end point of M_diag_inv generation
+print(str(t8-t7))
 
-U_y = np.reshape(U_y, (N_e_c*2, N_e_r))         # reshaping U_y into a N_e_c*2 by N_e_r matrix
-U_x = np.reshape(U_x, (N_e_c, N_e_r*2))         # reshaping U_y into a N_e_c by N_e_r*2 matrix
-#U = np.zeros((N_e_c*2, N_e_r*2))               # creating the master U matrix in 2D
 
 #------------------------------plot initiation --------------------------------
-x = np.linspace(0, L, N_e_c*N_e_r*4)                  # initialising the discretisation of the domain in x-dir
+x = np.linspace(0, L, N_e_r+1)                  # initialising the discretisation of the domain in x-dir
+x = [ele for ele in x for i in range(2)]        # doubling the points for DG
+x=x[1:-1]                                       # excluding boundary points
 #print(x)
-# x = [ele for ele in x for i in range(2)]        # doubling the points for DG
-# x=x[1:-1]                                       # excluding boundary points
-# #print(x)
-#plt.plot(x, U_x[0:7], label='Timestep 1')
 
 y = np.linspace(0, L, N_e_c+1)                  # initialising the discretisation of the domain in y-dir
-# #print(y)
-# y = [ele for ele in y for i in range(2)]        # doubling the points for DG
-# y=y[1:-1]                                       # excluding boundary points
-# #print(y)
-plt.plot(x,U)
+y = [ele for ele in y for i in range(2)]        # doubling the points for DG
+y=y[1:-1]                                       # excluding boundary points
+#print(y)
+
 X, Y =np.meshgrid(x,y)                          # Creating a mesh grid
 #plt.plot(X,Y,U)
 
 
-# plt.figure()        
-# ax = plt.gca(projection='3d')
-# ax.plot_surface(X, Y, U1 , label='t=0')
+plt.figure()        
+ax = plt.gca(projection='3d')
+ax.plot_surface(X, Y, U , label='t=0')
 # ax.plot_surface(X, Y, U2, label='t=nt/2')
 # ax.plot_surface(X, Y, U3, label='t=final')
 # ax.set_ylabel('$y$')
 # ax.set_xlabel('$x$')
 # ax.set_zlabel('$U$')
 # plt.legend()
-# plt.show()
+plt.show()
 
 # fig = plt.figure()
 # ax = fig.gca(projection='3d')

@@ -10,7 +10,7 @@ N_i = 2                     # number of interpolation functions
 L =  0.5                    # Totla length
 C = .05                     # Courant number
 c = .1                      # Wave velocity
-dx = L/(nx-1)               # Distace stepping size
+dx = L/(nx//2-1)               # Distace stepping size
 dt = C*dx/c                 # Time stepping size
 #x  = np.arange(0, nx)*dx    # or x=np.linspace(0,L,nx)
 #print(x)
