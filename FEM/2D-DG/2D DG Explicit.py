@@ -1,291 +1,342 @@
-#--------------------------------2D-DG FEM Implicit Single U ---------------------
 import numpy as np
-import sympy as sy
+import scipy as sp
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import time
+import sympy as sy
 
-#------------------------------- Parameters -----------------------------------
+# double integral with Gaussian Quadrature
+# generates gauusian points and weights based on the degree of polynomila 2n-1. e.g. 3 generates 3 points guadrature.
+points, weights = np.polynomial.legendre.leggauss(3)        
+
+def gauss(f, a, b, points, weights):
+    y=x = np.zeros(len(points))
+    for i in range(len(points)):
+        x[i] = (b+a)/2 + (b-a)/2 *points[i]
+        y[i] = (b+a)/2 + (b-a)/2 *points[i]
+    answer =0
+    for i in range(len(points)):
+        for j in range(len(points)):
+            answer =  answer+(b-a)/2 * (weights[i]*weights[j]*f(x[i], y[j]))
+    return answer
+
 C= .05                                      # CLF number
-p_i_x = 2                                   # degree of polynomial function +1 in x-dir
-p_i_y = 2                                   # degree of polynomial function +1 in y-dir
-Np = 4                                      # numbe rof points in each element
-nt = 100                                   # Number of time steps
-nx = 21                                     # Number of x steps
-ny = 6                                      # Number of y steps
-N = (nx-1)*(ny-1)                           # number of elements
-L = 2                                       # x and y lengths
-dx = L/(nx-1)
-dy = L/(ny-1)
-
-
+Np = 4                                      # number rof points at each element
+nt = 20 
+N_e_r = 4  
+N_e_c = 3
+nx =  N_e_c * N_e_r * 2                     # total number of x steps               
+ny =  N_e_c * N_e_r * 2                     # total number of y steps                                                                 
+N = N_e_c * N_e_r                           # number of elements
+L = 0.5                                       # x and y lengths
+dx = L/(N_e_r)
+dy = L/(N_e_c)
 c_x = 0.1                                   # Wave velocity in x-dir
-c_y = 0.1                                   # Wave velocity in y-dir
-c = (c_x**2+c_y**2)**0.5                    # speed of the wave
-dt = C*dx/c
-U = np.zeros(N*Np)                   # Wave matrix
-Un = np.zeros(N*Np)                  # Dummy variable to save current components of U
-U1=U2=U3 = U                                # Dummy matrices to plot 3 time steps
-#U_plot = np.ones((3,N*Np))    # A matrix to save 3 time steps used for plotting the results
+c_y = 0.1                                 # Wave velocity in y-dir
+dt = C*dx*dy/(c_x*dy+c_y*dx)
+
+U = np.zeros(N*Np)                          # Wave matrix
+Un = np.zeros(N*Np)                         # Dummy variable to save current components of U
+U1=U2 = U                                # Dummy matrices to plot 3 time steps
+#U_plot = np.ones((3,N*Np))                 # A matrix to save 3 time steps used for plotting the results
 
 U[int(N*Np*.3):int(N*Np*.8)]=1              # Defining wave components
 
 #--------------------------------- Initial Conds ------------------------------
-#U[:, 0]= U[:, -1] = 0
-#U[0,:] = U[-1,:] = 0
-
-###############################################################################
-######################## Natural coordinate system ############################
-###############################################################################
-
+U[0]= U[-1] = 0
 #--------------------- Interpolation functions phi(i) -------------------------
-# defining variable for symbolic integration of interpolation functions
 x, y, a, b, x_m, y_m =sy.symbols('x y a b x_m y_m')
-
-# interpolation functions for the rectangular four noded elements
-phi_1 = 1/4*(1-x)*(1-y)
-phi_2 = 1/4*(1+x)*(1-y)
-phi_3 = 1/4*(1+x)*(1+y)
-phi_4 = 1/4*(1-x)*(1+y)
-
-X = x_m + dx/2*x                # X=global x-coordinate, x_m=mid-point, x=natural x-coordinate
-Y = y_m + dy/2*y                # Y=global y-coordinate, y_m=mid-point, y=natural y-coordinate
-
-dX = sy.diff(X , x)             # Jacobian function (dX/dx)
-dY = sy.diff(Y, y)              # Jacobian function for (dY/dy) 
-
-interpolation_func = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))  # Matrix form of shape functions
-dinterpolation_func_dx = sy.diff(interpolation_func,x)               # differentialsof phi_i functions  with respect to x used in K matrix
-dinterpolation_func_dy = sy.diff(interpolation_func,y)               # differentials of phi_i functions with respect to y used in K matrix
-
-#--------- constructing M based in Natural coordinate system -------------------
-t1 = time.time() 
-sub_M = np.zeros((Np,Np))                      # local mass matrix
-
-for i in range(Np):
-    for j in range(i, Np):
-        C = interpolation_func[j,0]*interpolation_func[i,0]* 1/dX * 1/dY # int(phi_j * phi_i * J_x * J_y * dxdy)
-        #print(sy.integrate(C, (x, -1, 1), (y,-1,1)))
-        sub_M[i,j] = sy.integrate(C, (x, -1, 1), (y,-1,1))          # constructing upper diagonal matrix 
-        sub_M[j,i] = sub_M[i,j]                                     # filling the lower diagonal entities.
-
-M=np.zeros((N*Np,N*Np))                        # generating global mass matrix
-i=0
-while i<N*Np:
-    M[i:i+Np, i:i+Np]= sub_M[0:Np,0:Np]
-    i+=Np
-
-M_inv = np.linalg.inv(M)
-t2 = time.time()                            # end point of M_diag_inv generation
-print(str(t2-t1))
-
-# #--------------------------Stifness Matrix 'K' in Equation 44 -----------------
-
-sub_K=np.zeros((Np,Np))                        # local stifness matrix
-K = np.zeros((N*Np,N*Np))                      # generating global stifness matix
-for i in range(Np):
-    for j in range(Np):
-        C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])*1/dX*dX*dY
-        C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])*1/dY*dX*dY
-        sub_K[i,j] = sy.integrate(C_x, (x, -1, 1), (y,-1,1)) + sy.integrate(C_y, (x, -1, 1), (y,-1,1))
-
-i=0
-while i<N*Np:
-    K[i:i+Np, i:i+Np]= sub_K[0:Np,0:Np]
-    i+=Np 
-    
-###############################################################################
-###############################################################################
-###############################################################################
-
-#-------------------------------Flux in Equation 44----------------------------
-sub_F = np.array([[dt*(-c_x-c_y),    0       ,    0       ,      0       ], 
-                  [     0      , dt*(c_x-c_y),    0       ,      0       ], 
-                  [     0      ,    0       , dt*(c_x+c_y),      0       ], 
-                  [     0      ,    0       ,    0       , dt*(-c_x+c_y)]])
-
-F = np.zeros((N*Np,N*Np))                      # generating global stifness matix
-i=0
-while i<N*Np:
-    F[i:i+Np, i:i+Np]= sub_F[0:Np,0:Np]
-    i+=Np                # excludig left boundary to get nx by nx matrix
-
-#--------------------------------RHS Constant in Equation 44-------------------
-RHS_cst = M_inv.dot(M + K - F)
-
-for t in range(1):
-    Un=U.copy()
-    for i in range(Np*N):
-        for j in range(Np*N):
-            U[i]=RHS_cst[i,j]*Un[j]+RHS_cst[i,j+1]*Un[j+1]+RHS_cst[i,j+2]*Un[j+2]+RHS_cst[i,j+3]*Un[j+3]
-            
-##-Matrix method----------------------------------------------------------------
-##Mrching forward in time
-# Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t) 
-# t3 = time.time()
-# for n in range(nt):                 # Marching in time
-#     Un = U.copy()
-#     RHS = RHS_cst.dot(Un)           # saving U^t to be used in the next time step calculation
-#     U=np.linalg.solve(M,RHS)    
-    
-#     if n==1:
-#         U1 = U.copy()                     # saving U(t=1)
-#     if n==int(nt/2):
-#         U2 = U.copy()                    # saving U(t=nt/2)
-#     if n==int(nt*0.99):
-#         U3 = U.copy()                    # saving U(t= almost the end to time steps)
-# t4 = time.time()
-#------------------------------plot initiation --------------------------------
-
-                      # Creating a mesh grid
-#plt.figure()        
-#ax = plt.axes(projection='3d')
-
-# def z_function(x,y):
-#     return np.sin(np.sqrt(x**2 + y**2)) 
-
-#x=np.linspace(0,2,nx)
-#y=np.linspace(0,2,ny)
-
-#X, Y =np.meshgrid(x,y)
-
-#Z = z_function(X,Y)
-
-#ax.plot_surface(X, Y, U)
-# ax.plot_surface(X, Y, U2, label='t=nt/2')
-# ax.plot_surface(X, Y, U3, label='t=final')
-#plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-###############################################################################
-########################## Local coordinate system ############################
-###############################################################################
-
-#----------------------- Interpolation functions phi(i) ----------------------
-# x=sy.Symbol('x')
-# y =sy.Symbol('y')
-# phi_1 = (1-x/dx)*(1-y/dy)
-# phi_2 = (x/dx)*(1-y/dy)
-# phi_3 = (x*y)/(dx*dy)
-# phi_4 = (y/dy)*(1-x/dx)
-
-# interpolation_func = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))
-# dinterpolation_func_dx = sy.diff(interpolation_func,x)
-# dinterpolation_func_dy = sy.diff(interpolation_func,y)
-
-# #----------Mass Matrix 'M' in Equation 44 in consistent form ------------------
-# t1 = time.time()                            # starting for timing the M_diag_inv calculation
-# sub_M = np.zeros((Np,Np))                 # local mass matrix
-
-# for i in range(Np):
-#     for j in range(i, Np):
-#         C = interpolation_func[i,0]*interpolation_func[j,0]
-#         #print(sy.integrate(C, (x, 0, a), (y,0,b)))
-#         sub_M[i,j] = sy.integrate(C, (x, 0, dx), (y,0,dy)) 
-#         sub_M[j,i] = sub_M[i,j]
-# M=np.zeros((N*Np,N*Np))                         # generating global mass matrix
-# i=0
-# while i<N*Np:
-#     M[i:i+Np, i:i+Np]= sub_M[0:Np,0:Np]
-#     i+=Np
-# t2 = time.time()                            # end point of M_diag_inv generation
-# print(str(t2-t1))
-        
-# #--------------------------Stifness Matrix 'K' in Equation 44 -----------------
-
-# sub_K=np.zeros((Np,Np))                   # local stifness matrix
-# K = np.zeros((N*Np,N*Np))                 # generating global stifness matix
-# for i in range(Np):
-#     for j in range(Np):
-#         C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])
-#         C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])
-#         sub_K[i,j] = sy.integrate(C_x, (x, 0, dx), (y,0,dy)) + sy.integrate(C_y, (x, 0, dx), (y,0,dy))
-
-# i=0
-# while i<N*Np:
-#     K[i:i+Np, i:i+Np]= sub_K[0:Np,0:Np]
-#     i+=Np 
-    
-#------------------Exact area and define integral with python (YouTube)--------
-
-# # x=np.linspace(-1,3,1000)
-# # def f(x): return x**2
-# # plt.plot(x,f(x))
-# # plt.axhline(color= 'black')
-# # plt.fill_between(x, f(x), where=[x>0 and x<2 for x in x], color='green', alpha = 0.3)
-# # plt.show()
-# # x=sy.Symbol('x')
-# # # print(sy.integrate(f(x), (x)))
-# M=np.zeros((4,4))
- 
-# # c_x = 1
-# # c_y = 1
-
-# a =1
-# b =1
-# x =sy.Symbol('x')
-# y =sy.Symbol('y')
-
-# phi_1 = (1-x/a)*(1-y/b)
-# phi_2 = (x/a)*(1-y/b)
-# phi_3 = (x*y)/(a*b)
-# phi_4 = (y/b)*(1-x/a)
-
-# A = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))
-# # dA_dx = sy.diff(A,x)
-# # dA_dy = sy.diff(A,y)
-
-# #A_difff=sy.integrate(A_by_dA_x, (x, 0, a), (y,0,b))
-# for i in range(4):
-#     for j in range(4):
-#         C = A[i,0]*A[j,0]
-#         #print(sy.integrate(C, (x, 0, a), (y,0,b)))
-#         M[i,j] = sy.integrate(C, (x, 0, a), (y,0,b))
-
-# x, y, dx, dy =sy.symbols('x y dx dy')
-
 # phi_1 = 1/4*(1-x)*(1-y)
 # phi_2 = 1/4*(1+x)*(1-y)
-# phi_3 = 1/4*(1+x)*(1+y)
-# phi_4 = 1/4*(1-x)*(1+y)
+# phi_3 = 1/4*(1-x)*(1+y)
+# phi_4 = 1/4*(1+x)*(1+y)
 
-# interpolation_func = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))
-# dinterpolation_func_dx = sy.diff(interpolation_func,x)
-# dinterpolation_func_dy = sy.diff(interpolation_func,y)
+def Jacobian(v_str, f_list):
+    vars = sy.symbols(v_str)
+    f = sy.sympify(f_list)
+    J = sy.zeros(len(f),len(vars))
+    for i, fi in enumerate(f):
+        for j, s in enumerate(vars):
+            J[j,i] = sy.diff(fi, s)
+    return J
 
-# sub_K2=np.zeros((Np,Np))                   # local stifness matrix
-                       
-# for i in range(Np):
-#     for j in range(Np):
-#         C_x = dt*c_x*interpolation_func[i,0]*(dinterpolation_func_dx[j,0])
-#         C_y = dt*c_y*interpolation_func[i,0]*(dinterpolation_func_dy[j,0])
-#         sub_K2[i,j] = sy.integrate(C_x, (x, 0, dx), (y,0,dy)) + sy.integrate(C_y, (x, 0, dx), (y,0,dy))
+jacobian = Jacobian('x y', [x_m + dx/2*x,y_m + dy/2*y])
+det = float(sy.det(jacobian))
+################### Mass matrix M1 = int ( phi_i phi_j ) ######################
+sub_M_00 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1-y)*det
+sub_M_01 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1-y)*det
+sub_M_02 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1+y)*det
+sub_M_03 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1+y)*det
 
-# K = np.zeros((N*Np,N*Np))   # generating global stifness matix
-# i=0
-# while i<N*Np:
-#     K[i:i+Np, i:i+Np]= sub_K[0:Np,0:Np]
-#     i+=Np
+sub_M=np.eye(4)*gauss(sub_M_00, -1, 1, points, weights)
+sub_M = sub_M + np.diag(np.ones(3)*gauss(sub_M_01, -1, 1, points, weights),1)
+sub_M = sub_M + np.diag(np.ones(3)*gauss(sub_M_01, -1, 1, points, weights),-1)
+sub_M = sub_M + np.diag(np.ones(2)*gauss(sub_M_02, -1, 1, points, weights),2)
+sub_M = sub_M + np.diag(np.ones(2)*gauss(sub_M_02, -1, 1, points, weights),-2)
+sub_M[3,0] = sub_M[0,3] = gauss(sub_M_03, -1, 1, points, weights)
+M = np.kron(np.eye(N), sub_M)                                       # Creating global mass matrix
+
+############################## stiffness matrix K ############################
+sub_K_00 = lambda x,y: c_x*dt * -1/4*(1-y) * 1/4*(1-x)*(1-y) * dy/2 + c_y*dt *-1/4*(1-x) * 1/4*(1-x)*(1-y) * dx/2
+sub_K_01 = lambda x,y: c_x*dt * -1/4*(1-y) * 1/4*(1+x)*(1-y) * dy/2 + c_y*dt *-1/4*(1-x) * 1/4*(1+x)*(1-y) * dx/2
+sub_K_02 = lambda x,y: c_x*dt * -1/4*(1-y) * 1/4*(1-x)*(1+y) * dy/2 + c_y*dt *-1/4*(1-x) * 1/4*(1-x)*(1+y) * dx/2
+sub_K_03 = lambda x,y: c_x*dt * -1/4*(1-y) * 1/4*(1+x)*(1+y) * dy/2 + c_y*dt *-1/4*(1-x) * 1/4*(1+x)*(1+y) * dx/2
+
+sub_K_10 = lambda x,y: c_x*dt * 1/4*(1-y) * 1/4*(1-x)*(1-y) * dy/2 + c_y*dt *-1/4*(1+x) * 1/4*(1-x)*(1-y) * dx/2
+sub_K_11 = lambda x,y: c_x*dt * 1/4*(1-y) * 1/4*(1+x)*(1-y) * dy/2 + c_y*dt *-1/4*(1+x) * 1/4*(1+x)*(1-y) * dx/2
+sub_K_12 = lambda x,y: c_x*dt * 1/4*(1-y) * 1/4*(1-x)*(1+y) * dy/2 + c_y*dt *-1/4*(1+x) * 1/4*(1-x)*(1+y) * dx/2
+sub_K_13 = lambda x,y: c_x*dt * 1/4*(1-y) * 1/4*(1+x)*(1+y) * dy/2 + c_y*dt *-1/4*(1+x) * 1/4*(1+x)*(1+y) * dx/2
+
+sub_K_20 = lambda x,y: c_x*dt * -1/4*(1+y) * 1/4*(1-x)*(1-y) * dy/2 + c_y*dt *1/4*(1-x) * 1/4*(1-x)*(1-y) * dx/2
+sub_K_21 = lambda x,y: c_x*dt * -1/4*(1+y) * 1/4*(1+x)*(1-y) * dy/2 + c_y*dt *1/4*(1-x) * 1/4*(1+x)*(1-y) * dx/2
+sub_K_22 = lambda x,y: c_x*dt * -1/4*(1+y) * 1/4*(1-x)*(1+y) * dy/2 + c_y*dt *1/4*(1-x) * 1/4*(1-x)*(1+y) * dx/2
+sub_K_23 = lambda x,y: c_x*dt * -1/4*(1+y) * 1/4*(1+x)*(1+y) * dy/2 + c_y*dt *1/4*(1-x) * 1/4*(1+x)*(1+y) * dx/2
+
+sub_K_30 = lambda x,y: c_x*dt * 1/4*(1+y) * 1/4*(1-x)*(1-y) * dy/2 + c_y*dt *1/4*(1+x) * 1/4*(1-x)*(1-y) * dx/2
+sub_K_31 = lambda x,y: c_x*dt * 1/4*(1+y) * 1/4*(1+x)*(1-y) * dy/2 + c_y*dt *1/4*(1+x) * 1/4*(1+x)*(1-y) * dx/2
+sub_K_32 = lambda x,y: c_x*dt * 1/4*(1+y) * 1/4*(1-x)*(1+y) * dy/2 + c_y*dt *1/4*(1+x) * 1/4*(1-x)*(1+y) * dx/2
+sub_K_33 = lambda x,y: c_x*dt * 1/4*(1+y) * 1/4*(1+x)*(1+y) * dy/2 + c_y*dt *1/4*(1+x) * 1/4*(1+x)*(1+y) * dx/2
+
+sub_K=np.zeros((4,4))
+sub_K[0,0]=gauss(sub_K_00, -1, 1, points, weights)
+sub_K[0,1]=gauss(sub_K_01, -1, 1, points, weights)
+sub_K[0,2]=gauss(sub_K_02, -1, 1, points, weights)
+sub_K[0,3]=gauss(sub_K_03, -1, 1, points, weights)
+
+sub_K[1,0]=gauss(sub_K_10, -1, 1, points, weights)
+sub_K[1,1]=gauss(sub_K_11, -1, 1, points, weights)
+sub_K[1,2]=gauss(sub_K_12, -1, 1, points, weights)
+sub_K[1,3]=gauss(sub_K_13, -1, 1, points, weights)
+
+sub_K[2,0]=gauss(sub_K_20, -1, 1, points, weights)
+sub_K[2,1]=gauss(sub_K_21, -1, 1, points, weights)
+sub_K[2,2]=gauss(sub_K_22, -1, 1, points, weights)
+sub_K[2,3]=gauss(sub_K_23, -1, 1, points, weights)
+
+sub_K[3,0]=gauss(sub_K_30, -1, 1, points, weights)
+sub_K[3,1]=gauss(sub_K_31, -1, 1, points, weights)
+sub_K[3,2]=gauss(sub_K_32, -1, 1, points, weights)
+sub_K[3,3]=gauss(sub_K_33, -1, 1, points, weights)
+
+K = np.kron(np.eye(N), sub_K)            # Creating global stiffness matrix
+
+################################ flux wiht #########################################
+# x-dir line connecting points 1 and 3 with positive upwind flux n_x = -1
+def gauss_1_3(f, a, b, points, weights):
+    y = np.zeros(3)
+    for i in range(3):
+        y[i] = (b+a)/2 + (b-a)/2 *points[i]
+        x=-1
+
+    return (b-a)/2 * (weights[0]*f(x,y[0]) + weights[1]*f(x,y[1]) + weights[2]*f(x,y[2]))
+
+sub_F_x_00 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1-y)*dy/2*c_x*dt*(-1)
+sub_F_x_01 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1-y)*dy/2*c_x*dt*(-1)
+sub_F_x_02 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1+y)*dy/2*c_x*dt*(-1)
+sub_F_x_03 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1+y)*dy/2*c_x*dt*(-1)
+
+sub_F_x_20 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1-x)*(1-y)*dy/2*c_x*dt*(-1)
+sub_F_x_21 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1-y)*dy/2*c_x*dt*(-1)
+sub_F_x_22 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1-x)*(1+y)*dy/2*c_x*dt*(-1)
+sub_F_x_23 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1+y)*dy/2*c_x*dt*(-1)
+
+sub_F_x=np.zeros((Np,Np))
+
+sub_F_x[0,0]=gauss_1_3(sub_F_x_00, -1, 1, points, weights)
+sub_F_x[0,1]=gauss_1_3(sub_F_x_01, -1, 1, points, weights)
+sub_F_x[0,2]=gauss_1_3(sub_F_x_02, -1, 1, points, weights)
+sub_F_x[0,3]=gauss_1_3(sub_F_x_03, -1, 1, points, weights)
+
+sub_F_x[2,0]=gauss_1_3(sub_F_x_20, -1, 1, points, weights)
+sub_F_x[2,1]=gauss_1_3(sub_F_x_21, -1, 1, points, weights)
+sub_F_x[2,2]=gauss_1_3(sub_F_x_22, -1, 1, points, weights)
+sub_F_x[2,3]=gauss_1_3(sub_F_x_23, -1, 1, points, weights)
+
+# x-dir line connecting points 2 and 4 with positive upwind flux n_x = +1
+def gauss_2_4(f, a, b, points, weights):
+    y = np.zeros(3)
+    for i in range(3):
+        y[i] = (b+a)/2 + (b-a)/2 *points[i]
+        x=1
+
+    return (b-a)/2 * (weights[0]*f(x,y[0]) + weights[1]*f(x,y[1]) + weights[2]*f(x,y[2]))
+
+sub_F_x_10 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1-x)*(1-y)*dy/2*-c_x*dt*(+1)
+sub_F_x_11 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1+x)*(1-y)*dy/2*-c_x*dt*(+1)
+sub_F_x_12 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1-x)*(1+y)*dy/2*c_x*dt*(+1)
+sub_F_x_13 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1+x)*(1+y)*dy/2*c_x*dt*(+1)
+
+sub_F_x_30 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1-y)*dy/2*-c_x*dt*(+1)
+sub_F_x_31 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1-y)*dy/2*-c_x*dt*(+1)
+sub_F_x_32 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1+y)*dy/2*c_x*dt*(+1)
+sub_F_x_33 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1+y)*dy/2*c_x*dt*(+1)
+
+sub_F_x[1,0]=gauss_2_4(sub_F_x_10, -1, 1, points, weights)
+sub_F_x[1,1]=gauss_2_4(sub_F_x_11, -1, 1, points, weights)
+sub_F_x[1,2]=gauss_2_4(sub_F_x_12, -1, 1, points, weights)
+sub_F_x[1,3]=gauss_2_4(sub_F_x_13, -1, 1, points, weights)
+
+sub_F_x[3,0]=gauss_2_4(sub_F_x_30, -1, 1, points, weights)
+sub_F_x[3,1]=gauss_2_4(sub_F_x_31, -1, 1, points, weights)
+sub_F_x[3,2]=gauss_2_4(sub_F_x_32, -1, 1, points, weights)
+sub_F_x[3,3]=gauss_2_4(sub_F_x_33, -1, 1, points, weights)
+
+################################## y -dir #####################################
+# y-dir line connecting points 1 weightsnd 2 with positive upwind flux n_y = -1
+def gauss_1_2(f, a, b, points, weights):
+    x = np.zeros(3)
+    for i in range(3):
+        x[i] = (b+a)/2 + (b-a)/2 *points[i]
+        y=-1
+
+    return (b-a)/2 * (weights[0]*f(x[0],y) + weights[1]*f(x[1],y) + weights[2]*f(x[2],y))
+
+sub_F_y_00 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1-y)*det*-c_y*dt*(-1)
+sub_F_y_01 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1-y)*det*-c_y*dt*(-1)
+sub_F_y_02 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1+y)*det*c_y*dt*(-1)
+sub_F_y_03 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1+y)*det*c_y*dt*(-1)
+
+sub_F_y_10 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1-x)*(1-y)*det*-c_y*dt*(-1)
+sub_F_y_11 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1+x)*(1-y)*det*-c_y*dt*(-1)
+sub_F_y_12 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1-x)*(1+y)*det*c_y*dt*(-1)
+sub_F_y_13 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1+x)*(1+y)*det*c_y*dt*(-1)
+
+sub_F_y=np.zeros((Np,Np))
+sub_F_y[0,0]=gauss_1_2(sub_F_y_00, -1, 1, points, weights)
+sub_F_y[0,1]=gauss_1_2(sub_F_y_01, -1, 1, points, weights)
+sub_F_y[0,2]=gauss_1_2(sub_F_y_02, -1, 1, points, weights)
+sub_F_y[0,3]=gauss_1_2(sub_F_y_03, -1, 1, points, weights)
+
+sub_F_y[1,0]=gauss_1_2(sub_F_y_10, -1, 1, points, weights)
+sub_F_y[1,1]=gauss_1_2(sub_F_y_11, -1, 1, points, weights)
+sub_F_y[1,2]=gauss_1_2(sub_F_y_12, -1, 1, points, weights)
+sub_F_y[1,3]=gauss_1_2(sub_F_y_13, -1, 1, points, weights)
+
+
+# y-dir line connecting points 3 and 4 with positive upwind flux n_y = +1
+def gauss_3_4(f, a, b, points, weights):
+    x = np.zeros(3)
+    for i in range(3):
+        x[i] = (b+a)/2 + (b-a)/2 *points[i]
+        y=+1
+
+    return (b-a)/2 * (weights[0]*f(x[0],y) + weights[1]*f(x[1],y) + weights[2]*f(x[2],y))
+
+sub_F_y_20 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1-x)*(1-y)*dx/2*(-c_y)*dt
+sub_F_y_21 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1-y)*dx/2*-c_y*dt
+sub_F_y_22 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1-x)*(1+y)*dx/2*c_y*dt
+sub_F_y_23 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1+y)*dx/2*c_y*dt
+
+sub_F_y_30 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1-y)*dx/2*-c_y*dt
+sub_F_y_31 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1-y)*dx/2*-c_y*dt
+sub_F_y_32 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1+y)*dx/2*c_y*dt
+sub_F_y_33 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1+y)*dx/2*c_y*dt
+
+sub_F_y[2,0]=gauss_3_4(sub_F_y_20, -1, 1, points, weights)
+sub_F_y[2,1]=gauss_3_4(sub_F_y_21, -1, 1, points, weights)
+sub_F_y[2,2]=gauss_3_4(sub_F_y_22, -1, 1, points, weights)
+sub_F_y[2,3]=gauss_3_4(sub_F_y_23, -1, 1, points, weights)
+
+sub_F_y[3,0]=gauss_3_4(sub_F_y_30, -1, 1, points, weights)
+sub_F_y[3,1]=gauss_3_4(sub_F_y_31, -1, 1, points, weights)
+sub_F_y[3,2]=gauss_3_4(sub_F_y_32, -1, 1, points, weights)
+sub_F_y[3,3]=gauss_3_4(sub_F_y_33, -1, 1, points, weights)
+
+sub_F = sub_F_x + sub_F_y
+
+sub_F = np.zeros((2*N_e_r+2 , 2*N_e_r+2))          # initialisation of global flux matrix
+sub_F[0,0] = sub_F_x[0,0] + sub_F_y[0,0]
+sub_F[0,1] = sub_F_x[0,1] + sub_F_y[0,1]
+sub_F[1,0] = sub_F_x[1,0] + sub_F_y[1,0]
+sub_F[1,1] = sub_F_x[1,1] + sub_F_y[1,1]
+
+sub_F[0,-1] = sub_F_x[0,3] + sub_F_y[0,3]
+sub_F[0,-2] = sub_F_x[0,2] + sub_F_y[0,2]
+sub_F[1,N_e_r*2+1] = sub_F_x[1,3] + sub_F_y[1,3]
+sub_F[1,N_e_r*2] = sub_F_x[1,2] + sub_F_y[1,2]
+
+
+sub_F[-2,0] = sub_F_x[2,0] + sub_F_y[2,0]
+sub_F[-1,0] = sub_F_x[3,0] + sub_F_y[3,0]
+sub_F[-2,1] = sub_F_x[2,1] + sub_F_y[2,1]
+sub_F[-1,1] = sub_F_x[3,1] + sub_F_y[3,1]
+
+sub_F[-2,-2] = sub_F_x[2,2] + sub_F_y[2,2]
+sub_F[-1,-2] = sub_F_x[3,2] + sub_F_y[3,2]
+sub_F[-2,-1] = sub_F_x[2,3] + sub_F_y[2,3]
+sub_F[-1,-1] = sub_F_x[3,3] + sub_F_y[3,3]
+
+
+
+##############################################################################
+
+# RHS_cst = (M + K - F)
+# for n in range(nt):                 # Marching in time
+#     Un = U.copy()
+#     RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
+#     U=np.linalg.solve(M,RHS)        # solving for U(t+1)
+    
+#     if n==1:                        # saving U at timestep 1 to plot
+#         U1=U
+#     elif n==nt//2:                  # saving U at half timestep to plot
+#         U2=U
+
+
+# single integral with Gaussia Quadrature
+# import numpy as np
+
+# E = np.array([-0.774597, 0.000000, 0.774597])
+# A = np.array([0.555556, 0.888889, 0.555556])
+
+# def gauss(f, a, b, E, A):
+#     x = np.zeros(3)
+#     for i in range(3):
+#         x[i] = (b+a)/2 + (b-a)/2 *E[i]
+
+#     return (b-a)/2 * (A[0]*f(x[0]) + A[1]*f(x[1]) + A[2]*f(x[2]))
+
+
+# f = lambda x: 2 + np.sin(x)
+# a = 0.0; b = np.pi/2
+
+# areaGau = gauss(f, a, b, E, A)
+# print("Gaussian integral: ", areaGau)
+
+# sub_F_00 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1-y)*det*-c_x*dt + 1/4*(1-x)*(1-y)*1/4*(1-x)*(1-y)*det*-c_y*dt
+# sub_F_01 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1-y)*det*-c_x*dt + 1/4*(1-x)*(1-y)*1/4*(1+x)*(1-y)*det*-c_y*dt
+# sub_F_02 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1-x)*(1+y)*det*c_x*dt + 1/4*(1-x)*(1-y)*1/4*(1-x)*(1+y)*det*c_y*dt
+# sub_F_03 = lambda x,y: 1/4*(1-x)*(1-y)*1/4*(1+x)*(1+y)*det*c_x*dt + 1/4*(1-x)*(1-y)*1/4*(1+x)*(1+y)*det*c_y*dt
+
+# sub_F_10 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1-x)*(1-y)*det*-c_x*dt + 1/4*(1+x)*(1-y)*1/4*(1-x)*(1-y)*det*-c_y*dt
+# sub_F_11 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1+x)*(1-y)*det*-c_x*dt + 1/4*(1+x)*(1-y)*1/4*(1+x)*(1-y)*det*-c_y*dt
+# sub_F_12 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1-x)*(1+y)*det*c_x*dt + 1/4*(1+x)*(1-y)*1/4*(1-x)*(1+y)*det*c_y*dt
+# sub_F_13 = lambda x,y: 1/4*(1+x)*(1-y)*1/4*(1+x)*(1+y)*det*c_x*dt + 1/4*(1+x)*(1-y)*1/4*(1+x)*(1+y)*det*c_y*dt
+
+# sub_F_20 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1-x)*(1-y)*det*-c_x*dt + 1/4*(1-x)*(1+y)*1/4*(1-x)*(1-y)*det*-c_y*dt
+# sub_F_21 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1-y)*det*-c_x*dt + 1/4*(1-x)*(1+y)*1/4*(1+x)*(1-y)*det*-c_y*dt
+# sub_F_22 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1-x)*(1+y)*det*c_x*dt + 1/4*(1-x)*(1+y)*1/4*(1-x)*(1+y)*det*c_y*dt
+# sub_F_23 = lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1+y)*det*c_x*dt + 1/4*(1-x)*(1+y)*1/4*(1+x)*(1+y)*det*c_y*dt
+
+# sub_F_30 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1-y)*det*-c_x*dt + 1/4*(1+x)*(1+y)*1/4*(1-x)*(1-y)*det*-c_y*dt
+# sub_F_31 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1-y)*det*-c_x*dt + 1/4*(1+x)*(1+y)*1/4*(1+x)*(1-y)*det*-c_y*dt
+# sub_F_32 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1+y)*det*c_x*dt + 1/4*(1+x)*(1+y)*1/4*(1-x)*(1+y)*det*c_y*dt
+# sub_F_33 = lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1+y)*det*c_x*dt + 1/4*(1+x)*(1+y)*1/4*(1+x)*(1+y)*det*c_y*dt
+
+# sub_F=np.zeros((Np,Np))
+# sub_F[0,0]=gauss(sub_F_00, -1, 1, E, A)
+# sub_F[0,1]=gauss(sub_F_01, -1, 1, E, A)
+# sub_F[0,2]=gauss(sub_F_02, -1, 1, E, A)
+# sub_F[0,3]=gauss(sub_F_03, -1, 1, E, A)
+
+# sub_F[1,0]=gauss(sub_F_10, -1, 1, E, A)
+# sub_F[1,1]=gauss(sub_F_11, -1, 1, E, A)
+# sub_F[1,2]=gauss(sub_F_12, -1, 1, E, A)
+# sub_F[1,3]=gauss(sub_F_13, -1, 1, E, A)
+
+# sub_F[2,0]=gauss(sub_F_20, -1, 1, E, A)
+# sub_F[2,1]=gauss(sub_F_21, -1, 1, E, A)
+# sub_F[2,2]=gauss(sub_F_22, -1, 1, E, A)
+# sub_F[2,3]=gauss(sub_F_23, -1, 1, E, A)
+
+# sub_F[3,0]=gauss(sub_F_30, -1, 1, E, A)
+# sub_F[3,1]=gauss(sub_F_31, -1, 1, E, A)
+# sub_F[3,2]=gauss(sub_F_32, -1, 1, E, A)
+# sub_F[3,3]=gauss(sub_F_33, -1, 1, E, A)

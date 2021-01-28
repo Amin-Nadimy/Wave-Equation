@@ -12,8 +12,8 @@ C= .05                                      # CLF number
 #p_i_y = 2                                   # degree of polynomial function +1 in y-dir
 Np = 4                                      # number rof points at each element
 nt = 20 
-N_e_r = 10  
-N_e_c = 10
+N_e_r = 4  
+N_e_c = 3
 nx =  N_e_c * N_e_r * 2                     # total number of x steps               
 ny =  N_e_c * N_e_r * 2                     # total number of y steps                                                                 
 N = N_e_c * N_e_r                           # number of elements
@@ -21,8 +21,8 @@ L = 0.5                                       # x and y lengths
 dx = L/(N_e_r)
 dy = L/(N_e_c)
 
-c_x = 0                                   # Wave velocity in x-dir
-c_y = 0.1                                   # Wave velocity in y-dir
+c_x = 0.1                                  # Wave velocity in x-dir
+c_y = 0.1                                 # Wave velocity in y-dir
 #c = (c_x**2+c_y**2)**0.5                    # speed of the wave
 dt = C*dx*dy/(c_x*dy+c_y*dx)
 
@@ -61,7 +61,7 @@ interpolation_func = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))  # Matrix fo
 dinterpolation_func_dx = sy.diff(interpolation_func,x)               # differentialsof phi_i functions  with respect to x used in K matrix
 dinterpolation_func_dy = sy.diff(interpolation_func,y)               # differentials of phi_i functions with respect to y used in K matrix
 
-#--------- constructing M based in Natural coordinate system -------------------
+#--------- constructing M based on Natural coordinate system -------------------
 t1 = time.time() 
 sub_M = np.zeros((Np,Np))                      # local mass matrix with the size of number of degree of freedom in each element
 
@@ -95,7 +95,8 @@ K = np.kron(np.eye(N), sub_K)            # Creating global stiffness matrix
 # plt.spy(K)                              
 t4 = time.time()                            # end point of M_diag_inv generation
 print(str(t4-t3))
-#-------------------------------Flux in Equation 44----------------------------
+
+#----------------------Flux with noding 1234 in each element ------------------
 t5 = time.time()
 
 sub_flux = np.zeros((Np , Np*N_e_r+2))          # initialisation of local flux matrix for one element
@@ -142,8 +143,7 @@ for n in range(nt):                 # Marching in time
 
 t8 = time.time()                            # end point of M_diag_inv generation
 print(str(t8-t7))
-
-
+#U[13]=2
 #------------------------------plot initiation --------------------------------
 x = np.linspace(0, L, N_e_r+1)                  # initialising the discretisation of the domain in x-dir
 x = [ele for ele in x for i in range(2)]        # doubling the points for DG
@@ -158,18 +158,22 @@ y=y[1:-1]                                       # excluding boundary points
 X, Y =np.meshgrid(x,y)                          # Creating a mesh grid
 #plt.plot(X,Y,U)
 
-
 plt.figure()        
 ax = plt.gca(projection='3d')
-ax.plot_surface(X, Y, U , label='t=0')
+ax.plot_surface(X, Y, U1 , label='t=0')
+# ax.scatter(X, Y, U2 , label='t=0')
 # ax.plot_surface(X, Y, U2, label='t=nt/2')
 # ax.plot_surface(X, Y, U3, label='t=final')
-# ax.set_ylabel('$y$')
-# ax.set_xlabel('$x$')
-# ax.set_zlabel('$U$')
+ax.set_ylabel('$y$')
+ax.set_xlabel('$x$')
+ax.set_zlabel('$U$')
 # plt.legend()
 plt.show()
 
+
+# from itertools import product
+# coordinates = [(x) for x in range(48)]
+# plt.plot(coordinates,U)
 # fig = plt.figure()
 # ax = fig.gca(projection='3d')
 # surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
@@ -180,12 +184,42 @@ plt.show()
 
 
 
+# #----------------------Flux with noding in each row ---------------------------
+# sub_f_x = np.zeros((N_e_r*Np, N_e_r*Np*2-N_e_r*2))
+# i=0
+# j=N_e_r*2-1
 
+# while i<=N_e_r*4-2:
+#     sub_f_x[i,j]= -c_x*dt
+#     sub_f_x[i+1,j+2] = +c_x*dt
+#     i+=2
+#     j+=2
+# sub_f_x[0,N_e_r*2-1]=0
+# sub_f_x[N_e_r*2,N_e_r*Np-1]=0
+# #sub_f_x=sub_f_x[:,1:] 
 
+# sub_f_y = np.zeros((N_e_r*Np, N_e_r*Np*2-N_e_r*2))
+# i=0
+# while i <N_e_r*2:
+#     sub_f_y[i,i]=-c_y*dt
+#     i+=1
 
+# j=N_e_r*Np
+# while i<N_e_r*4:
+#     sub_f_y[i,j]=c_y*dt
+#     i+=1
+#     j+=1
 
+# sub_f = sub_f_x + sub_f_y
 
-
+# F = np.zeros((Np*N_e_r*N_e_c , Np*N_e_r*N_e_c+N_e_r*2))          # initialisation of global flux 
+# i=0
+# j=0
+# for n in range(N_e_c):
+#     F[i:i+sub_f.shape[0], j:j+sub_f.shape[1]]+=sub_f       # copying local element into the global matrix
+#     i+= Np*N_e_r
+#     j+= Np*N_e_r
+# F=F[:,N_e_r*2:]
 
 
 ###############################################################################

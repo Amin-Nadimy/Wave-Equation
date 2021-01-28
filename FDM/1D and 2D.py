@@ -7,7 +7,7 @@ import seaborn as sb
 C= .01                           # CLF number
 nt = 5000                        # Number of time steps
 nx = 100                         # Number of steps in x-direction
-ny = 200                         # Number of steps in y-direction
+ny = 200                        # Number of steps in y-direction
 L = 2                            # Lengths of the domain in x and y directions
 dx = L/(nx-1)                    # dispacement legth at each time-step in x-direction
 dy = L/(ny-1)                    # dispacement legth at each time-step in y-direction
@@ -58,6 +58,12 @@ ax = fig.gca(projection='3d')
 surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
 #ax.plot(x, y, U, label='Square Wave')
 plt.show()
+
+# import pygmsh
+# def test():
+#     with pygmsh.geo.Geometry() as geom:
+#         geom.add_rectangle(0.0, 1.0, 0.0, 1.0, 0.0, 0.1)
+#         mesh = geom.generate_mesh()
 
 
 # z= np.zeros((10,15))

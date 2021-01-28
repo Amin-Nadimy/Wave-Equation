@@ -2,16 +2,22 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 import sympy as sy
+from scipy.special.orthogonal import p_roots
 
-E = np.array([-0.774597, 0.000000, 0.774597])
-A = np.array([0.555556, 0.888889, 0.555556])
 
-def gauss(f, a, b, E, A):
-    x = np.zeros(len(E))
-    for i in range(len(E)):
-        x[i] = (b+a)/2 + (b-a)/2 *E[i]
+points, weights = np.polynomial.legendre.leggauss(3)
 
-    return (b-a)/2 * (A[0]*f(x[0]) + A[1]*f(x[1]) + A[2]*f(x[2]))
+
+def gauss(f, a, b, points, weights):
+    x = np.zeros(len(points))
+    for i in range(len(points)):
+        x[i] = (b+a)/2 + (b-a)/2 *points[i]
+    answer = 0
+    for i in range(len(points)):
+        answer = answer + (b-a)/2 * (weights[i]*f(x[i]))
+
+    return answer#(b-a)/2 * (weights[0]*f(x[0]) + weights[1]*f(x[1]) + weights[2]*f(x[2]))   
+
 C = 0.05
 c = 0.1
 L = 0.3
@@ -30,21 +36,21 @@ M1_01 = M1_10 = lambda x: 1/2 * (1-x) * 1/2 * (1+x)* h_e/2
 M1_11 = lambda x: 1/4 * (1+x)**2* h_e/2
 
 sub_M1 = np.zeros((2,2))
-sub_M1[0,0] = gauss(M1_00, -1, 1, E, A)
-sub_M1[0,1] = sub_M1[1,0] = gauss(M1_01, -1, 1, E, A)
-sub_M1[1,1] = gauss(M1_11, -1, 1, E, A)
+sub_M1[0,0] = gauss(M1_00, -1, 1, points, weights)
+sub_M1[0,1] = sub_M1[1,0] = gauss(M1_01, -1, 1, points, weights)
+sub_M1[1,1] = gauss(M1_11, -1, 1, points, weights)
 
-#################### K1 matrix = int(c phi_i d_phi_j/dx  ) ####################
+#################### K1 mweightstrix = int(c phi_i d_phi_j/dx  ) ####################
 K_00 = lambda x: dt*c*1/2*(1-x) *-1/2 
 K_01 = lambda x: dt*c*1/2*(1-x) *-1/2 
 K_10 = lambda x: dt*c*1/2*(1+x) *1/2
 K_11 = lambda x: dt*c*1/2*(1+x) *1/2 
 
 sub_K1 = np.zeros((2,2))
-sub_K1[0,0] = gauss(K_00, -1, 1, E, A)
-sub_K1[0,1] = gauss(K_01, -1, 1, E, A)
-sub_K1[1,0] = gauss(K_10, -1, 1, E, A)
-sub_K1[1,1] = gauss(K_11, -1, 1, E, A)
+sub_K1[0,0] = gauss(K_00, -1, 1, points, weights)
+sub_K1[0,1] = gauss(K_01, -1, 1, points, weights)
+sub_K1[1,0] = gauss(K_10, -1, 1, points, weights)
+sub_K1[1,1] = gauss(K_11, -1, 1, points, weights)
 
 ############################# K2 = int ( nu d_phi_j/dx ) ######################
 U = np.zeros((2))
@@ -61,8 +67,8 @@ for i in range(3):
     j_2 = lambda x: dt* a*  1/2* c * h_e/(8*c) * ( U[1]/dt*(1+x)/2 -Un[1]/dt  * ( (1+x)/2 - c/h_e) )**2 /  (  (U[1]-Un[1]/dt  * (1+x)/2  )**2  +  (Un[1]/h_e)**2 )
 
     sub_K2 = np.zeros((2,2))
-    sub_K2[0,0] = sub_K2[1,0] = gauss(j_1, -1, 1, E, A) 
-    sub_K2[0,1] = sub_K2[1,1] = gauss(j_2, -1, 1, E, A)
+    sub_K2[0,0] = sub_K2[1,0] = gauss(j_1, -1, 1, points, weights) 
+    sub_K2[0,1] = sub_K2[1,1] = gauss(j_2, -1, 1, points, weights)
     
     sub_K = sub_K2 - sub_K1
 
@@ -98,8 +104,8 @@ for i in range(3):
     j_2 = lambda x: a* h_e/2 * (1+x)/2 * h_e/(8*c) * ( U[1]/dt*(1-x)/2 -Un[1]/dt  * ( (1-x)/2 + c/h_e) )**2 /  (  (U[1]-Un[1]/dt  * (1-x)/2  )**2  +  (-Un[1]/h_e)**2 )
     
     sub_M2 = np.zeros((2,2))
-    sub_M2[0,0] = sub_M2[1,0]=gauss(j_1, -1, 1, E, A)
-    sub_M2[0,1] = sub_M2[1,1]=gauss(j_2, -1, 1, E, A)
+    sub_M2[0,0] = sub_M2[1,0]=gauss(j_1, -1, 1, points, weights)
+    sub_M2[0,1] = sub_M2[1,1]=gauss(j_2, -1, 1, points, weights)
     
     sub_M = sub_M1 + sub_M2
     
@@ -130,7 +136,7 @@ RHS_cst = (M - K + F)
 
 U = np.zeros(nx)            # U is a square wave between 0 <U< 1
 U[0] = U[nx-1] = 0          # Dirichlet BC
-U[int(L*nx*0.2):int(L*nx*1.2)]=1
+U[int(L*nx*0.3):int(L*nx*1.7)]=1
 Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t)
 U_plot = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting the results 
 
@@ -162,7 +168,7 @@ U3[0] = U3[nx-1] = 0          # Dirichlet BC
 
 #------------------------------------------------------------------------------
 # Initial conditions
-U3[int(L*nx*0.2):int(L*nx*1.2)]=1
+U3[int(L*nx*0.3):int(L*nx*1.7)]=1
 
 #------------------------------- Interpolation functions ----------------------
 x_bar=sy.Symbol('x_bar')                     # defining local x symbol for creating interpolation functions and their integrations
@@ -221,11 +227,11 @@ x = [ele for ele in x for i in range(2)]
 
 plt.figure(1)
 plt.axis([0,L, -1,2])
-plt.plot(x, U_plot3[0,:], label='DG-FEM Timestep 1')
+#plt.plot(x, U_plot3[0,:], label='DG-FEM Timestep 1')
 #plt.plot(x, U_plot3[1,:], label='Timestep 0.5 nt')
 plt.plot(x, U_plot3[2,:], label='DG-FEM Final Timestep')
 
-plt.plot(x, U_plot[0,:], label='DPG-FEM Timestep 1')
+#.plot(x, U_plot[0,:], label='DPG-FEM Timestep 1')
 #plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
 plt.plot(x, U_plot[2,:], label='DPG-FEM Final Timestep')
 plt.xlabel('Distrance')
@@ -233,11 +239,20 @@ plt.ylabel('U')
 plt.legend()
 
 
-     
+
 # # exact solution with tolerant =0
 # f = lambda x: 1/4 *(1-x)**2
 # sp.integrate.quadrature(f, -1, 1.0)
 
+# ###### generates gaussian points by itself
+# def gausss(f,n,a,b):
+#     [x,w] = p_roots(n+1)
+#     G=0.5*(b-a)*sum(w*f(x))
+#     return G
+
+# def func(x):
+#     return x**2+3*x**6
+# print(gausss(func, 4,-1,1))
 
 # # general Gaussian Quadrature method
 # E = np.array([-0.774597, 0.000000, 0.774597])
@@ -255,3 +270,71 @@ plt.legend()
 
 # areaGau = gauss(f, a, b, E, A)
 # print("Gaussian integral: ", areaGau)
+
+########## Gaussian quadrature int by specifying order ######
+# from scipy.integrate import fixed_quad as G_Q
+# def func(x,y):
+#     return x**2+3*x**6+y
+# G_Q(func, -1, 1, n=4)
+
+########## hard coding points weight for Gaussian Quadrature int and calculating int ######
+# points, weights = np.polynomial.legendre.leggauss(3)
+# def gausss(f,n,a,b):
+#     [x,w] = p_roots(n+1)
+#     G=0.5*(b-a)*sum(w*f(x))
+#     return G
+
+import sympy as sy
+
+def Jacobian(v_str, f_list):
+    vars = sy.symbols(v_str)
+    f = sy.sympify(f_list)
+    J = sy.zeros(len(f),len(vars))
+    for i, fi in enumerate(f):
+        for j, s in enumerate(vars):
+            J[j,i] = sy.diff(fi, s)
+    return J
+
+x, y, a, b, x_m, y_m =sy.symbols('x y a b x_m y_m')
+
+# interpolation functions for the rectangular four noded elements
+phi_1 = 1/4*(1-x)*(1-y)
+phi_2 = 1/4*(1+x)*(1-y)
+phi_3 = 1/4*(1+x)*(1+y)
+phi_4 = 1/4*(1-x)*(1+y)
+
+dx = 0.125
+dy = 0.16667
+
+X = x_m + dx/2*x                 # X=global x-coordinate, x_m=mid-point, x=natural x-coordinate
+Y = y_m + dy/2*y                 # Y=global y-coordinate, y_m=mid-point, y=natural y-coordinate
+
+jacobian = Jacobian('x y', [x_m + dx/2*x,y_m + dy/2*y ])
+det = float(sy.det(jacobian))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
