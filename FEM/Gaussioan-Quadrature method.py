@@ -271,18 +271,52 @@ plt.legend()
 # areaGau = gauss(f, a, b, E, A)
 # print("Gaussian integral: ", areaGau)
 
+
 ########## Gaussian quadrature int by specifying order ######
 # from scipy.integrate import fixed_quad as G_Q
 # def func(x,y):
 #     return x**2+3*x**6+y
 # G_Q(func, -1, 1, n=4)
 
-########## hard coding points weight for Gaussian Quadrature int and calculating int ######
+
+########## soft coding points weight for Gaussian Quadrature int and calculating int ######
 # points, weights = np.polynomial.legendre.leggauss(3)
 # def gausss(f,n,a,b):
 #     [x,w] = p_roots(n+1)
 #     G=0.5*(b-a)*sum(w*f(x))
 #     return G
+
+
+######### calculates jacobian determinants
+# import sympy as sy
+
+# def Jacobian(v_str, f_list):
+#     vars = sy.symbols(v_str)
+#     f = sy.sympify(f_list)
+#     J = sy.zeros(len(f),len(vars))
+#     for i, fi in enumerate(f):
+#         for j, s in enumerate(vars):
+#             J[j,i] = sy.diff(fi, s)
+#     return J
+
+# x, y, x_m, y_m =sy.symbols('x y x_m y_m')
+
+# # interpolation functions for the rectangular four noded elements
+# phi_1 = 1/4*(1-x)*(1-y)
+# phi_2 = 1/4*(1+x)*(1-y)
+# phi_3 = 1/4*(1+x)*(1+y)
+# phi_4 = 1/4*(1-x)*(1+y)
+
+# dx = 0.125
+# dy = 0.16667
+
+# X = x_m + dx/2*x                 # X=global x-coordinate, x_m=mid-point, x=natural x-coordinate
+# Y = y_m + dy/2*y                 # Y=global y-coordinate, y_m=mid-point, y=natural y-coordinate
+
+# jacobian = Jacobian('x y', [x_m + dx/2*x,y_m + dy/2*y ])
+# det = float(sy.det(jacobian))
+
+
 
 import sympy as sy
 
@@ -295,27 +329,10 @@ def Jacobian(v_str, f_list):
             J[j,i] = sy.diff(fi, s)
     return J
 
-x, y, a, b, x_m, y_m =sy.symbols('x y a b x_m y_m')
-
-# interpolation functions for the rectangular four noded elements
-phi_1 = 1/4*(1-x)*(1-y)
-phi_2 = 1/4*(1+x)*(1-y)
-phi_3 = 1/4*(1+x)*(1+y)
-phi_4 = 1/4*(1-x)*(1+y)
-
-dx = 0.125
-dy = 0.16667
-
-X = x_m + dx/2*x                 # X=global x-coordinate, x_m=mid-point, x=natural x-coordinate
-Y = y_m + dy/2*y                 # Y=global y-coordinate, y_m=mid-point, y=natural y-coordinate
-
-jacobian = Jacobian('x y', [x_m + dx/2*x,y_m + dy/2*y ])
-det = float(sy.det(jacobian))
-
-
-
-
-
+shape_func = ['1/4*(1-x)*(1-y)*x1 * 1/4*(1+x)*(1-y)*x2 * 1/4*(1+x)*(1+y)*x3 * 1/4*(1-x)*(1+y)*x4',
+              '1/4*(1-x)*(1-y)*y1 * 1/4*(1+x)*(1-y)*y2 * 1/4*(1+x)*(1+y)*y3 * 1/4*(1-x)*(1+y)*y4']
+jacobian = Jacobian('x y', shape_func)
+det = sy.det(jacobian)
 
 
 
