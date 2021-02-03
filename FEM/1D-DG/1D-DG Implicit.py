@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import sympy as sy
 import time
 
-nx = 500                   # total number of nodes(degree of freedom)
+nx = 50                   # total number of nodes(degree of freedom)
 nt = 1000                   # total number of time steps
 N_i = 2                     # number of interpolation functions
 L =  0.5                    # Totla length
@@ -34,7 +34,7 @@ x_bar=sy.Symbol('x_bar')                     # defining local x symbol for creat
 phi_1= 1-x_bar/dx                            # interpolation function 1
 phi_2 = x_bar/dx                             # interpolation function 2
 
-A = np.array(([phi_1], [phi_2]))             # Creaing matrix A(1,2) for the basis of constructing Mass and stiffness matrices 
+A = np.array(([phi_1], [phi_2]))             # Creaing matrix A(1,2) for the basis of constructing Mass and stiffness matrices
 A=np.transpose(A)
 B = np.array(([phi_1], [phi_2]))             # Creaing matrix B(2,1) for the basis of constructing Mass and stiffness matrices
 A_by_B=A*B                                   # putting both interpolation functions into a matrix (2 by 2)
@@ -78,13 +78,13 @@ RHS_cst = (M + K + F)
 
 ##-Matrix method----------------------------------------------------------------
 ##Mrching forward in time
-Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t) 
+Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t)
 t3 = time.time()
 for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un)           # saving U^t to be used in the next time step calculation
-    U=np.linalg.solve(M,RHS)    
-    
+    U=np.linalg.solve(M,RHS)
+
     if n==1:
         U_plot[0,:] = U.copy()      # saving U(t=1)
     if n==int(nt/2):
@@ -102,12 +102,3 @@ plt.xlabel('Distrance')
 plt.ylabel('U')
 plt.legend()
 plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')
-
-
-
-
-
-
-
-
-

@@ -159,84 +159,84 @@ for n in range(nt):                 # Marching in time
 
 
 
-U3 = np.zeros(nx)            # U is a square wave between 0 <U< 1
-U_plot3 = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting the results
-
-#------------------------------------------------------------------------------
-# Boundary Conditions
-U3[0] = U3[nx-1] = 0          # Dirichlet BC
-
-#------------------------------------------------------------------------------
-# Initial conditions
-U3[int(L*nx*0.3):int(L*nx*1.7)]=1
-
-#------------------------------- Interpolation functions ----------------------
-x_bar=sy.Symbol('x_bar')                     # defining local x symbol for creating interpolation functions and their integrations
-phi_1= 1-x_bar/dx                            # interpolation function 1
-phi_2 = x_bar/dx                             # interpolation function 2
-
-A = np.array(([phi_1], [phi_2]))             # Creaing matrix A(1,2) for the basis of constructing Mass and stiffness matrices 
-A=np.transpose(A)
-B = np.array(([phi_1], [phi_2]))             # Creaing matrix B(2,1) for the basis of constructing Mass and stiffness matrices
-A_by_B=A*B                                   # putting both interpolation functions into a matrix (2 by 2)
-
-#--------------------------------Mass Matrix 'M' in Equation 29 ---------------
-
-# sub_M=np.zeros((N_i,N_i))                    # starting for timing the M_diag_inv calculation
-# for i in range(N_i):
-#     for j in range(N_i):
-#         sub_M[i,j]= sy.integrate(A_by_B[i,j], (x_bar,0,dx))
-sub_M3 = np.array([[dx/3,dx/6],[dx/6,dx/3]]) # local mass matrix
-M3=np.zeros((nx,nx))                          # generating global mass matrix
-i=0
-while i<nx:
-    M3[i:i+2, i:i+2]= sub_M3[0:2,0:2]
-    i+=2
-
-#--------------------------Stifness Matrix 'K' in Equation 29 -----------------
-sub_K3=np.array([[-c*dt/2,-c*dt/2],[c*dt/2,c*dt/2]]) # local stifness matrix
-K3 = np.zeros((nx,nx))                               # generating global stifness matix
-i=0
-while i<nx:
-    K3[i:i+2, i:i+2]= sub_K3[0:2,0:2]
-    i+=2
-
-#-------------------------------Flux in Equation 29----------------------------
-
-
-#--------------------------------RHS Constant in Equation 29-------------------
-RHS_cst3 = (M3 + K3 + F)
-
-##-Matrix method----------------------------------------------------------------
-##Mrching forward in time
-Un3=np.zeros(nx)                     # dummy vbl to save current values of U (U^t) 
-for n in range(nt2):                 # Marching in time
-    Un3 = U3.copy()
-    RHS3 = RHS_cst3.dot(Un3)           # saving U^t to be used in the next time step calculation
-    U3=np.linalg.solve(M3,RHS3)    
-    
-    if n==1:
-        U_plot3[0,:] = U3.copy()      # saving U(t=1)
-    if n==int(nt2/2):
-        U_plot3[1,:] = U3.copy()      # saving U(t=nt/2)
-    if n==int(nt2*0.99):
-        U_plot3[2,:] = U3.copy()      # saving U(t= almost the end to time steps)
-#------------------------------plot initiation --------------------------------
-x = np.linspace(0, L, nx//2)
-x = [ele for ele in x for i in range(2)]
-
-plt.figure(1)
-plt.axis([0,L, -1,2])
-#plt.plot(x, U_plot3[0,:], label='DG-FEM Timestep 1')
-#plt.plot(x, U_plot3[1,:], label='Timestep 0.5 nt')
-plt.plot(x, U_plot3[2,:], label='DG-FEM Final Timestep')
-
-#.plot(x, U_plot[0,:], label='DPG-FEM Timestep 1')
-#plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
-plt.plot(x, U_plot[2,:], label='DPG-FEM Final Timestep')
-plt.xlabel('Distrance')
-plt.ylabel('U')
-plt.legend()
+#U3 = np.zeros(nx)            # U is a square wave between 0 <U< 1
+#U_plot3 = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting the results
+#
+##------------------------------------------------------------------------------
+## Boundary Conditions
+#U3[0] = U3[nx-1] = 0          # Dirichlet BC
+#
+##------------------------------------------------------------------------------
+## Initial conditions
+#U3[int(L*nx*0.3):int(L*nx*1.7)]=1
+#
+##------------------------------- Interpolation functions ----------------------
+#x_bar=sy.Symbol('x_bar')                     # defining local x symbol for creating interpolation functions and their integrations
+#phi_1= 1-x_bar/dx                            # interpolation function 1
+#phi_2 = x_bar/dx                             # interpolation function 2
+#
+#A = np.array(([phi_1], [phi_2]))             # Creaing matrix A(1,2) for the basis of constructing Mass and stiffness matrices 
+#A=np.transpose(A)
+#B = np.array(([phi_1], [phi_2]))             # Creaing matrix B(2,1) for the basis of constructing Mass and stiffness matrices
+#A_by_B=A*B                                   # putting both interpolation functions into a matrix (2 by 2)
+#
+##--------------------------------Mass Matrix 'M' in Equation 29 ---------------
+#
+## sub_M=np.zeros((N_i,N_i))                    # starting for timing the M_diag_inv calculation
+## for i in range(N_i):
+##     for j in range(N_i):
+##         sub_M[i,j]= sy.integrate(A_by_B[i,j], (x_bar,0,dx))
+#sub_M3 = np.array([[dx/3,dx/6],[dx/6,dx/3]]) # local mass matrix
+#M3=np.zeros((nx,nx))                          # generating global mass matrix
+#i=0
+#while i<nx:
+#    M3[i:i+2, i:i+2]= sub_M3[0:2,0:2]
+#    i+=2
+#
+##--------------------------Stifness Matrix 'K' in Equation 29 -----------------
+#sub_K3=np.array([[-c*dt/2,-c*dt/2],[c*dt/2,c*dt/2]]) # local stifness matrix
+#K3 = np.zeros((nx,nx))                               # generating global stifness matix
+#i=0
+#while i<nx:
+#    K3[i:i+2, i:i+2]= sub_K3[0:2,0:2]
+#    i+=2
+#
+##-------------------------------Flux in Equation 29----------------------------
+#
+#
+##--------------------------------RHS Constant in Equation 29-------------------
+#RHS_cst3 = (M3 + K3 + F)
+#
+###-Matrix method----------------------------------------------------------------
+###Mrching forward in time
+#Un3=np.zeros(nx)                     # dummy vbl to save current values of U (U^t) 
+#for n in range(nt2):                 # Marching in time
+#    Un3 = U3.copy()
+#    RHS3 = RHS_cst3.dot(Un3)           # saving U^t to be used in the next time step calculation
+#    U3=np.linalg.solve(M3,RHS3)    
+#    
+#    if n==1:
+#        U_plot3[0,:] = U3.copy()      # saving U(t=1)
+#    if n==int(nt2/2):
+#        U_plot3[1,:] = U3.copy()      # saving U(t=nt/2)
+#    if n==int(nt2*0.99):
+#        U_plot3[2,:] = U3.copy()      # saving U(t= almost the end to time steps)
+##------------------------------plot initiation --------------------------------
+#x = np.linspace(0, L, nx//2)
+#x = [ele for ele in x for i in range(2)]
+#
+#plt.figure(1)
+#plt.axis([0,L, -1,2])
+##plt.plot(x, U_plot3[0,:], label='DG-FEM Timestep 1')
+##plt.plot(x, U_plot3[1,:], label='Timestep 0.5 nt')
+#plt.plot(x, U_plot3[2,:], label='DG-FEM Final Timestep')
+#
+##.plot(x, U_plot[0,:], label='DPG-FEM Timestep 1')
+##plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
+#plt.plot(x, U_plot[2,:], label='DPG-FEM Final Timestep')
+#plt.xlabel('Distrance')
+#plt.ylabel('U')
+#plt.legend()
 
 
 
