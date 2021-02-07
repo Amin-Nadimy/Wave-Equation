@@ -34,6 +34,15 @@ def f(xi,eta):
     return fn
 
 print(f(3,2))
+
+def jacobian(xi, eta, global_coordinates):
+          a = 1/4 * np.array(([-(1-eta), 1-eta, 1+eta, -(1+eta)],
+                           [-(1-xi), -(1+xi), 1-xi, 1+xi])) 
+          jacobi = a.dot(global_coordinates)
+          return jacobi
+
+globla_coordinates= np.array([1,2,3,4,5,6,7,8]).reshape(4,2)
+jacobian(-1,1,globla_coordinates)
 #-------------------------------------------------------------------------------
 xi =  [-sqrt(0.6),          0,  sqrt(0.6), -sqrt(0.6),   0, sqrt(0.6), -sqrt(0.6),         0, sqrt(0.6)]
 eta = [-sqrt(0.6), -sqrt(0.6), -sqrt(0.6),          0,   0,         0,  sqrt(0.6), sqrt(0.6), sqrt(0.6)]
@@ -53,13 +62,12 @@ loc_2_global_list = {1:[1,2,9,10],     2:[3,4,11,12],    3:[5,6,13,14],    4:[7,
                      5:[17,18,25,26],  6:[19,20,27,28],  7:[21,22,29,30],  8:[23,24,31,32],
                      9:[33,34,41,42], 10:[35,36,43,44], 11:[37,38,45,46], 12:[39,40,47,48]}
 def global_no(e,N_e_r):
-    col=ceil(e/N_e_r)
+    col=int(ceil(e/N_e_r))
     glob_no = np.array([(col-1)*2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*(e-1)+2, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+2])
-    return col, glob_no
+    return glob_no
 
 global_no(7,4)
 a=[]
-e=12
 for i in range(1,e+1):
     a.append(global_no(i,4))
 
