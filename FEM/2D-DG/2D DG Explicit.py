@@ -5,14 +5,14 @@ import sympy as sy
 
 ############## double integral with Gaussian Quadrature #######################
 # generates gauusian points and weights based on the degree of polynomila 2n-1. e.g. 3 generates 3 points guadrature.
-points, weights = np.polynomial.legendre.leggauss(3)        
+points, weights = np.polynomial.legendre.leggauss(3)
 
 def gauss(f, a, b, points, weights):
     y=x = np.zeros(len(points))
     for i in range(len(points)):
         x[i] = (b+a)/2 + (b-a)/2 *points[i]
         y[i] = (b+a)/2 + (b-a)/2 *points[i]
-    answer =0
+    answer = 0
     for i in range(len(points)):
         for j in range(len(points)):
             answer =  answer+(b-a)/2 * (weights[i]*weights[j]*f(x[i], y[j]))
@@ -21,11 +21,11 @@ def gauss(f, a, b, points, weights):
 ######################## parameters and initial U #############################
 C= .05                                      # CLF number
 Np = 4                                      # number rof points at each element
-nt = 10 
-N_e_r = 4  
+nt = 10
+N_e_r = 4
 N_e_c = 3
-#nx =  N_e_c * N_e_r * 2                     # total number of x steps               
-#ny =  N_e_c * N_e_r * 2                     # total number of y steps                                                                 
+#nx =  N_e_c * N_e_r * 2                     # total number of x steps
+#ny =  N_e_c * N_e_r * 2                     # total number of y steps
 N = N_e_c * N_e_r                           # number of elements
 L = 0.5                                       # x and y lengths
 dx = L/(N_e_r)
@@ -52,7 +52,7 @@ x=x[:-1]
 y = np.linspace(0, L, N_e_c+1)
 y = [ele for ele in y for i in range(2)]
 y=y[1:]
-y=y[:-1] 
+y=y[:-1]
 
 # xx, yy = np.meshgrid(x,y)
 ## creating cartisian coordinates
@@ -63,7 +63,7 @@ for n in range(len(x)):
         print(x)
         yy=y[nn]
         coordinates.append([xx,yy])
-        
+
 #--------------------- Interpolation functions phi(i) -------------------------
 x, y, x_m, y_m =sy.symbols('x y x_m y_m')
 # phi_1 = 1/4*(1-x)*(1-y)
@@ -213,15 +213,15 @@ sub_F_y[2,3]=gauss_3_4(lambda x,y: 1/4*(1-x)*(1+y)*1/4*(1+x)*(1+y)*dx/2*c_y*dt*(
 sub_F_y[3,2]=gauss_3_4(lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1-x)*(1+y)*dx/2*c_y*dt*(+1), -1, 1, points, weights)
 sub_F_y[3,3]=gauss_3_4(lambda x,y: 1/4*(1+x)*(1+y)*1/4*(1+x)*(1+y)*dx/2*c_y*dt*(+1), -1, 1, points, weights)
 
-sub_F2_x = np.zeros((2*N_e_r+2 , Np*N_e_r+2))          # initialisation of global flux 
+sub_F2_x = np.zeros((2*N_e_r+2 , Np*N_e_r+2))          # initialisation of global flux
 sub_F2_x[-2,2*N_e_r] = sub_F2_x[0,-2] = sub_F_x[0,2]
 sub_F2_x[-1,2*N_e_r+1] = sub_F2_x[1,-1] = sub_F_x[1,3]
 sub_F2_x[-2,Np*N_e_r-1] = sub_F2_x[0,2*N_e_r-1] = sub_F_x[0,0]
-sub_F2_x[2*N_e_r+1 , Np*N_e_r+1] = sub_F2_x[1,2*N_e_r+1] = sub_F_x[1,1] 
+sub_F2_x[2*N_e_r+1 , Np*N_e_r+1] = sub_F2_x[1,2*N_e_r+1] = sub_F_x[1,1]
 
-sub_F2_y = np.zeros((2*N_e_r+2 , Np*N_e_r+2))          # initialisation of global flux 
+sub_F2_y = np.zeros((2*N_e_r+2 , Np*N_e_r+2))          # initialisation of global flux
 sub_F2_y[0,0] = sub_F2_y[1,1] = sub_F_y[0,0]
-sub_F2_y[0,1] = sub_F2_y[1,0] = sub_F_y[0,1]    
+sub_F2_y[0,1] = sub_F2_y[1,0] = sub_F_y[0,1]
 sub_F2_y[0,2*N_e_r+1] = sub_F2_y[1,2*N_e_r] =  sub_F_y[2,3]
 sub_F2_y[2*N_e_r+1 , Np*N_e_r+1] = sub_F2_y[-2 , -2] = sub_F_y[3,3]
 
@@ -255,7 +255,7 @@ for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
     U=np.linalg.solve(M,RHS)        # solving for U(t+1)
-    
+
     if n==1:                        # saving U at timestep 1 to plot
         U1=U
     elif n==nt//2:                  # saving U at half timestep to plot
@@ -290,9 +290,9 @@ def showMeshPlot(nodes, elements, values):
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
 
-    pc = quatplot(y,z, np.asarray(elements), values, ax=ax, 
+    pc = quatplot(y,z, np.asarray(elements), values, ax=ax,
              edgecolor="crimson", cmap="rainbow")
-    fig.colorbar(pc, ax=ax)        
+    fig.colorbar(pc, ax=ax)
     ax.plot(y,z, marker="o", ls="", color="crimson")
 
     ax.set(title='This is the plot for: quad', xlabel='Y Axis', ylabel='Z Axis')
@@ -421,7 +421,7 @@ grad_phi = simplify(grad_phi_par*(J**-1))
 print(grad_phi)
 
 ################ Gaussian Quadrature line int ###############################
-### module gaussQuad
+## module gaussQuad
 #''' I = gaussQuad(f,a,b,m).
 #Computes the line integral of f(x) from x = a to b
 #with Gauss-Legendre quadrature using m nodes.
@@ -436,7 +436,7 @@ print(grad_phi)
 #        sum = sum + A[i]*f(c1 + c2*x[i])
 #    return c2*sum
 #
-#gaussQuad(lambda x: 1/4*(1-x), -1, 1,3)
+##gaussQuad(lambda x: 1/4*(1-x), -1, 1,3)
 
 ################ Gaussian Quadrature surface int ###############################
 #''' I = gaussQuad(f,a,b,m).
@@ -444,7 +444,7 @@ print(grad_phi)
 #with Gauss-Legendre quadrature using m nodes.
 #'''
 #import numpy as np
-#points, weights = np.polynomial.legendre.leggauss(3)        
+#points, weights = np.polynomial.legendre.leggauss(3)
 #
 #def gauss(f, a, b, points, weights):
 #    y=x = np.zeros(len(points))
@@ -458,7 +458,7 @@ print(grad_phi)
 #    return answer
 #
 #gauss(lambda x,y: 1/4*(1-x)*(1-y), -1, 1, points, weights)
-    
+
 ################## generates Gaussian Quadrature points and weights ###########
 #def gaussquad(n):
 #    """ Computation of weights and nodes of n-point Gaussian quadrature rule
@@ -473,7 +473,7 @@ print(grad_phi)
 #    x = np.real(ew)
 #    w = 2 * np.real(ev[0, :])**2
 #    return x, w
-
+#gaussquad(3)
 
 
 ####################################################################################################################
