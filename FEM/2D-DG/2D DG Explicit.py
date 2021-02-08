@@ -60,7 +60,6 @@ coordinates=[]
 for n in range(len(x)):
     for nn in range(len(y)):
         xx=x[n]
-        print(x)
         yy=y[nn]
         coordinates.append([xx,yy])
 
