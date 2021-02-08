@@ -36,15 +36,15 @@ def f(xi,eta):
 
 print(f(3,2))
 
-#------------------------ cal J, det and coordinates --------------------------
+#------------------------ J, det and coordinates ------------------------------
 class Element:
     def jacobian(self, xi, eta, element_no):
         self.xi = xi
         self.eta = eta
-        self.coordinates = coordinates
+#        self.coordinates = coordinates
         a = 1/4 * np.matrix(([-(1-eta), 1-eta, -(1+eta), 1+eta],
                                [-(1-xi), -(1+xi), 1-xi, 1+xi])) 
-        jacobi = a.dot(coordinates(element_no))
+        jacobi = a.dot(self.coordinates(element_no))
         return jacobi
     
     def det(self, jacobian):
@@ -56,11 +56,11 @@ class Element:
         self.element_no = element_no
         col =int(ceil(element_no/N_e_r))
         row = int(element_no - (col -1) * N_e_r)
-        coordinates = np.matrix(([dx*(row-1), dy*(col-1)],
+        co_ordinates = np.matrix(([dx*(row-1), dy*(col-1)],
                                 [dx*row  , dy*(col-1)],
                                 [dx*(row-1), dy*(col)],
                                 [dx*row  , dy*(col)]))
-        return coordinates
+        return co_ordinates
 
 
 element = Element()
@@ -69,6 +69,8 @@ b=element.jacobian(-1,1,12)
 element.det(element.jacobian(-1,1,12))
 dx = 0.125
 dy = 0.1667
+N_e_r = 4
+N_e_c= 3
 print(coordinates(12))
 #------------------------------ Main structure of the code --------------------
 xi =  [-sqrt(0.6),          0,  sqrt(0.6), -sqrt(0.6),   0, sqrt(0.6), -sqrt(0.6),         0, sqrt(0.6)]
@@ -84,10 +86,7 @@ for e in range (no_elements): # 12
             for g in range(quadrature_points):  # 9
                 int = int + w_xi[i] * w_eta[j] * f(xi[g],eta[g])
             
-#------------------------- global node number cal -----------------------------
-loc_2_global_list = {1:[1,2,9,10],     2:[3,4,11,12],    3:[5,6,13,14],    4:[7,8,15,16],
-                     5:[17,18,25,26],  6:[19,20,27,28],  7:[21,22,29,30],  8:[23,24,31,32],
-                     9:[33,34,41,42], 10:[35,36,43,44], 11:[37,38,45,46], 12:[39,40,47,48]}
+#------------------------- global node number ---------------------------------
 def global_no(e,N_e_r):
     col=int(ceil(e/N_e_r))
     glob_no = np.array([(col-1)*2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*(e-1)+2, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+2])
