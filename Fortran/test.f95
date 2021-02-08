@@ -106,14 +106,26 @@
 !   b=4
 ! PRINT*, "not m is", m
 ! end program logic
+!---------------------- characters  --------------------------------------------
+! program character
+! implicit none
+! character :: a
+! character :: b*4 , c*6
+! character, DIMENSION(2):: info*6
+! info(1)= "amin"
+! info(2)="nadimy"
+! print*, info
+!
+! end program character
 !-------------------------------------------------------------------------------
-program character
-implicit none
-character :: a
-character :: b*4 , c*6
-character, DIMENSION(2):: info*6
-info(1)= "amin"
-info(2)="nadimy"
-print*, info
-
-end program character
+! program modi
+!   implicit none
+!   real :: nominator, denomin, reminder
+!
+! nominator = 5
+! denomin = 3
+! reminder = mod(nominator, denomin)
+! print*, reminder
+!
+! end program modi
+!-------------------------------------------------------------------------------
