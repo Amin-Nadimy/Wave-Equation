@@ -128,4 +128,47 @@
 ! print*, reminder
 !
 ! end program modi
-!-------------------------------------------------------------------------------
+!------------------------- Factorial -------------------------------------------
+! program factorial
+! implicit none
+! real :: a, fac
+! integer:: i, j, n
+!
+! n= 4
+!
+! do j=1,n
+!   fac = 1
+!   do i= 1,j
+!     fac = fac*i
+!   end do
+!   print*, "factorial of", j, "is",fac
+! end do
+!
+!
+! end program factorial
+!-------------------------------Fibonacci series -------------------------------
+program Fionacci
+integer   :: n
+integer, dimension(:), allocatable::fib,fib_old
+print*, 1
+allocate(fib(2))
+fib(1) = 1
+fib(2) = 1
+fib_old = fib
+print*, fib
+deallocate(fib)
+do n=3,9
+  allocate( fib(n))
+
+  do i= 1,n
+    fib(i) = fib_old(i-1)+fib_old(i)
+  end do
+  fib(n) = 1
+  fib_old = fib
+
+  print*, fib
+  deallocate(fib)
+end do
+
+end program Fionacci
+!---------------------------- adding digits of a number ------------------------

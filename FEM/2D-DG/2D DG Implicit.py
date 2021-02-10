@@ -1,7 +1,7 @@
 #--------------------------------2D-DG FEM Implicit Single U ---------------------
 import numpy as np
 import sympy as sy
-import seaborn as sb
+#import seaborn as sb
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import time
@@ -60,6 +60,13 @@ J_y = sy.diff(Y, y)              # Jacobian function for (dY/dy)
 interpolation_func = np.array(([phi_1], [phi_2], [phi_3], [phi_4]))  # Matrix form of shape functions
 dinterpolation_func_dx = sy.diff(interpolation_func,x)               # differentialsof phi_i functions  with respect to x used in K matrix
 dinterpolation_func_dy = sy.diff(interpolation_func,y)               # differentials of phi_i functions with respect to y used in K matrix
+
+#dinterpolation_func_dx = sy.lambdify([x,y], dinterpolation_func_dx)
+#dinterpolation_func_dx(-1,1)
+#x,y = sy.symbols('x,y')
+#func = x**2 + y**2
+#func = sy.lambdify([x,y], func)
+#func(2,3)
 
 #--------- constructing M based on Natural coordinate system -------------------
 t1 = time.time() 
