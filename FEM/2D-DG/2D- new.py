@@ -2,8 +2,7 @@
 #points, weights = np.polynomial.legendre.leggauss(3)
 #points.shape = [points.shape[0], 1]
 import numpy as np
-quadrature_points = [-np.sqrt(0.6),0, np.sqrt(0.6)]
-weights = [5/9, 8/9, 5/9]
+quadrature_points, weights = np.polynomial.legendre.leggauss(3)
 C = 0.05
 c_x = 0.1
 c_y = 0.1
@@ -14,6 +13,7 @@ N_e_r = 4
 N_e_c= 3
 local_node_no = 4
 total_element=12
+total_sloc = 4
 total_nodes = total_element * local_node_no
 no_of_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
@@ -49,7 +49,7 @@ def global_no(e,N_e_r):
 #global_no(7,4)
 loc_to_glob_list=[]
 for i in range(1,total_element+1):
-    loc_to_glob_list.append(global_no(i,4))
+    loc_to_glob_list.append(global_no(i,N_e_r))
 
 #loc_to_glob_list[0][2]
 #------------------------------ Main structure of the code --------------------
@@ -99,11 +99,49 @@ for element_no in range (total_element):
                                                             c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta), quadrature_points, weights)
 #spy(K)                
 
-#------------------------- global node number ---------------------------------
+#------------------------- surface integration ---------------------------------
+#  do iface =1,nface
+#! for surface iface...
+#      do siloc=1,snloc ! local row siloc for surface element
+#          sinod=   ! global node number
+#          do sjloc=1,snloc ! local coln sjloc for surface element
+#             sjnod=   ! global node number
+#
+#               do sgi=1,sngi ! loop over the quadrature points on surface
+for e in range(total_element):
+    for s in range(total_sloc):
+        for siloc in range(total_sloc):
+            def s_glob_node(e,i_j_loc):
+                if iloc==0:
+                    a=[loc_to_glob_list[e][0], loc_to_glob_list[e][1]]
+                elif iloc==1:
+                    a=[loc_to_glob_list[e][1], loc_to_glob_list[e][3]]
+                elif iloc==2:
+                    a=[loc_to_glob_list[e][3], loc_to_glob_list[e][2]]
+                else:
+                    a=[loc_to_glob_list[e][2], loc_to_glob_list[e][0]]
+                return a
+            
+            
+            sinod = s_glob_node(e,siloc)
+            
+            for sjloc in range(total_sloc):
+                sjnod = s_glob_node(e,jloc)
+ 
+L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2)           
+            def L_gauss(f, L_quadrature_points, L_weights):
+                xi = np.zeros(len(quadrature_points))
+                for i in range(len(quadrature_points)):
+                    xi[i] =quadrature_points[i]
+                answer = 0
+                    
+                for i in range(len(quadrature_points)):
+                    answer =  answer + weights[i] * f(xi[i]) * det(jacobian(xi[i], element_no))
+                return answer
 
+gaussQuad(lambda x: 1/4*(1-x), -1, 1,3)
 
-
-
+  
 
 
 #
