@@ -4,8 +4,12 @@
 import numpy as np
 quadrature_points = [-np.sqrt(0.6),0, np.sqrt(0.6)]
 weights = [5/9, 8/9, 5/9]
+C = 0.05
+c_x = 0.1
+c_y = 0.1
 dx = 0.125
 dy = 0.1667
+dt = C*dx*dy/(c_x*dy+c_y*dx)
 N_e_r = 4
 N_e_c= 3
 local_node_no = 4
@@ -13,33 +17,27 @@ total_element=12
 total_nodes = total_element * local_node_no
 no_of_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
+K = np.zeros((total_nodes, total_nodes))
 
-xi =  [-0.7745967,          0,  0.7745967, -0.7745967,   0, 0.7745967, -0.7745967,         0, 0.7745967]
-eta = [-0.7745967, -0.7745967, -0.7745967,          0,   0,         0,  0.7745967, 0.7745967, 0.7745967]
-w_xi = [      5/9,        8/9,        5/9,        5/9, 8/9,       5/9,        5/9,       8/9,       5/9]
-w_eta= [      5/9,        5/9,        5/9,        8/9, 8/9,       8/9,        5/9,       5/9,       5/9]
+#xi =  [-0.7745967,          0,  0.7745967, -0.7745967,   0, 0.7745967, -0.7745967,         0, 0.7745967]
+#eta = [-0.7745967, -0.7745967, -0.7745967,          0,   0,         0,  0.7745967, 0.7745967, 0.7745967]
+#w_xi = [      5/9,        8/9,        5/9,        5/9, 8/9,       5/9,        5/9,       8/9,       5/9]
+#w_eta= [      5/9,        5/9,        5/9,        8/9, 8/9,       8/9,        5/9,       5/9,       5/9]
 #-------------------- shape func, ddx and ddy ---------------------------------
-shape_func = {1:lambda xi,eta: 1/4*(1-xi)*(1-eta),
-              2:lambda xi,eta: 1/4*(1+xi)*(1-eta),
-              3:lambda xi,eta: 1/4*(1-xi)*(1+eta),
-              4:lambda xi,eta: 1/4*(1+xi)*(1+eta)}
+shape_func = {0:lambda xi,eta: 1/4*(1-xi)*(1-eta),
+              1:lambda xi,eta: 1/4*(1+xi)*(1-eta),
+              2:lambda xi,eta: 1/4*(1-xi)*(1+eta),
+              3:lambda xi,eta: 1/4*(1+xi)*(1+eta)}
 
-ddx_shape_function = {1:lambda xi,eta: -1/4*(1-eta),
-                      2:lambda xi,eta:  1/4*(1-eta),
-                      3:lambda xi,eta: -1/4*(1+eta),
-                      4:lambda xi,eta: -1/4*(1+eta)}
+ddx_shape_func = {0:lambda xi,eta: -1/4*(1-eta),
+                  1:lambda xi,eta:  1/4*(1-eta),
+                  2:lambda xi,eta: -1/4*(1+eta),
+                  3:lambda xi,eta:  1/4*(1+eta)}
 
-ddy_shape_function = {1:lambda xi,eta: -1/4*(1-xi),
-                      2:lambda xi,eta: -1/4*(1+xi),
-                      3:lambda xi,eta:  1/4*(1-xi),
-                      4:lambda xi,eta:  1/4*(1+xi)}
-#def func(xi,eta):
-#    fn = shape_func[1](xi,eta)*shape_func[2](xi,eta)
-#    return fn
-#
-#print(func(3,2))
-
-
+ddy_shape_func = {0:lambda xi,eta: -1/4*(1-xi),
+                  1:lambda xi,eta: -1/4*(1+xi),
+                  2:lambda xi,eta:  1/4*(1-xi),
+                  3:lambda xi,eta:  1/4*(1+xi)}
 
 #------------------------------ global node numbering -------------------------
 def global_no(e,N_e_r):
@@ -89,24 +87,17 @@ for element_no in range (total_element):
                     eta[i] =quadrature_points[i]
                 answer = 0
                     
-                    
                 for i in range(len(quadrature_points)):
                     for j in range(len(quadrature_points)):     
                         answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j]) * det(jacobian(xi[i], eta[j], element_no))
                 return answer
                 
-            
-            def shape_function(xi, eta, iloc, jloc):
-                shfunc = shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta)
-                return shfunc
-            
-            
-            M[global_i-1,global_j-1] = gauss(shape_function(xi, eta, iloc, jloc),quadrature_points, weights)
-            print(iloc, global_i, jloc, global_j)
-#spy(M)                
-            # here we should input the mass matrix function
-                
-            # here we should input the mass striffness function
+            def ff(xi, eta):
+                return shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta)    
+            M[global_i-1,global_j-1] = gauss(lambda xi,eta: shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta), quadrature_points, weights)
+            K[global_i-1,global_j-1] = gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta) +
+                                                            c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta), quadrature_points, weights)
+#spy(K)                
 
 #------------------------- global node number ---------------------------------
 
