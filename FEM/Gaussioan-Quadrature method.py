@@ -9,14 +9,12 @@ points, weights = np.polynomial.legendre.leggauss(3)
 
 
 def gauss(f, a, b, points, weights):
-    x = np.zeros(len(points))
-    for i in range(len(points)):
-        x[i] = (b+a)/2 + (b-a)/2 *points[i]
     answer = 0
     for i in range(len(points)):
-        answer = answer + (b-a)/2 * (weights[i]*f(x[i]))
+        answer = answer + (b-a)/2 * (weights[i]*f(points[i]))
 
     return answer#(b-a)/2 * (weights[0]*f(x[0]) + weights[1]*f(x[1]) + weights[2]*f(x[2]))   
+
 
 C = 0.05
 c = 0.1

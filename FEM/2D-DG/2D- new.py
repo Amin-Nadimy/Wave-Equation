@@ -95,7 +95,19 @@ for element_no in range (total_element):
             def ff(xi, eta):
                 return shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta)    
             M[global_i-1,global_j-1] = gauss(lambda xi,eta: shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta), quadrature_points, weights)
-            K[global_i-1,global_j-1] = gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta) +
+            
+            def K_gauss(f, quadrature_points, weights):
+                xi=eta = np.zeros(len(quadrature_points))
+                for i in range(len(quadrature_points)):
+                    xi[i] =quadrature_points[i]
+                    eta[i] =quadrature_points[i]
+                answer = 0
+                    
+                for i in range(len(quadrature_points)):
+                    for j in range(len(quadrature_points)):     
+                        answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j])
+                return answer
+            K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta) +
                                                             c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta), quadrature_points, weights)
 #spy(K)                
 
@@ -108,6 +120,8 @@ for element_no in range (total_element):
 #             sjnod=   ! global node number
 #
 #               do sgi=1,sngi ! loop over the quadrature points on surface
+L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
+
 for e in range(total_element):
     for s in range(total_sloc):
         for siloc in range(total_sloc):
@@ -127,19 +141,15 @@ for e in range(total_element):
             
             for sjloc in range(total_sloc):
                 sjnod = s_glob_node(e,jloc)
- 
-L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2)           
+          
             def L_gauss(f, L_quadrature_points, L_weights):
-                xi = np.zeros(len(quadrature_points))
-                for i in range(len(quadrature_points)):
-                    xi[i] =quadrature_points[i]
                 answer = 0
                     
-                for i in range(len(quadrature_points)):
-                    answer =  answer + weights[i] * f(xi[i]) * det(jacobian(xi[i], element_no))
+                for i in range(len(L_quadrature_points)):
+                    answer =  answer + weights[i] * f(L_quadrature_points[i]) * det(jacobian(L_quadrature_points[i], element_no))
                 return answer
 
-gaussQuad(lambda x: 1/4*(1-x), -1, 1,3)
+
 
   
 
