@@ -18,6 +18,7 @@ total_nodes = total_element * local_node_no
 no_of_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
+F = np.zeros((total_nodes, total_nodes))
 
 #xi =  [-0.7745967,          0,  0.7745967, -0.7745967,   0, 0.7745967, -0.7745967,         0, 0.7745967]
 #eta = [-0.7745967, -0.7745967, -0.7745967,          0,   0,         0,  0.7745967, 0.7745967, 0.7745967]
@@ -39,6 +40,8 @@ ddy_shape_func = {0:lambda xi,eta: -1/4*(1-xi),
                   2:lambda xi,eta:  1/4*(1-xi),
                   3:lambda xi,eta:  1/4*(1+xi)}
 
+p=np.array([1,2,3,4]).reshape(4,1)
+
 #------------------------------ global node numbering -------------------------
 def global_no(e,N_e_r):
     col=int(np.ceil(e/N_e_r))
@@ -53,7 +56,7 @@ for i in range(1,total_element+1):
 
 #loc_to_glob_list[0][2]
 #------------------------------ Main structure of the code --------------------
-for element_no in range (total_element):
+for element_no in range (total_element):    # elementsnumbers starts from 1 
     def coordinates(element_no):            # global node coordinates
         col =int(np.ceil(element_no/N_e_r))
         row = int(element_no - (col -1) * N_e_r)
@@ -72,7 +75,11 @@ for element_no in range (total_element):
 
     
     def det(jacobian):
-        return np.linalg.det(jacobian)        
+        return np.linalg.det(jacobian)
+    
+    
+    def inverse(jacobian):
+        return np.linalg.inv(jacobian)
     
     
     for iloc in range(local_node_no):     
@@ -105,11 +112,11 @@ for element_no in range (total_element):
                     
                 for i in range(len(quadrature_points)):
                     for j in range(len(quadrature_points)):     
-                        answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j])
+                        answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j])* det(jacobian(xi[i], eta[j], element_no))
                 return answer
-            K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta) +
-                                                            c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta), quadrature_points, weights)
-#spy(K)                
+            K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta)* inverse(jacobian(xi,eta,element_no))[0,0]+
+                                                              c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta)*inverse(jacobian(xi,eta,element_no))[1,1], quadrature_points, weights)
+#spy(K)            
 
 #------------------------- surface integration ---------------------------------
 #  do iface =1,nface
@@ -122,15 +129,15 @@ for element_no in range (total_element):
 #               do sgi=1,sngi ! loop over the quadrature points on surface
 L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
 
-for e in range(total_element):
+for e in range(total_element):      # element numbering starts from 0
     for s in range(total_sloc):
         for siloc in range(total_sloc):
             def s_glob_node(e,i_j_loc):
-                if iloc==0:
+                if i_j_loc==0:
                     a=[loc_to_glob_list[e][0], loc_to_glob_list[e][1]]
-                elif iloc==1:
+                elif i_j_loc==1:
                     a=[loc_to_glob_list[e][1], loc_to_glob_list[e][3]]
-                elif iloc==2:
+                elif i_j_loc==2:
                     a=[loc_to_glob_list[e][3], loc_to_glob_list[e][2]]
                 else:
                     a=[loc_to_glob_list[e][2], loc_to_glob_list[e][0]]
@@ -142,16 +149,48 @@ for e in range(total_element):
             for sjloc in range(total_sloc):
                 sjnod = s_glob_node(e,jloc)
           
-            def L_gauss(f, L_quadrature_points, L_weights):
-                answer = 0
-                    
-                for i in range(len(L_quadrature_points)):
-                    answer =  answer + weights[i] * f(L_quadrature_points[i]) * det(jacobian(L_quadrature_points[i], element_no))
-                return answer
+                def L_gauss(f, L_quadrature_points, L_weights):
+                    answer = 0
+                        
+                    for i in range(len(L_quadrature_points)):
+                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * det(jacobian(L_quadrature_points[i], element_no))
+                    return answer
+            
+            
+            if siloc or sjloc == 0:
+                eta = -1
+                n_dline = -0.5*abs(np.linalg.norm(coordinates(e)[1]-coordinates(e)[0]))
+            elif siloc or sjloc == 2:
+                eta = 1
+                n_dline = 0.5*abs(np.linalg.norm(coordinates(e)[1]-coordinates(e)[0]))
+            elif siloc or sjloc == 1:
+                xi = 1
+                n_dline = 0.5*abs(np.linalg.norm(coordinates(e)[3]-coordinates(e)[1]))
+            elif siloc or sjloc == 3:
+                xi = -1
+                n_dline = -0.5*abs(np.linalg.norm(coordinates(e)[3]-coordinates(e)[1]))
+            
+            
+            F[global_i-1,global_j-1] = L_gauss(lambda xi,eta: shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta)*n_dline, L_quadrature_points, L_weights)    
+                
+                #print(sjloc, 0.5*abs(np.linalg.norm([coordinates(e)[siloc]-coordinates(e)[sjloc]])))
 
 
-
-  
+#r1=[3,0,0]
+#r2=[0,0,1]
+#print(np.linalg.norm(np.cross(r2,r1)))
+#print(np.linalg.norm(np.cross(r1,r2)))
+#print(np.sign(np.cross(r1,r2))[1])
+#s_glob_node(1-1,0)
+#s_glob_node(1-1,1)
+#s_glob_node(1-1,2)
+#s_glob_node(1-1,3)
+#coordinates(1)
+#
+#e=0
+#
+#0.5*abs(np.linalg.norm([coordinates(e)[0]-coordinates(e)[2]]))
+#  
 
 
 #

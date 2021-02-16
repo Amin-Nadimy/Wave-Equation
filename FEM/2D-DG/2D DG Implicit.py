@@ -338,3 +338,17 @@ plt.show()
 # while i<N*Np:
 #     K[i:i+Np, i:i+Np]= sub_K[0:Np,0:Np]
 #     i+=Np
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(-1.1,1.1,100)
+y = np.linspace(-1.1,1.1,100)
+
+X, Y = np.meshgrid(x,y)
+F = (X-.5)**2 + (Y-0.5)**2 - .25
+plt.contour(X,Y,F,[0])
+plt.show()
