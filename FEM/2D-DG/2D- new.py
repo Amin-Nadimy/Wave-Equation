@@ -18,7 +18,7 @@ total_nodes = total_element * local_node_no
 no_of_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
-F = np.zeros((total_nodes, total_nodes))
+F0 = F1 = F2 = F3 = F = np.zeros((total_nodes, total_nodes))
 
 #xi =  [-0.7745967,          0,  0.7745967, -0.7745967,   0, 0.7745967, -0.7745967,         0, 0.7745967]
 #eta = [-0.7745967, -0.7745967, -0.7745967,          0,   0,         0,  0.7745967, 0.7745967, 0.7745967]
@@ -153,25 +153,38 @@ for e in range(total_element):      # element numbering starts from 0
                     answer = 0
                         
                     for i in range(len(L_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * det(jacobian(L_quadrature_points[i], element_no))
+                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) #* det(jacobian(L_quadrature_points[i], element_no))
                     return answer
             
+                domain_norm = [0,0,1]
+                if siloc == 0:
+                    eta = -1
+                    dx_dxi= [1/4*(eta-1)*coordinates(e)[0,0]+1/4*(1-eta)*coordinates(e)[1,0], 0, 0]
+                    n_dline = np.cross(dx_dxi,domain_norm)[1]
+                    F0[sinod[0]-1, sjnod[0]-1] = F0[sinod[1]-1, sjnod[1]-1] = F0[sjnod[0]-1, sinod[0]-1] = F0[sjnod[1]-1, sinod[1]-1] = (0.5* 
+                                          L_gauss(lambda xi: shape_func[0](xi,eta)*shape_func[1](xi,eta)*n_dline, L_quadrature_points, L_weights))
+                    print(sinod[0]-1, sjnod[0]-1, '&', sjnod[0]-1, sinod[0]-1,'&', sinod)
+                elif siloc == 1:
+                    xi = 1
+                    dy_deta = [0, -1/4*(xi+1)*coordinates(e)[1,1]+1/4*(1+xi)*coordinates(e)[3,1], 0]
+                    n_dline = np.cross(dy_deta,domain_norm)[0]
+                    F1[sinod[0]-1, sjnod[0]-1] =F1[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[1](xi,eta)*shape_func[3](xi,eta)*n_dline, L_quadrature_points, L_weights)
+                    
+                elif siloc == 2:
+                    eta = 1
+                    dx_dxi= [-1/4*(1+eta)*coordinates(e)[3,0]+1/4*(1+eta)*coordinates(e)[2,0],0,0]
+                    n_dline = np.cross(dx_dxi,domain_norm)[1]
+                    F2[sinod[0]-1, sjnod[0]-1] =F2[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda xi: shape_func[3](xi,eta)*shape_func[2](xi,eta)*n_dline, L_quadrature_points, L_weights)
+                
+                elif siloc == 3:
+                    xi = -1
+                    dy_deta = [0, 1/4*(xi-1)*coordinates(e)[2,1]+1/4*(1-xi)*coordinates(e)[0,1], 0]
+                    n_dline = np.cross(dy_deta,domain_norm)[0]
+                    F3[sinod[0]-1, sjnod[0]-1] =F3[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[2](xi,eta)*shape_func[0](xi,eta)*n_dline, L_quadrature_points, L_weights)
+                F = F0 + F1 + F2 + F3
+                
             
-            if siloc or sjloc == 0:
-                eta = -1
-                n_dline = -0.5*abs(np.linalg.norm(coordinates(e)[1]-coordinates(e)[0]))
-            elif siloc or sjloc == 2:
-                eta = 1
-                n_dline = 0.5*abs(np.linalg.norm(coordinates(e)[1]-coordinates(e)[0]))
-            elif siloc or sjloc == 1:
-                xi = 1
-                n_dline = 0.5*abs(np.linalg.norm(coordinates(e)[3]-coordinates(e)[1]))
-            elif siloc or sjloc == 3:
-                xi = -1
-                n_dline = -0.5*abs(np.linalg.norm(coordinates(e)[3]-coordinates(e)[1]))
-            
-            
-            F[global_i-1,global_j-1] = L_gauss(lambda xi,eta: shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta)*n_dline, L_quadrature_points, L_weights)    
+            #F[global_i-1,global_j-1] = L_gauss(lambda xi,eta: shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta)*n_dline, L_quadrature_points, L_weights)    
                 
                 #print(sjloc, 0.5*abs(np.linalg.norm([coordinates(e)[siloc]-coordinates(e)[sjloc]])))
 
