@@ -147,28 +147,47 @@
 !
 ! end program factorial
 !-------------------------------Fibonacci series -------------------------------
-program Fionacci
-integer   :: n
-integer, dimension(:), allocatable::fib,fib_old
-print*, 1
-allocate(fib(2))
-fib(1) = 1
-fib(2) = 1
-fib_old = fib
-print*, fib
-deallocate(fib)
-do n=3,9
-  allocate( fib(n))
-
-  do i= 1,n
-    fib(i) = fib_old(i-1)+fib_old(i)
-  end do
-  fib(n) = 1
-  fib_old = fib
-
-  print*, fib
-  deallocate(fib)
-end do
-
-end program Fionacci
+! program Fionacci
+! integer   :: n
+! integer, dimension(:), allocatable::fib,fib_old
+! print*, 1
+! allocate(fib(2))
+! fib(1) = 1
+! fib(2) = 1
+! fib_old = fib
+! print*, fib
+! deallocate(fib)
+! do n=3,9
+!   allocate( fib(n))
+!
+!   do i= 1,n
+!     fib(i) = fib_old(i-1)+fib_old(i)
+!   end do
+!   fib(n) = 1
+!   fib_old = fib
+!
+!   print*, fib
+!   deallocate(fib)
+! end do
+!
+! end program Fionacci
 !---------------------------- adding digits of a number ------------------------
+! program digit_addition
+! implicit none
+! integer:: a, sum,b,c
+! c=10
+! a=125
+! sum = 0
+! do
+!   if (a==0) then
+!     exit
+!   else
+!     b = mod(a,c)
+!     !print*,b
+!     sum = sum + b
+!     a = a/10
+!   end if
+! end do
+! print*,sum
+! end program digit_addition
+!-------------------------------------------------------------------------------
