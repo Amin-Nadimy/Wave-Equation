@@ -144,8 +144,25 @@
 !   print*, "factorial of", j, "is",fac
 ! end do
 !
-!
 ! end program factorial
+!------------------------ subroutine -------------------------------------------
+! program factorial
+!   implicit none
+!   integer :: n
+!   real:: pro
+!   n = 4
+!   call fact(n,pro)
+!   print*, pro
+! end program factorial
+!
+! subroutine fact(n,pro)
+!   integer :: n,i
+!   real:: pro
+!   pro = 0
+!   do i=1,n-1
+!       pro = pro +n*i
+!   end do
+! end subroutine fact
 !-------------------------------Fibonacci series -------------------------------
 ! program Fionacci
 ! integer   :: n
@@ -191,3 +208,173 @@
 ! print*,sum
 ! end program digit_addition
 !-------------------------------------------------------------------------------
+! program parameter
+!   real, parameter:: pi = 3.14
+!   write(*,'(f6.4)') pi
+! end program parameter
+
+! !---------------------- derived data type -------------------------------------
+! program derived_data_type
+!   implicit none
+!
+!   type student
+!     integer:: grade
+!     character(len=20):: name
+!   end type student
+!
+!   type(student) :: stud1
+!   type(student) :: stud2
+!
+!
+!   stud1%grade = 20
+!   stud1%name = 'amin'
+!
+!   print*, stud1
+!
+!
+! end program derived_data_type
+!--------------------------------------- pointer -------------------------------
+! program pointers
+!   implicit none
+!   integer, target:: x1, x2
+!   integer, pointer:: P1, P2
+!   integer, dimension(3,4), target:: M
+!   integer, dimension(:,:), pointer:: PM
+!
+!   x1 = 4
+!   x2 = 7
+!
+!   M=8
+!   PM=>M
+!
+!   pm(1,2)=2
+!
+!
+!   p1=>x1
+!   p2=>x2
+!   p1 = 5
+!   x1 = 10
+!
+!   print*, M
+!   print*, associated(p1,x1)
+!   nullify(p1)
+!   print*, associated(p1),p1
+!
+! end program pointers
+!-------------------------------------- module ---------------------------------
+! module para
+!   implicit none
+!   real :: pi = 3.14, e = 2.71
+! contains
+!   subroutine product()
+!     print*, 'pi = ',pi
+!     print*, 'e = ', e
+!   end subroutine product
+! end module para
+!
+! program test
+!   use para
+!   implicit none
+!   real:: produc, aa,bb
+!   aa = 2
+!   bb = 5
+!   produc = pi*bb*e
+!   call product()
+!   print*, produc
+!
+! end program test
+!-------------------------- subroutine -----------------------------------------
+! subroutine amin(a,b,c,d)
+!   implicit none
+!   real, intent(inout)::a,b,c,d
+!   c=a**2 + b**2
+!   d=a**2 - b**2
+! end subroutine amin
+!
+! program amin1
+!   implicit none
+!   real :: x,y,z,w
+!   x =2
+!   y=3
+!   call amin(x,y,z,w)
+!   print*, x,y,z,w
+! end program amin1
+!--------------------------- recursive function --------------------------------
+! recursive function amin(n) result(fac)
+!   implicit none
+!   integer, intent (in):: n
+!   integer:: fac
+!   select case(n)
+!   case(0:1)
+!     fac = 1
+!     case default
+!       fac = n*amin(n-1)
+!   end select
+! end function amin
+!
+! program myfact
+!   implicit none
+!   integer :: a=3,b, amin
+!   b = amin(a)
+!   print*, "factrorial of",a, "is", b
+! end program myfact
+!--------------------------- internal subroutine -------------------------------
+! program amin
+!   implicit NONE
+!   real:: x,y
+!   x = 5.
+!   y = 3.
+!   print*, x,y
+!   call subamin(x,y)
+!   print*, x,y
+!
+! contains
+!   subroutine subamin(a,b)
+!     real:: a,b,dummy
+!     dummy = a
+!     a=b
+!     b=dummy
+!   end subroutine subamin
+! end program amin
+!-------------------------------------------------------------------------------
+! module operators
+!   implicit none
+!   !real::x,y,dummy,res
+! contains
+!   subroutine swap(x,y)
+!     real:: x,y,dummy
+!     dummy = x
+!     x=y
+!     y=dummy
+!   end subroutine swap
+!
+!   function times(x) result(res)
+!     real:: x,res
+!     res = x*10
+!   end function times
+! end module operators
+!
+! program amin
+!   use operators
+!   implicit none
+!   real:: a,b,c
+!   a=4
+!   b=2
+!   call swap(a,b)
+!   print*, 'a=',a,'b=',b
+!   !c = times(a)
+!   print*, times(a)
+! end program amin
+!-------------------------------------------------------------------------------
+program point
+  implicit none
+  real, target:: a=5,t
+  real, pointer:: p
+  p=>a
+  print*, p,a
+  nullify(p)
+  p=>t
+  t=1
+  a=2
+  print'(f5.2)',a,p
+end program point

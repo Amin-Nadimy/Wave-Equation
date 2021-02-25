@@ -54,7 +54,7 @@ loc_to_glob_list=[]
 for i in range(1,total_element+1):
     loc_to_glob_list.append(global_no(i,N_e_r))
 
-#loc_to_glob_list[0][2]
+loc_to_glob_list[0][2]
 #------------------------------ Main structure of the code --------------------
 for element_no in range (total_element):    # elementsnumbers starts from 1 
     def coordinates(element_no):            # global node coordinates
@@ -129,41 +129,62 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
 #               do sgi=1,sngi ! loop over the quadrature points on surface
 L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
 
+
+
+
+dx_dxi = [lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])]
+dy_dxi = [lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])]
+# dx_deta = [lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])]
+# dy_deta = [lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])]
+
+sdet = np.sqrt( dx_dxi**2 + dy_dxi**2 )
+
+norm = {0: lambda eta: np.sign ( np.cross([dx_dxi,0,0] , domain_norm)[1] ),  # norm for the line (-1,-1) and (-1,1)
+        1: lambda xi:  np.sign ( np.cross([0,dy_deta,0] , domain_norm)[1] ), # norm for the line (-1,1)  and (1,1)
+        2: lambda eta: np.sign ( np.cross(domain_norm)[1] , [dx_dxi,0,0] ),  # norm for the line (1,1)   and (1,-1)
+        3: lambda xi:  np.sign ( np.cross(domain_norm)[1] , [0,dy_deta,0] )} # norm for the line (-1,1)  and (-1,-1)
+
+                   
 for e in range(total_element):      # element numbering starts from 0
     for s in range(total_sloc):
         for siloc in range(total_sloc):
-            def s_glob_node(e,i_j_loc):
-                if i_j_loc==0:
-                    a=[loc_to_glob_list[e][0], loc_to_glob_list[e][1]]
-                elif i_j_loc==1:
-                    a=[loc_to_glob_list[e][1], loc_to_glob_list[e][3]]
-                elif i_j_loc==2:
-                    a=[loc_to_glob_list[e][3], loc_to_glob_list[e][2]]
-                else:
-                    a=[loc_to_glob_list[e][2], loc_to_glob_list[e][0]]
-                return a
+            def s_glob_node(e,sloc):
+                global_nod ={0: [loc_to_glob_list[e][0] , loc_to_glob_list[e][1]],
+                             1: [loc_to_glob_list[e][1] , loc_to_glob_list[e][3]],
+                             2: [loc_to_glob_list[e][3] , loc_to_glob_list[e][2]],
+                             3: [loc_to_glob_list[e][2] , loc_to_glob_list[e][0]]}
+                return global_nod[sloc]
             
             
             sinod = s_glob_node(e,siloc)
             
             for sjloc in range(total_sloc):
-                sjnod = s_glob_node(e,jloc)
+                sjnod = s_glob_node(e,sjloc)
           
                 def L_gauss(f, L_quadrature_points, L_weights):
                     answer = 0
                         
                     for i in range(len(L_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) #* det(jacobian(L_quadrature_points[i], element_no))
+                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * sdet * np.sign ( np.cross([dx_dxi,dy_dxi,0] , domain_norm)[1] )
                     return answer
-            
+                
+# ? for det, which value should be put? dx or dy? (siloc or sjloc)
+# do i need to change shape funcs to only 2 point or keep the same as mass and K matrices?
+# cross product of [dx_dxi,dy_dxi,0] and global norm, is it correct? 
+                
+                sdet2 = {0: 1/2 * (np.sqrt((coordinates(e)[1,0] - coordinates(e)[0,0])**2 + (coordinates(e)[1,1] - coordinates(e)[0,1])**2)),             
+                        1: 1/2 * (np.sqrt((coordinates(e)[3,0] - coordinates(e)[1,0])**2 + (coordinates(e)[3,1] - coordinates(e)[1,1])**2)),
+                        2: 1/2 * (np.sqrt((coordinates(e)[2,0] - coordinates(e)[3,0])**2 + (coordinates(e)[2,1] - coordinates(e)[3,1])**2)),
+                        3: 1/2 * (np.sqrt((coordinates(e)[0,0] - coordinates(e)[2,0])**2 + (coordinates(e)[0,1] - coordinates(e)[2,1])**2))}
+                
                 domain_norm = [0,0,1]
                 if siloc == 0:
                     eta = -1
-                    dx_dxi= [1/4*(eta-1)*coordinates(e)[0,0]+1/4*(1-eta)*coordinates(e)[1,0], 0, 0]
-                    n_dline = np.cross(dx_dxi,domain_norm)[1]
+
+                    
                     F0[sinod[0]-1, sjnod[0]-1] = F0[sinod[1]-1, sjnod[1]-1] = F0[sjnod[0]-1, sinod[0]-1] = F0[sjnod[1]-1, sinod[1]-1] = (0.5* 
                                           L_gauss(lambda xi: shape_func[0](xi,eta)*shape_func[1](xi,eta)*n_dline, L_quadrature_points, L_weights))
-                    print(sinod[0]-1, sjnod[0]-1, '&', sjnod[0]-1, sinod[0]-1,'&', sinod)
+                    #print(sinod[0]-1, sjnod[0]-1, '&', sjnod[0]-1, sinod[0]-1,'&', sinod)
                 elif siloc == 1:
                     xi = 1
                     dy_deta = [0, -1/4*(xi+1)*coordinates(e)[1,1]+1/4*(1+xi)*coordinates(e)[3,1], 0]
@@ -246,26 +267,7 @@ for e in range(total_element):      # element numbering starts from 0
 #class Element:
 ##    def __init__(self, element_no):
 ##        self.element_no = element_no
-##        self.col =int(np.ceil(self.element_no/N_e_r))
-##        self.row = int(self.element_no - (col -1) * N_e_r)
-##        co_ordinates = np.matrix(([dx*(row-1), dy*(col-1)],
-##                                [dx*row  , dy*(col-1)],
-##                                [dx*(row-1), dy*(col)],
-##                                [dx*row  , dy*(col)]))
-#    def jacobian(self, xi, eta):
-#        self.xi = xi
-#        self.eta = eta
-##        self.coordinates = coordinates
-#        a = 1/4 * np.matrix(([-(1-eta), 1-eta, -(1+eta), 1+eta],
-#                               [-(1-xi), -(1+xi), 1-xi, 1+xi])) 
-#        jacobi = a.dot(self.coordinates)
-#        return jacobi
-#    
-#    def det(self, jacobian):
-#        self.jacobian = jacobian
-#        return np.linalg.det(jacobian)
-#    
-#    
+##        self.col =int(np.ceil(self.element_no/N_e_r))`
 #    def coordinates(self):
 #        col =int(np.ceil(self.element_no/N_e_r))
 #        row = int(self.element_no - (col -1) * N_e_r)
@@ -277,8 +279,18 @@ for e in range(total_element):      # element numbering starts from 0
 
 
 
-
-
+############# function giving global coordinates of faces #####################
+#            def s_glob_node(e,i_j_loc):
+#                if i_j_loc==0:
+#                    a=[loc_to_glob_list[e][0], loc_to_glob_list[e][1]]
+#                elif i_j_loc==1:
+#                    a=[loc_to_glob_list[e][1], loc_to_glob_list[e][3]]
+#                elif i_j_loc==2:
+#                    a=[loc_to_glob_list[e][3], loc_to_glob_list[e][2]]
+#                else:
+#                    a=[loc_to_glob_list[e][2], loc_to_glob_list[e][0]]
+#                return a
+###############################################################################
 
 
 
