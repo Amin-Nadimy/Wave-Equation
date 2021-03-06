@@ -137,7 +137,7 @@ dy_dxi = [lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1
 # dx_deta = [lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])]
 # dy_deta = [lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])]
 
-sdet = np.sqrt( dx_dxi**2 + dy_dxi**2 )
+# sdet = np.sqrt( dx_dxi**2 + dy_dxi**2 )
 
 norm = {0: lambda eta: np.sign ( np.cross([dx_dxi,0,0] , domain_norm)[1] ),  # norm for the line (-1,-1) and (-1,1)
         1: lambda xi:  np.sign ( np.cross([0,dy_deta,0] , domain_norm)[1] ), # norm for the line (-1,1)  and (1,1)
@@ -165,7 +165,7 @@ for e in range(total_element):      # element numbering starts from 0
                     answer = 0
                         
                     for i in range(len(L_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * sdet * np.sign ( np.cross([dx_dxi,dy_dxi,0] , domain_norm)[1] )
+                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * sdet2[sjloc] * np.sign ( np.cross([dx_dxi,dy_dxi,0] , domain_norm)[1] )
                     return answer
                 
 # ? for det, which value should be put? dx or dy? (siloc or sjloc)
@@ -178,31 +178,31 @@ for e in range(total_element):      # element numbering starts from 0
                         3: 1/2 * (np.sqrt((coordinates(e)[0,0] - coordinates(e)[2,0])**2 + (coordinates(e)[0,1] - coordinates(e)[2,1])**2))}
                 
                 domain_norm = [0,0,1]
-                if siloc == 0:
-                    eta = -1
+                # if siloc == 0:
+                #     eta = -1
 
                     
-                    F0[sinod[0]-1, sjnod[0]-1] = F0[sinod[1]-1, sjnod[1]-1] = F0[sjnod[0]-1, sinod[0]-1] = F0[sjnod[1]-1, sinod[1]-1] = (0.5* 
-                                          L_gauss(lambda xi: shape_func[0](xi,eta)*shape_func[1](xi,eta)*n_dline, L_quadrature_points, L_weights))
-                    #print(sinod[0]-1, sjnod[0]-1, '&', sjnod[0]-1, sinod[0]-1,'&', sinod)
-                elif siloc == 1:
-                    xi = 1
-                    dy_deta = [0, -1/4*(xi+1)*coordinates(e)[1,1]+1/4*(1+xi)*coordinates(e)[3,1], 0]
-                    n_dline = np.cross(dy_deta,domain_norm)[0]
-                    F1[sinod[0]-1, sjnod[0]-1] =F1[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[1](xi,eta)*shape_func[3](xi,eta)*n_dline, L_quadrature_points, L_weights)
+                #     F0[sinod[0]-1, sjnod[0]-1] = F0[sinod[1]-1, sjnod[1]-1] = F0[sjnod[0]-1, sinod[0]-1] = F0[sjnod[1]-1, sinod[1]-1] = (0.5* 
+                #                           L_gauss(lambda xi: shape_func[0](xi,eta)*shape_func[1](xi,eta)*n_dline, L_quadrature_points, L_weights))
+                #     #print(sinod[0]-1, sjnod[0]-1, '&', sjnod[0]-1, sinod[0]-1,'&', sinod)
+                # elif siloc == 1:
+                #     xi = 1
+                #     dy_deta = [0, -1/4*(xi+1)*coordinates(e)[1,1]+1/4*(1+xi)*coordinates(e)[3,1], 0]
+                #     n_dline = np.cross(dy_deta,domain_norm)[0]
+                #     F1[sinod[0]-1, sjnod[0]-1] =F1[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[1](xi,eta)*shape_func[3](xi,eta)*n_dline, L_quadrature_points, L_weights)
                     
-                elif siloc == 2:
-                    eta = 1
-                    dx_dxi= [-1/4*(1+eta)*coordinates(e)[3,0]+1/4*(1+eta)*coordinates(e)[2,0],0,0]
-                    n_dline = np.cross(dx_dxi,domain_norm)[1]
-                    F2[sinod[0]-1, sjnod[0]-1] =F2[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda xi: shape_func[3](xi,eta)*shape_func[2](xi,eta)*n_dline, L_quadrature_points, L_weights)
+                # elif siloc == 2:
+                #     eta = 1
+                #     dx_dxi= [-1/4*(1+eta)*coordinates(e)[3,0]+1/4*(1+eta)*coordinates(e)[2,0],0,0]
+                #     n_dline = np.cross(dx_dxi,domain_norm)[1]
+                #     F2[sinod[0]-1, sjnod[0]-1] =F2[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda xi: shape_func[3](xi,eta)*shape_func[2](xi,eta)*n_dline, L_quadrature_points, L_weights)
                 
-                elif siloc == 3:
-                    xi = -1
-                    dy_deta = [0, 1/4*(xi-1)*coordinates(e)[2,1]+1/4*(1-xi)*coordinates(e)[0,1], 0]
-                    n_dline = np.cross(dy_deta,domain_norm)[0]
-                    F3[sinod[0]-1, sjnod[0]-1] =F3[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[2](xi,eta)*shape_func[0](xi,eta)*n_dline, L_quadrature_points, L_weights)
-                F = F0 + F1 + F2 + F3
+                # elif siloc == 3:
+                #     xi = -1
+                #     dy_deta = [0, 1/4*(xi-1)*coordinates(e)[2,1]+1/4*(1-xi)*coordinates(e)[0,1], 0]
+                #     n_dline = np.cross(dy_deta,domain_norm)[0]
+                #     F3[sinod[0]-1, sjnod[0]-1] =F3[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[2](xi,eta)*shape_func[0](xi,eta)*n_dline, L_quadrature_points, L_weights)
+                # F = F0 + F1 + F2 + F3
                 
             
             #F[global_i-1,global_j-1] = L_gauss(lambda xi,eta: shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta)*n_dline, L_quadrature_points, L_weights)    
