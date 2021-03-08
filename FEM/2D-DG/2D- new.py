@@ -128,27 +128,17 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
 #
 #               do sgi=1,sngi ! loop over the quadrature points on surface
 L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
+domain_norm = [0,0,1]
 
+dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
+dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
+# dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
+# dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
 
-
-
-dx_dxi = [lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])]
-dy_dxi = [lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])]
-# dx_deta = [lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])]
-# dy_deta = [lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])]
-
-# sdet = np.sqrt( dx_dxi**2 + dy_dxi**2 )
-
-norm = {0: lambda eta: np.sign ( np.cross([dx_dxi,0,0] , domain_norm)[1] ),  # norm for the line (-1,-1) and (-1,1)
-        1: lambda xi:  np.sign ( np.cross([0,dy_deta,0] , domain_norm)[1] ), # norm for the line (-1,1)  and (1,1)
-        2: lambda eta: np.sign ( np.cross(domain_norm)[1] , [dx_dxi,0,0] ),  # norm for the line (1,1)   and (1,-1)
-        3: lambda xi:  np.sign ( np.cross(domain_norm)[1] , [0,dy_deta,0] )} # norm for the line (-1,1)  and (-1,-1)
-
-                   
 for e in range(total_element):      # element numbering starts from 0
     for s in range(total_sloc):
         for siloc in range(total_sloc):
-            def s_glob_node(e,sloc):
+            def s_glob_node(e,sloc):                # function giving global node numbers of 2 points of each face
                 global_nod ={0: [loc_to_glob_list[e][0] , loc_to_glob_list[e][1]],
                              1: [loc_to_glob_list[e][1] , loc_to_glob_list[e][3]],
                              2: [loc_to_glob_list[e][3] , loc_to_glob_list[e][2]],
@@ -156,64 +146,32 @@ for e in range(total_element):      # element numbering starts from 0
                 return global_nod[sloc]
             
             
+            # calculates the jacobian & sign of the normal to the boundary lines
+            s_n_det = {0: np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm) [1],                   # n_ds of the line (-1,-1) and (-1,1)
+                       #1: lambda xi:  np.cross([0,dy_deta,0]   , domain_norm)[1],                 # n_ds of the line (-1,1)  and (1,1)
+                       2: np.cross(domain_norm , [dx_dxi(1),dy_dxi(1),0]) [1]}                     # n_ds of the line (1,1)   and (1,-1)
+                       #3: lambda xi:  np.cross(domain_norm[1] , [0,dy_deta,0])}                   # n_ds of the line (-1,1)  and (-1,-1)
+            
             sinod = s_glob_node(e,siloc)
             
             for sjloc in range(total_sloc):
                 sjnod = s_glob_node(e,sjloc)
           
-                def L_gauss(f, L_quadrature_points, L_weights):
+                def L_gauss(f, L_quadrature_points, L_weights):                     # Gaussian Intergration
                     answer = 0
                         
                     for i in range(len(L_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * sdet2[sjloc] * np.sign ( np.cross([dx_dxi,dy_dxi,0] , domain_norm)[1] )
+                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * s_n_det[sjloc]
                     return answer
                 
-# ? for det, which value should be put? dx or dy? (siloc or sjloc)
+# ? for s_n_det, which value should be put? dx or dy? (siloc or sjloc)
 # do i need to change shape funcs to only 2 point or keep the same as mass and K matrices?
-# cross product of [dx_dxi,dy_dxi,0] and global norm, is it correct? 
                 
-                sdet2 = {0: 1/2 * (np.sqrt((coordinates(e)[1,0] - coordinates(e)[0,0])**2 + (coordinates(e)[1,1] - coordinates(e)[0,1])**2)),             
-                        1: 1/2 * (np.sqrt((coordinates(e)[3,0] - coordinates(e)[1,0])**2 + (coordinates(e)[3,1] - coordinates(e)[1,1])**2)),
-                        2: 1/2 * (np.sqrt((coordinates(e)[2,0] - coordinates(e)[3,0])**2 + (coordinates(e)[2,1] - coordinates(e)[3,1])**2)),
-                        3: 1/2 * (np.sqrt((coordinates(e)[0,0] - coordinates(e)[2,0])**2 + (coordinates(e)[0,1] - coordinates(e)[2,1])**2))}
-                
-                domain_norm = [0,0,1]
-                # if siloc == 0:
-                #     eta = -1
 
-                    
-                #     F0[sinod[0]-1, sjnod[0]-1] = F0[sinod[1]-1, sjnod[1]-1] = F0[sjnod[0]-1, sinod[0]-1] = F0[sjnod[1]-1, sinod[1]-1] = (0.5* 
-                #                           L_gauss(lambda xi: shape_func[0](xi,eta)*shape_func[1](xi,eta)*n_dline, L_quadrature_points, L_weights))
-                #     #print(sinod[0]-1, sjnod[0]-1, '&', sjnod[0]-1, sinod[0]-1,'&', sinod)
-                # elif siloc == 1:
-                #     xi = 1
-                #     dy_deta = [0, -1/4*(xi+1)*coordinates(e)[1,1]+1/4*(1+xi)*coordinates(e)[3,1], 0]
-                #     n_dline = np.cross(dy_deta,domain_norm)[0]
-                #     F1[sinod[0]-1, sjnod[0]-1] =F1[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[1](xi,eta)*shape_func[3](xi,eta)*n_dline, L_quadrature_points, L_weights)
-                    
-                # elif siloc == 2:
-                #     eta = 1
-                #     dx_dxi= [-1/4*(1+eta)*coordinates(e)[3,0]+1/4*(1+eta)*coordinates(e)[2,0],0,0]
-                #     n_dline = np.cross(dx_dxi,domain_norm)[1]
-                #     F2[sinod[0]-1, sjnod[0]-1] =F2[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda xi: shape_func[3](xi,eta)*shape_func[2](xi,eta)*n_dline, L_quadrature_points, L_weights)
-                
-                # elif siloc == 3:
-                #     xi = -1
-                #     dy_deta = [0, 1/4*(xi-1)*coordinates(e)[2,1]+1/4*(1-xi)*coordinates(e)[0,1], 0]
-                #     n_dline = np.cross(dy_deta,domain_norm)[0]
-                #     F3[sinod[0]-1, sjnod[0]-1] =F3[sjnod[1]-1, sinod[1]-1] = 0.5* L_gauss(lambda eta: shape_func[2](xi,eta)*shape_func[0](xi,eta)*n_dline, L_quadrature_points, L_weights)
-                # F = F0 + F1 + F2 + F3
-                
-            
-            #F[global_i-1,global_j-1] = L_gauss(lambda xi,eta: shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta)*n_dline, L_quadrature_points, L_weights)    
-                
-                #print(sjloc, 0.5*abs(np.linalg.norm([coordinates(e)[siloc]-coordinates(e)[sjloc]])))
-
-
-#r1=[3,0,0]
-#r2=[0,0,1]
-#print(np.linalg.norm(np.cross(r2,r1)))
-#print(np.linalg.norm(np.cross(r1,r2)))
+# r1=[3,0,0]
+# r2=[0,0,1]
+# print(np.linalg.norm(np.cross(r2,r1)))
+# print(np.linalg.norm(np.cross(r1,r2)))
 #print(np.sign(np.cross(r1,r2))[1])
 #s_glob_node(1-1,0)
 #s_glob_node(1-1,1)
