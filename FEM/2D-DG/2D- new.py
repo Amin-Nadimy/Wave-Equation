@@ -60,7 +60,7 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
     def coordinates(element_no):            # global node coordinates
         col =int(np.ceil(element_no/N_e_r))
         row = int(element_no - (col -1) * N_e_r)
-        co_ordinates = np.matrix(([dx*(row-1), dy*(col-1)],
+        co_ordinates = np.array(([dx*(row-1), dy*(col-1)],
                                     [dx*row  , dy*(col-1)],
                                     [dx*(row-1), dy*(col)],
                                     [dx*row  , dy*(col)]))
@@ -136,41 +136,64 @@ dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,
 # dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
 
 for e in range(total_element):      # element numbering starts from 0
+    
+    # calculating the center of each element used to calculate the sign of normal
+    x_centre = 0
+    y_centre = 0
+    for i in range(len(coordinates(e)-1)):
+        x_centre = x_centre + coordinates(e+1)[i][0] / len(coordinates(e+1))
+        y_centre = y_centre + coordinates(e+1)[i][1] / len(coordinates(e+1))
+        print(i)
+    e_centre = [x_centre, y_centre]
+    #---------------------------------------------------------------------------------
+            
     for s in range(total_sloc):
         for siloc in range(total_sloc):
-            def s_glob_node(e,sloc):                # function giving global node numbers of 2 points of each face
+            
+            # function giving global node numbers of 2 points of each face------------
+            def s_glob_node(e,sloc):                
                 global_nod ={0: [loc_to_glob_list[e][0] , loc_to_glob_list[e][1]],
                              1: [loc_to_glob_list[e][1] , loc_to_glob_list[e][3]],
                              2: [loc_to_glob_list[e][3] , loc_to_glob_list[e][2]],
                              3: [loc_to_glob_list[e][2] , loc_to_glob_list[e][0]]}
                 return global_nod[sloc]
+            #-------------------------------------------------------------------------
             
-            
-            # calculates the jacobian & sign of the normal to the boundary lines
+            # calculates the jacobian & sign of the normal to the boundary lines------
             s_n_det = {0: np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm) [1],                   # n_ds of the line (-1,-1) and (-1,1)
                        #1: lambda xi:  np.cross([0,dy_deta,0]   , domain_norm)[1],                 # n_ds of the line (-1,1)  and (1,1)
                        2: np.cross(domain_norm , [dx_dxi(1),dy_dxi(1),0]) [1]}                     # n_ds of the line (1,1)   and (1,-1)
                        #3: lambda xi:  np.cross(domain_norm[1] , [0,dy_deta,0])}                   # n_ds of the line (-1,1)  and (-1,-1)
+            #-------------------------------------------------------------------------
             
             sinod = s_glob_node(e,siloc)
             
             for sjloc in range(total_sloc):
                 sjnod = s_glob_node(e,sjloc)
           
-                def L_gauss(f, L_quadrature_points, L_weights):                     # Gaussian Intergration
+                # boundary Gaussian integration --------------------------------------
+                def L_gauss(f, L_quadrature_points, L_weights):                     
                     answer = 0
                         
                     for i in range(len(L_quadrature_points)):
                         answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * s_n_det[sjloc]
                     return answer
+                #--------------------------------------------------------------------
                 
-# ? for s_n_det, which value should be put? dx or dy? (siloc or sjloc)
-# do i need to change shape funcs to only 2 point or keep the same as mass and K matrices?
-                
+ 
+
+# e=1
+# x_centre = 0
+# y_centre = 0
+# for i in range(len(coordinates(e))):
+#     x_centre = x_centre + coordinates(e)[i][0] / len(coordinates(e))
+#     y_centre = y_centre + coordinates(e)[i][1] / len(coordinates(e)) 
+# e_centre = [x_centre, y_centre]
+# print(e_centre)             
 
 # r1=[3,0,0]
-# r2=[0,0,1]
-# print(np.linalg.norm(np.cross(r2,r1)))
+# r2=[0.5,0,1]
+# print(np.dot(r2,r1))
 # print(np.linalg.norm(np.cross(r1,r2)))
 #print(np.sign(np.cross(r1,r2))[1])
 #s_glob_node(1-1,0)
