@@ -43,7 +43,15 @@ Pull Requests
 
 Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QWEykA&index=1
 
-# simulation commands
+                                              # simulation commands
 # the path is to MultiFluids_Dev/legacy_reservoir_prototype/schemas/ in th eic-ferst folder
 diamond -s <path to multiphase.rng> <name>.mpml
 
+                                              # remote computer
+ssh an619@ese-ao1414g4.ese.ic.ac.uk
+
+local to remote:
+scp <local file> an619@ese-ao1414g4.ese.ic.ac.uk:<remote directory location you want to send the file to>
+
+remote to local:
+scp an619@ese-ao1414g4.ese.ic.ac.uk:<remote location of file> <local location you want to transfer file to>
