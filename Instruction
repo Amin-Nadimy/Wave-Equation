@@ -63,6 +63,8 @@ ssh an619@ese-ao1414g4.ese.ic.ac.uk
 
 local to remote:
 scp <local file> an619@ese-ao1414g4.ese.ic.ac.uk:<remote directory location you want to send the file to>
+To send a directory just add -r flag:
+scp -r <local file> an619@ese-ao1414g4.ese.ic.ac.uk:<remote directory location you want to send the file to>
 
 remote to local:
 scp an619@ese-ao1414g4.ese.ic.ac.uk:<remote location of file> <local location you want to transfer file to>
