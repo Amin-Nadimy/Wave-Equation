@@ -1,0 +1,15 @@
+1) Generate a rectangle model using gmsh
+2) Impose initial conditions and BCs to generate a multiphase porous media model/inertia one (with a passive tracer) or two components. Outlet and inlet Pressure BC
+2.1) For inertia slip BCs up and down
+2.2) Use show convergence
+3) Change mesh resolution and see its effect
+4) Vary time-step and see its effect
+5) Disable the non-linear solver settings (instead of -10 use 1)
+6) Adapt time-step absed on PID for porous media
+7) For inertia, adapt time-step based on CFL
+8) Include DMO. Test different gradation parameters, maximum and minimum element size and frequency of adapts
+9) Include temperature for porous media
+10) Optional Include concentration (single phase) and Boussinesq EOS (and SP solver)
+
+
+

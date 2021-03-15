@@ -1,0 +1,112 @@
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$
+$                         CUBIT version 16.3.4 NX Nastran Translator
+$
+$            File: well01.bdf
+$      Time Stamp: 13-Aug-19 at 04:51:59
+$
+$
+$                        PLEASE CHECK YOUR MODEL FOR UNITS CONSISTENCY.
+$
+$       It should be noted that load ID's from CUBIT may NOT correspond to Nastran SID's
+$ The SID's for the load and restraint sets start at one and increment by one:i.e.,1,2,3,4...
+$
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+$
+$
+$ -------------------------
+$ Executive Control Section
+$ -------------------------
+$
+SOL 101
+CEND
+
+$
+$ --------------------
+$ Case Control Section
+$ --------------------
+$
+ECHO = SORT
+$
+$
+$ Name: Initial
+$
+$
+$ Name: Default Set
+$
+SUBCASE = 1
+$
+LABEL = Default Set
+
+$
+$ -----------------
+$ Bulk Data Section
+$ -----------------
+$
+BEGIN BULK
+$
+$ Params
+$
+$
+$ Node cards
+$
+GRID    1151    0       200.    300.    -300.   
+GRID    1276    0       200.    300.    -284.551
+GRID    1272    0       200.    300.    -273.863
+GRID    1261    0       200.    300.    -170.221
+GRID    1263    0       200.    300.    -139.4  
+GRID    1264    0       200.    300.    -105.642
+GRID    1265    0       200.    300.    -74.7738
+GRID    1266    0       200.    300.    -51.9721
+GRID    1267    0       200.    300.    -34.9759
+GRID    1268    0       200.    300.    -22.6894
+GRID    1269    0       200.    300.    -14.0175
+GRID    1270    0       200.    300.    -7.72438
+GRID    1271    0       200.    300.    -3.12939
+GRID    1262    0       200.    300.    0.      
+GRID    1273    0       200.    300.    -264.532
+GRID    1274    0       200.    300.    -237.091
+GRID    1275    0       200.    300.    -197.737
+$
+$ Element cards
+$
+$
+CROD    35      22      1151    1276    
+CROD    36      22      1276    1272    
+CROD    21      22      1261    1263    
+CROD    22      22      1263    1264    
+CROD    23      22      1264    1265    
+CROD    24      22      1265    1266    
+CROD    25      22      1266    1267    
+CROD    26      22      1267    1268    
+CROD    27      22      1268    1269    
+CROD    28      22      1269    1270    
+CROD    29      22      1270    1271    
+CROD    30      22      1271    1262    
+CROD    31      22      1272    1273    
+CROD    32      22      1273    1274    
+CROD    33      22      1274    1275    
+CROD    34      22      1275    1261    
+$
+$ Property cards
+$
+$
+PROD    22      100     0       0       0       0       
+$
+$ Material cards
+$
+$
+$ Name: Default-Steel
+$
+MAT1*   100             206800          80155.039       0.29            
+*       7e-06           1.2e-05         
+$
+$ Restraint cards
+$
+$
+$ Load cards
+$
+$
+$
+ENDDATA
