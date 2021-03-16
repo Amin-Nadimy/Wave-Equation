@@ -59,6 +59,7 @@ $ <path to icfest file in bin folder> <name of simulation file>.mpml
                                               
                                               
                                               # remote computer
+# To login through terminal just input
 ssh an619@ese-ao1414g4.ese.ic.ac.uk
 
 local to remote:
