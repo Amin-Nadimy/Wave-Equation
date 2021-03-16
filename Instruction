@@ -55,6 +55,10 @@ $ <path to icfest file in bin folder> <name of simulation file>.mpml
 # for generating simulation files, it has the flag to enable 2d adaptivity. '.' should refer to where c-ferst code is. 
 ./configure --enable-2d-adaptivity 
 # then compile the code and then make the code
+make clean
+make mp
+make all
+make fltools
 
                                               
                                               
