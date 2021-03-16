@@ -132,8 +132,8 @@ domain_norm = [0,0,1]
 
 dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
 dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
-# dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
-# dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
+dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
+dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
 
 for e in range(total_element):      # element numbering starts from 0
     
@@ -158,6 +158,13 @@ for e in range(total_element):      # element numbering starts from 0
                              3: [loc_to_glob_list[e][2] , loc_to_glob_list[e][0]]}
                 return global_nod[sloc]
             #-------------------------------------------------------------------------
+            # Jacobian
+            def jac(e):
+                j = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
+                     1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
+                     2: np.sqrt(dx_dxi(1)**2 + dy_dxi(1)**2),
+                     3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
+                return j[siloc]
             
             # calculates the jacobian & sign of the normal to the boundary lines------
             s_n_det = {0: np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm) [1],                   # n_ds of the line (-1,-1) and (-1,1)
