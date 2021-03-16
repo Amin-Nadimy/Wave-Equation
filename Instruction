@@ -49,7 +49,7 @@ Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QW
 # excecutable files in ic-ferst are always in 1 folder (bin folder in the main ic-ferst folder and the actrual executable file is called icferst)
 # the path is to MultiFluids_Dev/legacy_reservoir_prototype/schemas/ in th eic-ferst folder
 diamond -s <path to multiphase.rng> <name>.mpml
-# when modification is finished with diamond, then call the path to icferst file in bin and then nam eof the mpml file which you want to run
+# when modification is finished with diamond, then call the path to icferst file in bin and then name of the mpml file, which you want to run
 $ <path to icfest file in bin folder> <name of simulation file>.mpml
 
 # for generating simulation files, it has the flag to enable 2d adaptivity. '.' should refer to where c-ferst code is. 
@@ -59,7 +59,7 @@ $ <path to icfest file in bin folder> <name of simulation file>.mpml
                                               
                                               
                                               # remote computer
-# To login through terminal just input
+# To login through terminal just turn on Imperial VPN and input:
 ssh an619@ese-ao1414g4.ese.ic.ac.uk
 
 local to remote:
