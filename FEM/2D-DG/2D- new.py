@@ -2,6 +2,7 @@
 #points, weights = np.polynomial.legendre.leggauss(3)
 #points.shape = [points.shape[0], 1]
 import numpy as np
+import matplotlib.pyplot as plt
 quadrature_points, weights = np.polynomial.legendre.leggauss(3)
 C = 0.05
 c_x = 0.1
@@ -116,8 +117,8 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
                 return answer
             K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta)* inverse(jacobian(xi,eta,element_no))[0,0]+
                                                               c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta)*inverse(jacobian(xi,eta,element_no))[1,1], quadrature_points, weights)
-#spy(K)            
-
+#plt.spy(K)            
+    
 #------------------------- surface integration ---------------------------------
 #  do iface =1,nface
 #! for surface iface...
@@ -127,7 +128,8 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
 #             sjnod=   ! global node number
 #
 #               do sgi=1,sngi ! loop over the quadrature points on surface
-L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
+# L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
+
 domain_norm = [0,0,1]
 
 dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
@@ -138,25 +140,28 @@ dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1]
 for e in range(total_element):      # element numbering starts from 0
     
     # calculating the center of each element used to calculate the sign of normal
-    x_centre = 0
-    y_centre = 0
-    for i in range(len(coordinates(e)-1)):
-        x_centre = x_centre + coordinates(e+1)[i][0] / len(coordinates(e+1))
-        y_centre = y_centre + coordinates(e+1)[i][1] / len(coordinates(e+1))
-        print(i)
-    e_centre = [x_centre, y_centre]
+    def e_centre(e):
+        x_centre =0
+        y_centre =0
+        for i in range(local_node_no):
+            x_centre = x_centre + coordinates(e+1)[i,0]         
+            y_centre = y_centre + coordinates(e+1)[i,1]
+
+        z_centre = 0
+        e_centre = [x_centre/local_node_no, y_centre/local_node_no, z_centre]
+        return e_centre
     #---------------------------------------------------------------------------------
             
     for s in range(total_sloc):
         for siloc in range(total_sloc):
             
             # function giving global node numbers of 2 points of each face------------
-            def s_glob_node(e,sloc):                
+            def s_glob_node(e,siloc):                
                 global_nod ={0: [loc_to_glob_list[e][0] , loc_to_glob_list[e][1]],
                              1: [loc_to_glob_list[e][1] , loc_to_glob_list[e][3]],
                              2: [loc_to_glob_list[e][3] , loc_to_glob_list[e][2]],
                              3: [loc_to_glob_list[e][2] , loc_to_glob_list[e][0]]}
-                return global_nod[sloc]
+                return global_nod[siloc]
             #-------------------------------------------------------------------------
             # Jacobian
             def jac(e):
@@ -166,11 +171,21 @@ for e in range(total_element):      # element numbering starts from 0
                      3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
                 return j[siloc]
             
-            # calculates the jacobian & sign of the normal to the boundary lines------
-            s_n_det = {0: np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm) [1],                   # n_ds of the line (-1,-1) and (-1,1)
-                       #1: lambda xi:  np.cross([0,dy_deta,0]   , domain_norm)[1],                 # n_ds of the line (-1,1)  and (1,1)
-                       2: np.cross(domain_norm , [dx_dxi(1),dy_dxi(1),0]) [1]}                     # n_ds of the line (1,1)   and (1,-1)
-                       #3: lambda xi:  np.cross(domain_norm[1] , [0,dy_deta,0])}                   # n_ds of the line (-1,1)  and (-1,-1)
+            # normal to the boundary lines -------------------------------------------
+            n_hat = {0: np.sign(np.cross([dx_dxi(-1),dy_dxi(-1),0] ,   domain_norm)[1]),                  # n_ds of the line (-1,-1) and (-1,1)
+                      1: np.sign(np.cross([dx_deta(1),dy_deta(1),0] ,   domain_norm)[0]),                 # n_ds of the line (-1,1)  and (1,1)
+                      2: np.sign(np.cross(domain_norm, [dx_dxi(1),dy_dxi(1),0]))[1],                      # n_ds of the line (1,1)   and (1,-1)
+                      3: np.sign(np.cross(domain_norm, [dx_deta(-1),dy_deta(-1),0]))[0]}                  # n_ds of the line (-1,1)  and (-1,-1)
+            
+            # vector from centre to one node on a boundary line
+            # r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
+            #      1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
+            #      2: np.subtract([coordinates(e+1)[3,0], coordinates(e+1)[3,1],0] , e_centre(e)),
+            #      3: np.subtract([coordinates(e+1)[2,0], coordinates(e+1)[2,1],0] , e_centre(e))}
+            
+            # sign (norm . r)
+            # n_hat = np.sign(np.dot(s_norm[siloc], r[siloc]))
+            # print(e, siloc, n_hat[siloc])
             #-------------------------------------------------------------------------
             
             sinod = s_glob_node(e,siloc)
@@ -183,7 +198,7 @@ for e in range(total_element):      # element numbering starts from 0
                     answer = 0
                         
                     for i in range(len(L_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * s_n_det[sjloc]
+                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * n_hat[sjloc]
                     return answer
                 #--------------------------------------------------------------------
                 
