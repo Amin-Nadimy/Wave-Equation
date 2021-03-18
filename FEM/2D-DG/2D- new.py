@@ -117,7 +117,7 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
                 return answer
             K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta)* inverse(jacobian(xi,eta,element_no))[0,0]+
                                                               c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta)*inverse(jacobian(xi,eta,element_no))[1,1], quadrature_points, weights)
-#plt.spy(K)            
+plt.spy(K)            
     
 #------------------------- surface integration ---------------------------------
 #  do iface =1,nface
@@ -129,6 +129,9 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
 #
 #               do sgi=1,sngi ! loop over the quadrature points on surface
 # L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
+x_quadrature_points = np.array([-0.5, 0.5, 1, 1, 0.5, -0.5, -1, -1])
+y_quadrature_points = np.array([-1, -1, 0.5, 0.5, 0.5, 1,1,10.5, -0.5])
+L_weights=np.array([1,1,1,1,1,1,1,1])
 
 domain_norm = [0,0,1]
 
@@ -172,10 +175,10 @@ for e in range(total_element):      # element numbering starts from 0
                 return j[siloc]
             
             # normal to the boundary lines -------------------------------------------
-            n_hat = {0: np.sign(np.cross([dx_dxi(-1),dy_dxi(-1),0] ,   domain_norm)[1]),                  # n_ds of the line (-1,-1) and (-1,1)
-                      1: np.sign(np.cross([dx_deta(1),dy_deta(1),0] ,   domain_norm)[0]),                 # n_ds of the line (-1,1)  and (1,1)
-                      2: np.sign(np.cross(domain_norm, [dx_dxi(1),dy_dxi(1),0]))[1],                      # n_ds of the line (1,1)   and (1,-1)
-                      3: np.sign(np.cross(domain_norm, [dx_deta(-1),dy_deta(-1),0]))[0]}                  # n_ds of the line (-1,1)  and (-1,-1)
+            n_hat = {0: np.sign(np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm)[1]),                  # n_ds of the line (-1,-1) and (-1,1)
+                     1: np.sign(np.cross([dx_deta(1),dy_deta(1),0] , domain_norm)[0]),                  # n_ds of the line (-1,1)  and (1,1)
+                     2: np.sign(np.cross(domain_norm,                [dx_dxi(1),dy_dxi(1),0]))[1],      # n_ds of the line (1,1)   and (1,-1)
+                     3: np.sign(np.cross(domain_norm,                [dx_deta(-1),dy_deta(-1),0]))[0]}  # n_ds of the line (-1,1)  and (-1,-1)
             
             # vector from centre to one node on a boundary line
             # r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
@@ -194,16 +197,19 @@ for e in range(total_element):      # element numbering starts from 0
                 sjnod = s_glob_node(e,sjloc)
           
                 # boundary Gaussian integration --------------------------------------
-                def L_gauss(f, L_quadrature_points, L_weights):                     
+                def L_gauss(f, x_quadrature_points, y_quadrature_points, L_weights):  
+                    xi=eta = np.zeros(len(x_quadrature_points))
+                    for i in range(len(x_quadrature_points)):
+                        xi[i] =x_quadrature_points[i]
+                        eta[i] =y_quadrature_points[i]
                     answer = 0
-                        
-                    for i in range(len(L_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(L_quadrature_points[i]) * n_hat[sjloc]
+                    for i in range(len(x_quadrature_points)):
+                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *jac(e)
                     return answer
                 #--------------------------------------------------------------------
-                
- 
-
+                F0[s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1] = F0[s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1] = L_gauss(lambda xi,eta: dt * c_x * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), x_quadrature_points, y_quadrature_points, L_weights)
+                print(s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1, s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1)
+#plt.spy(F0)
 # e=1
 # x_centre = 0
 # y_centre = 0
