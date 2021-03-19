@@ -209,6 +209,8 @@ for e in range(total_element):      # element numbering starts from 0
                 #--------------------------------------------------------------------
                 F0[s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1] = F0[s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1] = L_gauss(lambda xi,eta: dt * c_x * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), x_quadrature_points, y_quadrature_points, L_weights)
                 print(s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1, s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1)
+
+
 #plt.spy(F0)
 # e=1
 # x_centre = 0
