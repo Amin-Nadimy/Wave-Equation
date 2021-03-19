@@ -83,3 +83,6 @@ taskset -cp <no. CPU. e.g. 1 or 1-10>  < PID >
 
 # to check number of cpu affinity while running a program
 taskset -cp <PID>
+
+# showing CPU number next to CPU %
+press 'F' and go to 'P', press space to select that, move it next to CPU%, press entre and then Esc.
