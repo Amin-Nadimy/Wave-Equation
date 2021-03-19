@@ -66,10 +66,20 @@ make fltools
 # To login through terminal just turn on Imperial VPN and input:
 ssh an619@ese-ao1414g4.ese.ic.ac.uk
 
-local to remote:
+# copy from local to remote:
 scp <local file> an619@ese-ao1414g4.ese.ic.ac.uk:<remote directory location you want to send the file to>
-To send a directory just add -r flag:
+
+# To send a directory just add -r flag:
 scp -r <local file> an619@ese-ao1414g4.ese.ic.ac.uk:<remote directory location you want to send the file to>
 
-remote to local:
+# Copy from remote to local:
 scp an619@ese-ao1414g4.ese.ic.ac.uk:<remote location of file> <local location you want to transfer file to>
+
+# to set number of cpu cores (cpu affinity) before running a program
+taskset -c <no. CPU. e.g. 1 or 1-10>  < path to the program>
+
+# to set number of cpu cores while running a program. PID is shown in terminal when running top or htop.
+taskset -c <no. CPU. e.g. 1 or 1-10>  < PID >
+
+# to check number of cpu affinity while running a program
+taskset -cp <PID>
