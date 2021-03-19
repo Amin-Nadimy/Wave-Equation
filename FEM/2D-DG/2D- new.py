@@ -206,6 +206,16 @@ for e in range(total_element):      # element numbering starts from 0
 
 
 
+
+
+
+
+
+
+
+
+
+
             # vector from centre to one node on a boundary line
             # r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
             #      1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
