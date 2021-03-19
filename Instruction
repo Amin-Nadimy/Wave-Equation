@@ -79,7 +79,7 @@ scp an619@ese-ao1414g4.ese.ic.ac.uk:<remote location of file> <local location yo
 taskset -c <no. CPU. e.g. 1 or 1-10>  < path to the program>
 
 # to set number of cpu cores while running a program. PID is shown in terminal when running top or htop.
-taskset -c <no. CPU. e.g. 1 or 1-10>  < PID >
+taskset -cp <no. CPU. e.g. 1 or 1-10>  < PID >
 
 # to check number of cpu affinity while running a program
 taskset -cp <PID>
