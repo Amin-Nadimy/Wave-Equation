@@ -180,15 +180,6 @@ for e in range(total_element):      # element numbering starts from 0
                      2: np.sign(np.cross(domain_norm,                [dx_dxi(1),dy_dxi(1),0]))[1],      # n_ds of the line (1,1)   and (1,-1)
                      3: np.sign(np.cross(domain_norm,                [dx_deta(-1),dy_deta(-1),0]))[0]}  # n_ds of the line (-1,1)  and (-1,-1)
             
-            # vector from centre to one node on a boundary line
-            # r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
-            #      1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
-            #      2: np.subtract([coordinates(e+1)[3,0], coordinates(e+1)[3,1],0] , e_centre(e)),
-            #      3: np.subtract([coordinates(e+1)[2,0], coordinates(e+1)[2,1],0] , e_centre(e))}
-            
-            # sign (norm . r)
-            # n_hat = np.sign(np.dot(s_norm[siloc], r[siloc]))
-            # print(e, siloc, n_hat[siloc])
             #-------------------------------------------------------------------------
             
             sinod = s_glob_node(e,siloc)
@@ -212,6 +203,32 @@ for e in range(total_element):      # element numbering starts from 0
 
 
 #plt.spy(F0)
+
+
+
+            # vector from centre to one node on a boundary line
+            # r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
+            #      1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
+            #      2: np.subtract([coordinates(e+1)[3,0], coordinates(e+1)[3,1],0] , e_centre(e)),
+            #      3: np.subtract([coordinates(e+1)[2,0], coordinates(e+1)[2,1],0] , e_centre(e))}
+            
+            # sign (norm . r)
+            # n_hat = np.sign(np.dot(s_norm[siloc], r[siloc]))
+            # print(e, siloc, n_hat[siloc])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # e=1
 # x_centre = 0
 # y_centre = 0
