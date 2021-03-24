@@ -19,7 +19,7 @@ total_nodes = total_element * local_node_no
 no_of_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
-F0 = F1 = F2 = F3 = F = np.zeros((total_nodes, total_nodes))
+F0 = np.zeros((total_nodes, total_nodes))
 
 #xi =  [-0.7745967,          0,  0.7745967, -0.7745967,   0, 0.7745967, -0.7745967,         0, 0.7745967]
 #eta = [-0.7745967, -0.7745967, -0.7745967,          0,   0,         0,  0.7745967, 0.7745967, 0.7745967]
@@ -117,7 +117,7 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
                 return answer
             K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta)* inverse(jacobian(xi,eta,element_no))[0,0]+
                                                               c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta)*inverse(jacobian(xi,eta,element_no))[1,1], quadrature_points, weights)
-plt.spy(K)            
+# plt.spy(K)            
     
 #------------------------- surface integration ---------------------------------
 #  do iface =1,nface
@@ -129,8 +129,8 @@ plt.spy(K)
 #
 #               do sgi=1,sngi ! loop over the quadrature points on surface
 # L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
-x_quadrature_points = np.array([-0.5, 0.5, 1, 1, 0.5, -0.5, -1, -1])
-y_quadrature_points = np.array([-1, -1, 0.5, 0.5, 0.5, 1,1,10.5, -0.5])
+x_quadrature_points = np.array([-0.5, 0.5,  1  ,  1  , 0.5, -0.5, -1  , -1  ])
+y_quadrature_points = np.array([-1  ,-1  , -0.5,  0.5, 1  ,  1  ,  0.5, -0.5])
 L_weights=np.array([1,1,1,1,1,1,1,1])
 
 domain_norm = [0,0,1]
@@ -155,8 +155,8 @@ for e in range(total_element):      # element numbering starts from 0
         return e_centre
     #---------------------------------------------------------------------------------
             
-    for s in range(total_sloc):
-        for siloc in range(total_sloc):
+    for s in range(total_sloc):                     # number of surfaces = no.elements * no.faces in each e
+        for siloc in range(total_sloc):             # = 4
             
             # function giving global node numbers of 2 points of each face------------
             def s_glob_node(e,siloc):                
@@ -167,12 +167,10 @@ for e in range(total_element):      # element numbering starts from 0
                 return global_nod[siloc]
             #-------------------------------------------------------------------------
             # Jacobian
-            def jac(e):
-                j = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
-                     1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
-                     2: np.sqrt(dx_dxi(1)**2 + dy_dxi(1)**2),
-                     3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
-                return j[siloc]
+            jac = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
+                   1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
+                   2: np.sqrt(dx_dxi(1)**2 + dy_dxi(1)**2),
+                   3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
             
             # normal to the boundary lines -------------------------------------------
             n_hat = {0: np.sign(np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm)[1]),                  # n_ds of the line (-1,-1) and (-1,1)
@@ -182,10 +180,10 @@ for e in range(total_element):      # element numbering starts from 0
             
             #-------------------------------------------------------------------------
             
-            sinod = s_glob_node(e,siloc)
+            sinod = s_glob_node(e,siloc)                # gives two nodes numbrs of each i-surface
             
-            for sjloc in range(total_sloc):
-                sjnod = s_glob_node(e,sjloc)
+            for sjloc in range(total_sloc):             # = 4
+                sjnod = s_glob_node(e,sjloc)            # gives two nodes numbrs of each j-surface
           
                 # boundary Gaussian integration --------------------------------------
                 def L_gauss(f, x_quadrature_points, y_quadrature_points, L_weights):  
@@ -195,14 +193,14 @@ for e in range(total_element):      # element numbering starts from 0
                         eta[i] =y_quadrature_points[i]
                     answer = 0
                     for i in range(len(x_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *jac(e)
+                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *jac[siloc]
                     return answer
                 #--------------------------------------------------------------------
                 F0[s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1] = F0[s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1] = L_gauss(lambda xi,eta: dt * c_x * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), x_quadrature_points, y_quadrature_points, L_weights)
-                print(s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1, s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1)
+                # print(s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1, s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1)
 
 
-#plt.spy(F0)
+# plt.spy(F0)
 
 
 
