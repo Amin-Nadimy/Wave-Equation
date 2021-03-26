@@ -132,13 +132,16 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
 x_quadrature_points = np.array([-0.5, 0.5,  1  ,  1  , 0.5, -0.5, -1  , -1  ])
 y_quadrature_points = np.array([-1  ,-1  , -0.5,  0.5, 1  ,  1  ,  0.5, -0.5])
 L_weights=np.array([1,1,1,1,1,1,1,1])
+sloc = 4
+sdot = np.zeros(sloc)
+n_hat = np.zeros(sloc)
 
 domain_norm = [0,0,1]
 
-dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
-dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
-dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
-dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
+dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e+1)[0,0] +(1-eta)*coordinates(e+1)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
+dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e+1)[0,1] +(1-eta)*coordinates(e+1)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
+dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e+1)[0,0] -(xi+1)*coordinates(e+1)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
+dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e+1)[0,1] -(xi+1)*coordinates(e+1)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
 
 for e in range(total_element):      # element numbering starts from 0
     
@@ -153,39 +156,66 @@ for e in range(total_element):      # element numbering starts from 0
         z_centre = 0
         e_centre = [x_centre/local_node_no, y_centre/local_node_no, z_centre]
         return e_centre
-    #---------------------------------------------------------------------------------
-            
+    
+    # =========================================================================
     for s in range(total_sloc):                     # number of surfaces = no.elements * no.faces in each e
-        for siloc in range(total_sloc):             # = 4
+        for siloc in range(sloc):                   # = 4, number of local surfaces
             
-            # function giving global node numbers of 2 points of each face------------
+            # =================================================================
+            # function giving global node numbers of 2 points of each face
             def s_glob_node(e,siloc):                
                 global_nod ={0: [loc_to_glob_list[e][0] , loc_to_glob_list[e][1]],
                              1: [loc_to_glob_list[e][1] , loc_to_glob_list[e][3]],
                              2: [loc_to_glob_list[e][3] , loc_to_glob_list[e][2]],
                              3: [loc_to_glob_list[e][2] , loc_to_glob_list[e][0]]}
                 return global_nod[siloc]
-            #-------------------------------------------------------------------------
+            
+            # =================================================================
             # Jacobian
-            jac = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
-                   1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
-                   2: np.sqrt(dx_dxi(1)**2 + dy_dxi(1)**2),
-                   3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
+            for gp in range(len(x_quadrature_points)):
+                jacamin =0
+                for sl in range(sloc):
+                    jacamin = jacamin + np.sqrt(dx_dxi(y_quadrature_points[gp])**2 + dy_dxi(y_quadrature_points[gp])**2)
+                print(jacamin)
             
-            # normal to the boundary lines -------------------------------------------
-            n_hat = {0: np.sign(np.cross([dx_dxi(-1),dy_dxi(-1),0] , domain_norm)[1]),                  # n_ds of the line (-1,-1) and (-1,1)
-                     1: np.sign(np.cross([dx_deta(1),dy_deta(1),0] , domain_norm)[0]),                  # n_ds of the line (-1,1)  and (1,1)
-                     2: np.sign(np.cross(domain_norm,                [dx_dxi(1),dy_dxi(1),0]))[1],      # n_ds of the line (1,1)   and (1,-1)
-                     3: np.sign(np.cross(domain_norm,                [dx_deta(-1),dy_deta(-1),0]))[0]}  # n_ds of the line (-1,1)  and (-1,-1)
+            det_jac = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
+                       1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
+                       2: np.sqrt(dx_dxi(1)**2 + dy_dxi(1)**2),
+                       3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
             
-            #-------------------------------------------------------------------------
+            # =================================================================
+            # normal to the boundary lines 
+            snormal = {0: np.cross([dx_dxi(-1) , dy_dxi(-1)  ,0], domain_norm),                  # n_ds of the line (-1,-1) and (-1,1)
+                       1: np.cross([dx_deta(1) , dy_deta(1)  ,0], domain_norm),                  # n_ds of the line (-1,1)  and (1,1)
+                       2: np.cross([dx_dxi(1)  , dy_dxi(1)   ,0], domain_norm),      # n_ds of the line (1,1)   and (1,-1)
+                       3: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm)}  # n_ds of the line (-1,1)  and (-1,-1)
             
+            # vector from the e_centre to a node on a boundary line
+            r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
+                 1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
+                 2: np.subtract([coordinates(e+1)[3,0], coordinates(e+1)[3,1],0] , e_centre(e)),
+                 3: np.subtract([coordinates(e+1)[2,0], coordinates(e+1)[2,1],0] , e_centre(e))}
+            
+            # dot product of Snormal and r 
+            for s in range(sloc):
+                sdot[s] = np.dot(snormal[s], r[s])
+                if sdot[s] <= 0:
+                    snormal[s] = snormal[s] * -1
+            
+            # sign of normal to the boundary
+            n_hat = {0: np.sign(snormal[0][1]),
+                     1: np.sign(snormal[1][0]),
+                     2: np.sign(snormal[2][1]),
+                     3: np.sign(snormal[3][0])}
+                    
+            # =================================================================
             sinod = s_glob_node(e,siloc)                # gives two nodes numbrs of each i-surface
             
-            for sjloc in range(total_sloc):             # = 4
+            for sjloc in range(sloc):                   # = 4, number of local surfaces
                 sjnod = s_glob_node(e,sjloc)            # gives two nodes numbrs of each j-surface
           
-                # boundary Gaussian integration --------------------------------------
+                # =============================================================
+                # boundary Gaussian integration
                 def L_gauss(f, x_quadrature_points, y_quadrature_points, L_weights):  
                     xi=eta = np.zeros(len(x_quadrature_points))
                     for i in range(len(x_quadrature_points)):
@@ -193,9 +223,9 @@ for e in range(total_element):      # element numbering starts from 0
                         eta[i] =y_quadrature_points[i]
                     answer = 0
                     for i in range(len(x_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *jac[siloc]
+                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *det_jac[siloc]
                     return answer
-                #--------------------------------------------------------------------
+                # =============================================================
                 F0[s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1] = F0[s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1] = L_gauss(lambda xi,eta: dt * c_x * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), x_quadrature_points, y_quadrature_points, L_weights)
                 # print(s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1, s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1)
 

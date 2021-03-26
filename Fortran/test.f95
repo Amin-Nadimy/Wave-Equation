@@ -857,3 +857,66 @@ subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, n
       end do ! do ele = 1, totele ! Surface integral
 
       end subroutine dg_advection_general
+
+================================================================================
+      call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
+SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
+!       inv_jac )
+    IMPLICIT NONE
+
+    INTEGER, intent( in ) :: SNLOC, SNGI, SNDIM, ndim
+    REAL, DIMENSION( NDIM, SNLOC ), intent( in ) :: XSL_ALL
+    REAL, DIMENSION( SNGI, SNLOC ), intent( in ) :: SN
+    REAL, DIMENSION( SNGI, SNDIM, SNLOC ), intent( in ) :: SNLX
+    REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
+    REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
+    REAL, intent( inout ) ::  SAREA
+    REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
+    REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
+!    REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
+    ! Local variables
+    INTEGER :: GI, SL, IGLX
+    REAL :: DXDLX, DXDLY, DYDLX, DYDLY, DZDLX, DZDLY
+    REAL :: A, B, C, DETJ, RUB3, RUB4
+
+    SAREA=0.
+
+       DO GI=1,SNGI
+
+          DXDLX=0.
+          DXDLY=0.
+          DYDLX=0.
+          DYDLY=0.
+          DZDLX=0.
+          DZDLY=0.
+
+          DO SL=1,SNLOC
+             DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
+             DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
+             DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
+             DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
+             DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
+             DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+          END DO
+          A = DYDLX*DZDLY - DYDLY*DZDLX
+          B = DXDLX*DZDLY - DXDLY*DZDLX
+          C = DXDLX*DYDLY - DXDLY*DYDLX
+
+          DETJ=SQRT( A**2 + B**2 + C**2)
+!          inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
+!          inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
+!          inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
+!          inv_jac=inv_jac/detj
+          SDETWE(GI)=DETJ*SWEIGH(GI)
+          SAREA=SAREA+SDETWE(GI)
+
+          ! Calculate the normal at the Gauss pts...
+          ! Perform x-product. N=T1 x T2
+          CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+               DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
+               NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
+       END DO
+
+    RETURN
+
+  END SUBROUTINE det_snlx_all
