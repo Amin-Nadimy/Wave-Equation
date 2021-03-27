@@ -3,45 +3,59 @@
 #points.shape = [points.shape[0], 1]
 import numpy as np
 import matplotlib.pyplot as plt
-quadrature_points, weights = np.polynomial.legendre.leggauss(3)
+# quadrature_points, weights = np.polynomial.legendre.leggauss(3)
+qpoint = np.array(([-np.sqrt(3/5), -np.sqrt(3/5)],[0, -np.sqrt(3/5)],[np.sqrt(3/5), -np.sqrt(3/5)],
+                 [-np.sqrt(3/5), 0],              [0, 0],            [np.sqrt(3/5), 0],
+                 [-np.sqrt(3/5), np.sqrt(3/5)],   [0, np.sqrt(3/5)], [np.sqrt(3/5), np.sqrt(3/5)]))
+qweight = np.array(([25/81],[40/81],[25/81],
+                   [40/81],[64/81],[40/81],
+                   [25/81],[40/81],[25/81]))
 C = 0.05
-c_x = 0.1
-c_y = 0.1
+c = 0.1
 dx = 0.125
 dy = 0.1667
-dt = C*dx*dy/(c_x*dy+c_y*dx)
+dt = C*dx*dy/(c*(dy+dx))
 N_e_r = 4
 N_e_c= 3
 local_node_no = 4
 total_element=12
 total_sloc = 4
 total_nodes = total_element * local_node_no
-no_of_qp = 9 # degree of polynomial**2
+vol_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
 F0 = np.zeros((total_nodes, total_nodes))
 
-#xi =  [-0.7745967,          0,  0.7745967, -0.7745967,   0, 0.7745967, -0.7745967,         0, 0.7745967]
-#eta = [-0.7745967, -0.7745967, -0.7745967,          0,   0,         0,  0.7745967, 0.7745967, 0.7745967]
-#w_xi = [      5/9,        8/9,        5/9,        5/9, 8/9,       5/9,        5/9,       8/9,       5/9]
-#w_eta= [      5/9,        5/9,        5/9,        8/9, 8/9,       8/9,        5/9,       5/9,       5/9]
+# global node coordinates
+def coordinates(element_no):            
+    col =int(np.ceil((element_no+1)/N_e_r))
+    row = int((element_no+1) - (col -1) * N_e_r)
+    co_ordinates = np.array(([dx*(row-1), dy*(col-1)],
+                             [dx*row  , dy*(col-1)],
+                             [dx*(row-1), dy*(col)],
+                             [dx*row  , dy*(col)]))
+    return co_ordinates
+
 #-------------------- shape func, ddx and ddy ---------------------------------
 shape_func = {0:lambda xi,eta: 1/4*(1-xi)*(1-eta),
               1:lambda xi,eta: 1/4*(1+xi)*(1-eta),
               2:lambda xi,eta: 1/4*(1-xi)*(1+eta),
               3:lambda xi,eta: 1/4*(1+xi)*(1+eta)}
 
-ddx_shape_func = {0:lambda xi,eta: -1/4*(1-eta),
-                  1:lambda xi,eta:  1/4*(1-eta),
-                  2:lambda xi,eta: -1/4*(1+eta),
-                  3:lambda xi,eta:  1/4*(1+eta)}
+ddx_shape_func = {0:lambda eta: -1/4*(1-eta),
+                  1:lambda eta:  1/4*(1-eta),
+                  2:lambda eta: -1/4*(1+eta),
+                  3:lambda eta:  1/4*(1+eta)}
 
-ddy_shape_func = {0:lambda xi,eta: -1/4*(1-xi),
-                  1:lambda xi,eta: -1/4*(1+xi),
-                  2:lambda xi,eta:  1/4*(1-xi),
-                  3:lambda xi,eta:  1/4*(1+xi)}
+ddy_shape_func = {0:lambda xi: -1/4*(1-xi),
+                  1:lambda xi: -1/4*(1+xi),
+                  2:lambda xi:  1/4*(1-xi),
+                  3:lambda xi:  1/4*(1+xi)}
 
-p=np.array([1,2,3,4]).reshape(4,1)
+dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
+dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
+dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
+dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
 
 #------------------------------ global node numbering -------------------------
 def global_no(e,N_e_r):
@@ -49,24 +63,12 @@ def global_no(e,N_e_r):
     glob_no = np.array([(col-1)*2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*(e-1)+2, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+2])
     return glob_no
 
-
-#global_no(7,4)
 loc_to_glob_list=[]
 for i in range(1,total_element+1):
     loc_to_glob_list.append(global_no(i,N_e_r))
 
-loc_to_glob_list[0][2]
 #------------------------------ Main structure of the code --------------------
 for element_no in range (total_element):    # elementsnumbers starts from 1 
-    def coordinates(element_no):            # global node coordinates
-        col =int(np.ceil(element_no/N_e_r))
-        row = int(element_no - (col -1) * N_e_r)
-        co_ordinates = np.array(([dx*(row-1), dy*(col-1)],
-                                    [dx*row  , dy*(col-1)],
-                                    [dx*(row-1), dy*(col)],
-                                    [dx*row  , dy*(col)]))
-        return co_ordinates
-
 
     def jacobian(xi, eta, element_no):
         a = 1/4 * np.matrix(([-(1-eta), 1-eta, -(1+eta), 1+eta],
@@ -87,23 +89,16 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
         global_i = loc_to_glob_list[element_no][iloc]
         for jloc in range(local_node_no):   
             global_j = loc_to_glob_list[element_no][jloc]           
-#           for g in range(no_of_qp):
-            def gauss(f, quadrature_points, weights):
-                xi=eta = np.zeros(len(quadrature_points))
-                for i in range(len(quadrature_points)):
-                    xi[i] =quadrature_points[i]
-                    eta[i] =quadrature_points[i]
-                answer = 0
-                    
-                for i in range(len(quadrature_points)):
-                    for j in range(len(quadrature_points)):     
-                        answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j]) * det(jacobian(xi[i], eta[j], element_no))
-                return answer
-                
-            def ff(xi, eta):
-                return shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta)    
-            M[global_i-1,global_j-1] = gauss(lambda xi,eta: shape_func[iloc](xi,eta)*shape_func[jloc](xi,eta), quadrature_points, weights)
-            
+
+#==============================================================================
+            # M matrix Gaussian integration
+            # loop over all qp
+            M[global_i-1,global_j-1] = 0
+            for i in range(vol_qp):
+                M[global_i-1,global_j-1] = M[global_i-1,global_j-1] + qweight[i] * shape_func[iloc](qpoint[i,0], qpoint[i,1]) * shape_func[jloc](qpoint[i,0], qpoint[i,1])* det(jacobian(qpoint[i,0], qpoint[i,1], element_no))
+
+#==============================================================================
+            # K matrix Gaussian integration            
             def K_gauss(f, quadrature_points, weights):
                 xi=eta = np.zeros(len(quadrature_points))
                 for i in range(len(quadrature_points)):
@@ -115,8 +110,10 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
                     for j in range(len(quadrature_points)):     
                         answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j])* det(jacobian(xi[i], eta[j], element_no))
                 return answer
-            K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c_x*dt*shape_func[jloc](xi,eta)*ddx_shape_func[iloc](xi,eta)* inverse(jacobian(xi,eta,element_no))[0,0]+
-                                                              c_y*dt*shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi,eta)*inverse(jacobian(xi,eta,element_no))[1,1], quadrature_points, weights)
+
+#==============================================================================
+            K[global_i-1,global_j-1] = K_gauss(lambda xi,eta: c*dt*(shape_func[jloc](xi,eta)*ddx_shape_func[iloc](eta)* inverse(jacobian(xi,eta,element_no))[0,0]+
+                                                              shape_func[jloc](xi,eta)*ddy_shape_func[iloc](xi)*inverse(jacobian(xi,eta,element_no))[1,1]), quadrature_points, weights)
 # plt.spy(K)            
     
 #------------------------- surface integration ---------------------------------
@@ -129,19 +126,16 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
 #
 #               do sgi=1,sngi ! loop over the quadrature points on surface
 # L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
-x_quadrature_points = np.array([-0.5, 0.5,  1  ,  1  , 0.5, -0.5, -1  , -1  ])
-y_quadrature_points = np.array([-1  ,-1  , -0.5,  0.5, 1  ,  1  ,  0.5, -0.5])
+L_xi = np.array([-0.5, 0.5,  1  ,  1  , 0.5, -0.5, -1  , -1  ])
+L_eta = np.array([-1  ,-1  , -0.5,  0.5, 1  ,  1  ,  0.5, -0.5])
 L_weights=np.array([1,1,1,1,1,1,1,1])
+gp = len(L_xi)
 sloc = 4
 sdot = np.zeros(sloc)
 n_hat = np.zeros(sloc)
 
 domain_norm = [0,0,1]
 
-dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e+1)[0,0] +(1-eta)*coordinates(e+1)[1,0] -(1+eta)*coordinates(e)[2,0] +(1+eta)*coordinates(e)[3,0])
-dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e+1)[0,1] +(1-eta)*coordinates(e+1)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
-dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e+1)[0,0] -(xi+1)*coordinates(e+1)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
-dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e+1)[0,1] -(xi+1)*coordinates(e+1)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
 
 for e in range(total_element):      # element numbering starts from 0
     
@@ -150,8 +144,8 @@ for e in range(total_element):      # element numbering starts from 0
         x_centre =0
         y_centre =0
         for i in range(local_node_no):
-            x_centre = x_centre + coordinates(e+1)[i,0]         
-            y_centre = y_centre + coordinates(e+1)[i,1]
+            x_centre = x_centre + coordinates(e)[i,0]         
+            y_centre = y_centre + coordinates(e)[i,1]
 
         z_centre = 0
         e_centre = [x_centre/local_node_no, y_centre/local_node_no, z_centre]
@@ -172,11 +166,11 @@ for e in range(total_element):      # element numbering starts from 0
             
             # =================================================================
             # Jacobian
-            for gp in range(len(x_quadrature_points)):
-                jacamin =0
-                for sl in range(sloc):
-                    jacamin = jacamin + np.sqrt(dx_dxi(y_quadrature_points[gp])**2 + dy_dxi(y_quadrature_points[gp])**2)
-                print(jacamin)
+#            for gp in range(len(L_xi)):
+#                jacamin =0
+#                for sl in range(sloc):
+#                    jacamin = jacamin + np.sqrt(dx_dxi(L_eta[gp])**2 + dy_dxi(L_eta[gp])**2)
+#                print(jacamin)
             
             det_jac = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
                        1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
@@ -191,10 +185,10 @@ for e in range(total_element):      # element numbering starts from 0
                        3: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm)}  # n_ds of the line (-1,1)  and (-1,-1)
             
             # vector from the e_centre to a node on a boundary line
-            r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
-                 1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
-                 2: np.subtract([coordinates(e+1)[3,0], coordinates(e+1)[3,1],0] , e_centre(e)),
-                 3: np.subtract([coordinates(e+1)[2,0], coordinates(e+1)[2,1],0] , e_centre(e))}
+            r = {0: np.subtract([coordinates(e)[0,0], coordinates(e)[0,1],0] , e_centre(e)),
+                 1: np.subtract([coordinates(e)[1,0], coordinates(e)[1,1],0] , e_centre(e)),
+                 2: np.subtract([coordinates(e)[3,0], coordinates(e)[3,1],0] , e_centre(e)),
+                 3: np.subtract([coordinates(e)[2,0], coordinates(e)[2,1],0] , e_centre(e))}
             
             # dot product of Snormal and r 
             for s in range(sloc):
@@ -216,27 +210,21 @@ for e in range(total_element):      # element numbering starts from 0
           
                 # =============================================================
                 # boundary Gaussian integration
-                def L_gauss(f, x_quadrature_points, y_quadrature_points, L_weights):  
-                    xi=eta = np.zeros(len(x_quadrature_points))
-                    for i in range(len(x_quadrature_points)):
-                        xi[i] =x_quadrature_points[i]
-                        eta[i] =y_quadrature_points[i]
-                    answer = 0
-                    for i in range(len(x_quadrature_points)):
-                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *det_jac[siloc]
-                    return answer
+                def L_gauss(f, L_xi, L_eta, L_weights):  
+                    flux = 0
+                    for gi in range(gp):
+                        flux =  flux + L_weights[gi] * f(L_xi[gi], L_eta[gi]) * n_hat[sjloc] *det_jac[sjloc]
+                    return flux
                 # =============================================================
-                F0[s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1] = F0[s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1] = L_gauss(lambda xi,eta: dt * c_x * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), x_quadrature_points, y_quadrature_points, L_weights)
+                F0[s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1] = F0[s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1] = (
+                        L_gauss(lambda xi,eta: dt * c_x * n_hat[sjloc] * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), L_xi, L_eta, L_weights))
                 # print(s_glob_node(e,siloc)[0]-1, s_glob_node(e,sjloc)[0]-1, s_glob_node(e,siloc)[1]-1, s_glob_node(e,sjloc)[1]-1)
-
 
 # plt.spy(F0)
 
 
 
-
-
-
+    
 
 
 
@@ -245,10 +233,10 @@ for e in range(total_element):      # element numbering starts from 0
 
 
             # vector from centre to one node on a boundary line
-            # r = {0: np.subtract([coordinates(e+1)[0,0], coordinates(e+1)[0,1],0] , e_centre(e)),
-            #      1: np.subtract([coordinates(e+1)[1,0], coordinates(e+1)[1,1],0] , e_centre(e)),
-            #      2: np.subtract([coordinates(e+1)[3,0], coordinates(e+1)[3,1],0] , e_centre(e)),
-            #      3: np.subtract([coordinates(e+1)[2,0], coordinates(e+1)[2,1],0] , e_centre(e))}
+            # r = {0: np.subtract([coordinates(e)[0,0], coordinates(e)[0,1],0] , e_centre(e)),
+            #      1: np.subtract([coordinates(e)[1,0], coordinates(e)[1,1],0] , e_centre(e)),
+            #      2: np.subtract([coordinates(e)[3,0], coordinates(e)[3,1],0] , e_centre(e)),
+            #      3: np.subtract([coordinates(e)[2,0], coordinates(e)[2,1],0] , e_centre(e))}
             
             # sign (norm . r)
             # n_hat = np.sign(np.dot(s_norm[siloc], r[siloc]))
@@ -356,10 +344,29 @@ for e in range(total_element):      # element numbering starts from 0
 #                else:
 #                    a=[loc_to_glob_list[e][2], loc_to_glob_list[e][0]]
 #                return a
-###############################################################################
+########################## line gaussian integration ##########################
+#                def L_gauss(f, L_xi, L_eta, L_weights):  
+#                    xi=eta = np.zeros(len(L_xi))
+#                    for i in range(len(L_xi)):
+#                        xi[i] =L_xi[i]
+#                        eta[i] =L_eta[i]
+#                    answer = 0
+#                    for i in range(len(L_xi)):
+#                        answer =  answer + L_weights[i] * f(xi[i], eta[i]) * n_hat[sjloc] *det_jac[siloc]
+#                    return answer
 
-
-
+############################## M vol Gaussian int ###############################
+#            def gauss(f, quadrature_points, weights):
+#                xi=eta = np.zeros(len(quadrature_points))
+#                for i in range(len(quadrature_points)):
+#                    xi[i] =quadrature_points[i]
+#                    eta[i] =quadrature_points[i]
+#                answer = 0
+#                    
+#                for i in range(len(quadrature_points)):
+#                    for j in range(len(quadrature_points)):     
+#                        answer =  answer + weights[i] * weights[j] * f(xi[i], eta[j]) * det(jacobian(xi[i], eta[j], element_no))
+#                return answer
 
 #loc_to_glob_list={}
 #for i in range(1,total_element+1):
