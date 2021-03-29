@@ -93,3 +93,11 @@ gmsh -3 -bin <name of the file.geo>
 the second command creates .halo files
 2- fldecomp -n <ncores> <name of mesh_without the .msh>
 3- mpirun -n <ncores> <address to>/icferst <file>.mpml
+
+# Optimising a simulation mesh
+when starting a imulation it generates a <file name.sat> file. If using the below command one camn see the plots and start optimising the simulation based on the number of
+degrees of freedom and also the #cores by examining the plots. 50,000 degrees of freedom on each core would be ideal ( or 10,000 to 20,000 elements pre core).
+$ statplot <file_name.sat>
+wall_time = whole simulation time
+elapsetime = finish time of the simulation specified in diamond
+
