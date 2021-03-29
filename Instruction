@@ -90,5 +90,6 @@ press 'F' and go to 'P', press space to select that, move it next to CPU%, press
 # divide a simulation over multiple cores
 1- you should have a binary mesh generated using
 gmsh -3 -bin <name of the file.geo>
+the second command creates .halo files
 2- fldecomp -n <ncores> <name of mesh_without the .msh>
-3- mpirun -n <ncores> <code>/icferst <file>.mpml
+3- mpirun -n <ncores> <address to>/icferst <file>.mpml
