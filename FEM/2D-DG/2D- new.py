@@ -27,9 +27,9 @@ K = np.zeros((total_nodes, total_nodes))
 F = np.zeros((total_nodes, total_nodes))
 
 # global node coordinates
-def coordinates(element_no):            
-    col =int(np.ceil((element_no+1)/N_e_r))
-    row = int((element_no+1) - (col -1) * N_e_r)
+def coordinates(e):            
+    col =int(np.ceil((e+1)/N_e_r))
+    row = int((e+1) - (col -1) * N_e_r)
     co_ordinates = np.array(([dx*(row-1), dy*(col-1)],
                              [dx*row  , dy*(col-1)],
                              [dx*(row-1), dy*(col)],
@@ -68,12 +68,12 @@ for i in range(1,total_element+1):
     loc_to_glob_list.append(global_no(i,N_e_r))
 
 #------------------------------ Main structure of the code --------------------
-for element_no in range (total_element):    # elementsnumbers starts from 1 
-
-    def jacobian(xi, eta, element_no):
+for e in range (total_element):    # element numbers starts from 1 
+    
+    def jacobian(xi, eta, e):
         a = 1/4 * np.matrix(([-(1-eta), 1-eta, -(1+eta), 1+eta],
                                    [-(1-xi), -(1+xi), 1-xi, 1+xi])) 
-        jacobi = a.dot(coordinates(element_no))
+        jacobi = a.dot(coordinates(e))
         return jacobi
 
     
@@ -86,24 +86,29 @@ for element_no in range (total_element):    # elementsnumbers starts from 1
     
     
     for iloc in range(local_node_no):     
-        global_i = loc_to_glob_list[element_no][iloc]
+        global_i = loc_to_glob_list[e][iloc]
         for jloc in range(local_node_no):   
-            global_j = loc_to_glob_list[element_no][jloc]           
+            global_j = loc_to_glob_list[e][jloc]           
 
 #==============================================================================
             # M matrix Gaussian integration
             # loop over all qp
             M[global_i-1,global_j-1] = 0
             K[global_i-1,global_j-1] = 0
+            det_jac = 0
+            jac_matrix = np.zeros((2,2))
             for i in range(vol_qp):
                 # Mass matrix
-                M[global_i-1,global_j-1] = M[global_i-1,global_j-1] + qweight[i] * shape_func[iloc](qpoint[i,0], qpoint[i,1]) * shape_func[jloc](qpoint[i,0], qpoint[i,1])* det(jacobian(qpoint[i,0], qpoint[i,1], element_no))
+                jac_matrix = np.array(([dx_dxi, dy_dxi],[dx_deta, dy_deta]))
+                det_jac = dx_dxi(qpoint[i,1])*dy_deta(qpoint[i,0]) - dy_dxi(qpoint[i,1]) * dx_deta(qpoint[i,0])
+                inv_jac_matrix = 1/det_jac * np.array(([dy_deta, dy_dxi],[dx_deta, dx_dxi]))
+                M[global_i-1,global_j-1] = M[global_i-1,global_j-1] + qweight[i] * shape_func[iloc](qpoint[i,0], qpoint[i,1]) * shape_func[jloc](qpoint[i,0], qpoint[i,1])* det_jac
 
 #==============================================================================
                 # Stiffness matrix
-                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i] * c*dt*(shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func[iloc](qpoint[i,1]) * inverse(jacobian(qpoint[i,0], qpoint[i,1],element_no))[0,0]+
-                                                                                         shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func[iloc](qpoint[i,0]) * inverse(jacobian(qpoint[i,0], qpoint[i,1],element_no))[1,1])*
-                                                                                         det(jacobian(qpoint[i,0], qpoint[i,1], element_no)))
+                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i] * c*dt*(shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func[iloc](qpoint[i,1]) * inverse(jacobian(qpoint[i,0], qpoint[i,1],e))[0,0]+
+                                                                                         shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func[iloc](qpoint[i,0]) * inverse(jacobian(qpoint[i,0], qpoint[i,1],e))[1,1])*
+                                                                                         det_jac)
             
 #------------------------- surface integration ---------------------------------
 #  do iface =1,nface
