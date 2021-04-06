@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import sympy as sy
 import time
 
-nx = 50                   # total number of nodes(degree of freedom)
-nt = 1000                   # total number of time steps
+nx = 14                   # total number of nodes(degree of freedom)
+nt = 300                   # total number of time steps
 N_i = 2                     # number of interpolation functions
 L =  0.5                    # Totla length
 C = .05                     # Courant number
@@ -93,12 +93,90 @@ for n in range(nt):                 # Marching in time
         U_plot[2,:] = U.copy()      # saving U(t= almost the end to time steps)
 t4 = time.time()
 #------------------------------plot initiation --------------------------------
-plt.figure(1)
-plt.axis([0,L, -1,2])
-plt.plot(x, U_plot[0,:], label='Timestep 1')
-plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
-plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
-plt.xlabel('Distrance')
-plt.ylabel('U')
-plt.legend()
-plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')
+#plt.figure(1)
+#plt.axis([0,L, -1,2])
+#plt.plot(x, U_plot[0,:], label='Timestep 1')
+#plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
+#plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
+#plt.xlabel('Distrance')
+#plt.ylabel('U')
+#plt.legend()
+#plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')
+xi = [-1/np.sqrt(3), 1/np.sqrt(3)]
+phi = {0: lambda xi: 1/2*(1-xi),
+       1: lambda xi: 1/2*(1+xi)}
+
+d_dx = {0: -1/2,
+        1: 1/2}
+
+j = dx/2
+amin = np.zeros((nx,nx))
+Kamin = np.zeros((nx,nx))
+surf = np.zeros((nx,nx+1))
+
+def glob(e):
+    y= (e+1)*2-1
+    x=(e+1)*2-2
+    return [x, y]
+
+n_hat ={0:-1,
+        1:1}
+
+for e in range(nx//2):
+    for i_n in range(2):
+        global_i = glob(e)[i_n]
+        for j_n in range(2):
+            global_j = glob(e)[j_n]
+            amin[global_i , global_j] = 0
+            Kamin[global_i , global_j] = 0
+            for g in range(len(xi)):
+                amin[global_i, global_j] = amin[global_i , global_j] + (phi[i_n](xi[g])
+                                                                        * phi[j_n](xi[g]) * j)
+                Kamin[global_i , global_j] = Kamin[global_i , global_j] + (phi[i_n](xi[g])
+                * d_dx[j_n] *j)
+
+
+L_xi = [-1,1]
+for e in range(nx//2):
+    for s in range(1):
+        for s_i in range(2):
+            global_si = glob(e)[s_i]
+            for s_j in range(2):
+                global_sj = glob(e)[s_j]
+                surf[global_si, global_sj+1] = 0
+                surf[global_si, glob(e-1)[1]+1] = 0
+                for g in range(len(xi)):
+                    if s_i==0:
+                        surf[global_si, glob(e-1)[1]+1] = (surf[global_si, glob(e-1)[1]+1] + 
+                                                    n_hat[s_i] *c*dt*phi[s_i](L_xi[g]) *j)
+                    elif s_i==1 and s_j==1:
+                        surf[global_si, global_sj+1] = (surf[global_si, global_sj+1] + 
+                                                    n_hat[s_i] *c *dt *phi[s_i](L_xi[g]) *j)
+surf = surf[:,1:]
+                
+#plt.spy(amin)        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        

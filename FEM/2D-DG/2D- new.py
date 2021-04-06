@@ -151,10 +151,9 @@ def e_centre(e):
     
 #------------------------------- Main stucture of the code --------------------    
 for e in range(total_element):              # element numbering starts from 0
-    for s in range(total_nsuf):             # number of surfaces = no.elements * no.faces in each e
-        for siloc in range(nsuf):           # = 4, number of local surfaces
+    for sl in range(nsuf):             # number of surfaces = no.elements * no.faces in each e
+        for siloc in range(2):           # = 4, number of local surfaces
             sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
-            
             # =================================================================
             # normal to the boundary lines 
             snormal = {0: np.cross([dx_dxi(-1) , dy_dxi(-1)  ,0], domain_norm),                  # n_ds of the line (-1,-1) and (-1,1)
@@ -169,10 +168,10 @@ for e in range(total_element):              # element numbering starts from 0
                  3: np.subtract([coordinates(e)[2,0], coordinates(e)[2,1],0] , e_centre(e))}
             
             # dot product of Snormal and r 
-            for s in range(nsuf):
-                sdot[s] = np.dot(snormal[s], r[s])
-                if sdot[s] <= 0:
-                    snormal[s] = snormal[s] * (-1)
+            for sl in range(nsuf):
+                sdot[sl] = np.dot(snormal[sl], r[sl])
+                if sdot[sl] <= 0:
+                    snormal[sl] = snormal[sl] * (-1)
             
             # sign of normal to the boundary
             n_hat = {0: np.sign(snormal[0][1]),
@@ -181,7 +180,7 @@ for e in range(total_element):              # element numbering starts from 0
                      3: np.sign(snormal[3][0])}
                     
             # =================================================================
-            for sjloc in range(nsuf):                   # = 4, number of local surfaces
+            for sjloc in range(2):                   # = 4, number of local surfaces
                 sjnod = s_glob_node(e,sjloc)            # gives two nodes numbrs of each j-surface
           
                 # =============================================================
@@ -190,21 +189,23 @@ for e in range(total_element):              # element numbering starts from 0
                 #==========================================================
                 # cal det_jac
                 L_det_jac =0
-                for i in range(ng):
-                    if siloc==0 or siloc==2:
-                        eta=s_ng[siloc][i][1]
+                for g in range(ng):
+                    if sjloc==0 or sjloc==2:
+                        eta=s_ng[sjloc][g][1]
                         L_det_jac = np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)
                     else:
-                        xi = s_ng[siloc][i][0]
+                        xi = s_ng[sjloc][g][0]
                         L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
-
                     #==========================================================
                     # cal flux
-                    flux =  flux + L_weights[i] * c*dt * n_hat[siloc] * shape_func[siloc](L_xi[i],L_eta[i])*shape_func[sjloc](L_xi[i],L_eta[i]) *L_det_jac
-                F[sinod[0]-1, sjnod[0]-1] = F[sinod[1]-1, sjnod[1]-1] = flux/2
+                    flux =  flux + (L_weights[g] * c*dt * n_hat[sl] 
+                                    * shape_func[siloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1])
+                                    * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
+                                    * L_det_jac)
+                    F[sinod[0]-1, sjnod[0]-1] = F[sinod[1]-1, sjnod[1]-1] = flux
                 
 
-# plt.spy(F)                
+plt.spy(F)                
 
 
 
