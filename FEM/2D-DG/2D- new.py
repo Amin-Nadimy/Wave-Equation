@@ -14,13 +14,13 @@ dt = C*dx*dy/(c*(dy+dx))
 N_e_r = 4
 N_e_c= 3
 local_node_no = 4
-total_element=12
+total_element=N_e_r * N_e_c
 
 total_nodes = total_element * local_node_no
 vol_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
-F = np.zeros((total_nodes, total_nodes))
+F = np.zeros((total_nodes, total_nodes+2*N_e_r))
 
 # global node coordinates
 def coordinates(e):            
@@ -146,13 +146,13 @@ def e_centre(e):
         y_centre = y_centre + coordinates(e)[i,1]
         z_centre = 0
         e_centre = [x_centre/local_node_no, y_centre/local_node_no, z_centre]
-        return e_centre
+    return e_centre
     
     
 #------------------------------- Main stucture of the code --------------------    
 for e in range(total_element):              # element numbering starts from 0
-    for sl in range(nsuf):             # number of surfaces = no.elements * no.faces in each e
-        for siloc in range(2):           # = 4, number of local surfaces
+    for sl in range(nsuf):             # no.faces in each e
+        for siloc in range(4):           # = 4, number of local surfaces
             sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
             # =================================================================
             # normal to the boundary lines 
@@ -161,7 +161,7 @@ for e in range(total_element):              # element numbering starts from 0
                        2: np.cross([dx_dxi(1)  , dy_dxi(1)   ,0], domain_norm),      # n_ds of the line (1,1)   and (1,-1)
                        3: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm)}  # n_ds of the line (-1,1)  and (-1,-1)
             
-            # vector from the e_centre to a node on a boundary line
+            # vector from the centre of the element to a node on a boundary line
             r = {0: np.subtract([coordinates(e)[0,0], coordinates(e)[0,1],0] , e_centre(e)),
                  1: np.subtract([coordinates(e)[1,0], coordinates(e)[1,1],0] , e_centre(e)),
                  2: np.subtract([coordinates(e)[3,0], coordinates(e)[3,1],0] , e_centre(e)),
@@ -173,14 +173,14 @@ for e in range(total_element):              # element numbering starts from 0
                 if sdot[sl] <= 0:
                     snormal[sl] = snormal[sl] * (-1)
             
-            # sign of normal to the boundary
+            # sign of normal for each surface
             n_hat = {0: np.sign(snormal[0][1]),
                      1: np.sign(snormal[1][0]),
                      2: np.sign(snormal[2][1]),
                      3: np.sign(snormal[3][0])}
                     
             # =================================================================
-            for sjloc in range(2):                   # = 4, number of local surfaces
+            for sjloc in range(4):                   # = 4, number of local surfaces
                 sjnod = s_glob_node(e,sjloc)            # gives two nodes numbrs of each j-surface
           
                 # =============================================================
@@ -190,7 +190,7 @@ for e in range(total_element):              # element numbering starts from 0
                 # cal det_jac
                 L_det_jac =0
                 for g in range(ng):
-                    if sjloc==0 or sjloc==2:
+                    if sjloc==0:
                         eta=s_ng[sjloc][g][1]
                         L_det_jac = np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)
                     else:
@@ -198,14 +198,16 @@ for e in range(total_element):              # element numbering starts from 0
                         L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
                     #==========================================================
                     # cal flux
-                    flux =  flux + (L_weights[g] * c*dt * n_hat[sl] 
+                    F[sinod[0]-1, sjnod[0]-1] = F[sinod[1]-1, sjnod[1]-1] = flux
+                    if siloc==0:
+                        flux =  flux + (L_weights[g] * c*dt * n_hat[sl] 
                                     * shape_func[siloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1])
                                     * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
                                     * L_det_jac)
-                    F[sinod[0]-1, sjnod[0]-1] = F[sinod[1]-1, sjnod[1]-1] = flux
-                
+                        F[s_glob_node(e-N_e_r,2)[0]-1, sjnod[0]-1] = F[s_glob_node(e-N_e_r,2)[1]-1, sjnod[1]-1] = flux
+                        
 
-plt.spy(F)                
+#plt.spy(F)                
 
 
 
