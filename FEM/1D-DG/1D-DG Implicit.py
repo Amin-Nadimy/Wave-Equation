@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import sympy as sy
 import time
 
-nx = 50                   # total number of nodes(degree of freedom)
+nx = 4                   # total number of nodes(degree of freedom)
 nt = 1000                   # total number of time steps
 N_i = 2                     # number of interpolation functions
 L =  0.5                    # Totla length
@@ -110,14 +110,15 @@ d_dx = {0: -1/2,
         1: 1/2}
 
 j = dx/2
-amin = np.zeros((nx,nx))
-Kamin = np.zeros((nx,nx))
+MM = np.zeros((nx,nx))
+KK = np.zeros((nx,nx))
 surf = np.zeros((nx,nx+1))
 
+# global node numbers of each elements
 def glob(e):
-    y= (e+1)*2-1
-    x=(e+1)*2-2
-    return [x, y]
+    node_1=(e+1)*2-2
+    node_2= (e+1)*2-1
+    return [node_1, node_2]
 
 n_hat ={0:-1,
         1:1}
@@ -127,33 +128,31 @@ for e in range(nx//2):
         global_i = glob(e)[i_n]
         for j_n in range(2):
             global_j = glob(e)[j_n]
-            amin[global_i , global_j] = 0
-            Kamin[global_i , global_j] = 0
+            MM[global_i , global_j] = 0
+            KK[global_i , global_j] = 0
             for g in range(len(xi)):
-                amin[global_i, global_j] = amin[global_i , global_j] + (phi[i_n](xi[g])
+                MM[global_i, global_j] = MM[global_i , global_j] + (phi[i_n](xi[g])
                                                                         * phi[j_n](xi[g]) * j)
-                Kamin[global_i , global_j] = Kamin[global_i , global_j] + (c*dt*phi[j_n](xi[g])
+                KK[global_i , global_j] = KK[global_i , global_j] + (c*dt*phi[j_n](xi[g])
                 * d_dx[i_n])
 
 
 L_xi = [-1,1]
 for e in range(nx//2):
-    for s in range(2):
-        for s_i in range(2):
-            global_si = glob(e)[s_i]
-            surf[global_si, glob(e-1)[1]+1] = 0
-            for s_j in range(2):
-                global_sj = glob(e)[s_j]
-                surf[global_si, global_sj+1] =0
-#                surf[global_si, global_sj+1] = 0
-#                surf[global_si, glob(e-1)[1]+1] = 0
-                surf[global_si, glob(e-1)[1]+1] = (surf[global_si, glob(e-1)[1]+1]+
-                                    n_hat[0] *c*phi[s_i](L_xi[0]) *phi[s_j](L_xi[1]) *dt)
-                surf[global_si, global_sj+1] = ( surf[global_si, global_sj+1]+
-                                    n_hat[s_i]*c *phi[s_i](L_xi[1]) *phi[s_j](L_xi[1]) *dt)
-surf = -surf[:,1:]
+    #for s in range(2):
+    for s_i in range(2):
+        global_si = glob(e)[s_i]
+        for s_j in range(2):
+            global_sj = glob(e)[s_j]
+            
+            surf[global_si, glob(e-1)[1]+1] = (n_hat[0] *c*dt* phi[s_i](L_xi[0]) *
+                                                               phi[s_j](L_xi[1]))
+            
+            surf[global_si, global_sj+1] = (n_hat[s_i]*c*dt* phi[s_i](L_xi[1]) *
+                                                             phi[s_j](L_xi[1]))
+#surf = -surf[:,1:]
 
-RHS_cst = (amin + Kamin + surf)
+RHS_cst = (MM + KK + surf)
 
 ##-Matrix method----------------------------------------------------------------
 ##Mrching forward in time
@@ -162,7 +161,7 @@ t3 = time.time()
 for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un)           # saving U^t to be used in the next time step calculation
-    U=np.linalg.solve(amin,RHS)
+    U=np.linalg.solve(MM,RHS)
 
     if n==1:
         U_plot[0,:] = U.copy()      # saving U(t=1)
@@ -172,16 +171,16 @@ for n in range(nt):                 # Marching in time
         U_plot[2,:] = U.copy()      # saving U(t= almost the end to time steps)
 t4 = time.time()
 ##------------------------------plot initiation --------------------------------
-plt.figure(1)
-plt.axis([0,L, -1,2])
-plt.plot(x, U_plot[0,:], label='Timestep 1')
-plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
-plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
-plt.xlabel('Distrance')
-plt.ylabel('U')
-plt.legend()
-plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')                
-# plt.spy(amin)        
+#plt.figure(1)
+#plt.axis([0,L, -1,2])
+#plt.plot(x, U_plot[0,:], label='Timestep 1')
+#plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
+#plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
+#plt.xlabel('Distrance')
+#plt.ylabel('U')
+#plt.legend()
+#plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')                
+# plt.spy(MM)        
         
         
         
