@@ -101,3 +101,9 @@ $ statplot <file_name.sat>
 wall_time = whole simulation time
 elapsetime = finish time of the simulation specified in diamond
 
+# adding sudo access for the workstation to a person
+sudo gedit /etc/group    # which opens a txt file, then add the username whereever an619 is
+# one can use vim or cat instead of gedit too. after than the computer should be rebooted, the command is:
+# sudo reboot
+
+
