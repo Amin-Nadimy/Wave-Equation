@@ -129,7 +129,7 @@ F = np.zeros((total_nodes, total_nodes))
 
 # =============================================================================
 # function giving global node numbers of 2 points of each face
-def s_glob_node(e,suf):                
+def s_glob_node(e,suf):
     global_nod ={0: [loc_to_glob_list[e][0]-1, loc_to_glob_list[e][1]-1],
                  1: [loc_to_glob_list[e][1]-1, loc_to_glob_list[e][3]-1],
                  3: [loc_to_glob_list[e][3]-1, loc_to_glob_list[e][2]-1],
@@ -153,7 +153,6 @@ def e_centre(e):
 #------------------------------- Main stucture of the code --------------------    
 for e in range(total_element):              # element numbering starts from 0
     for suf in range(nsuf):             # no.faces in each e
-        flux = 0
         for siloc in range(4):           # = 4, number of local surfaces
             sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
             # =================================================================
@@ -182,14 +181,6 @@ for e in range(total_element):              # element numbering starts from 0
                      2: np.sign(snormal[3][0])}
                     
             # =================================================================
-            F[sinod[0], s_glob_node(e-N_e_r,2)[1]]=0 #e11, global node 38 to 30
-            F[sinod[1], s_glob_node(e-N_e_r,2)[0]]=0 #e11, global node 39 to 31
-            F[sinod[0], sinod[0]] = 0 # e11, global node 39 to 39
-            F[sinod[1], sinod[1]] = 0 # e11, global node 46 to 47
-            F[sinod[1], sinod[1]] = 0 # e11, global node 38 to 46
-            F[s_glob_node(e,0)[1], sinod[0]] = 0 # e11, global node 39 to 47
-            F[sinod[1], s_glob_node(e-1,1)[0]] = 0 # e11, global node 38 to 37
-            F[sinod[0], s_glob_node(e-1,1)[1]] = 0 # e11, global node 46 to 45            
             for sjloc in range(4):                   # = 4, number of local surfaces
                 sjnod = s_glob_node(e,sjloc)         # gives two nodes numbrs of each j-surface
           
@@ -197,40 +188,47 @@ for e in range(total_element):              # element numbering starts from 0
                 # boundary Gaussian integration: loop over all ng
                 # cal det_jac
                 L_det_jac =0
-                
+#                F[sinod[0], s_glob_node(e-N_e_r,3)[1]] = 0 #e11, global node 38 to 30
+#                F[sinod[1], s_glob_node(e-N_e_r,3)[0]] = 0 #e11, global node 39 to 31
+#                F[sinod[0], sinod[0]] = 0 # e11, global node 39 to 39
+#                F[sinod[1], sinod[1]] = 0  # e11, global node 47 to 47
+#                F[sinod[1], sinod[1]] = 0 # e11, global node 46 to 46
+#                F[sinod[0], sinod[0]] = 0  # e11, global node 47 to 47
+#                F[sinod[1], s_glob_node(e-1,1)[0]] = 0 # e11, global node 38 to 37
+#                F[sinod[0], s_glob_node(e-1,1)[1]] = 0 # e11, global node 46 to 45
+                flux=0
                 for g in range(ng):
-                    if suf==0 or suf==2:
+                    if suf==0 or suf==3:
                         eta=s_ng[sl][g][1]
                         L_det_jac = np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)
-                    elif suf==1 or suf==3:
+                    elif suf==1 or suf==2:
                         xi = s_ng[sl][g][0]
                         L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
                     #==========================================================
                     # cal flux
-                    flux =  {0:L_weights[g] * c*dt * n_hat[suf] 
-                                    * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1])
-                                    * shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]) 
-                                    * L_det_jac}
+                    flux =  (flux+L_weights[g] * c*dt * n_hat[suf] 
+                                    * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1])
+                                    * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
+                                    * L_det_jac)
                     
                     print(siloc,sjloc,shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]), shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]) ,flux, suf)
-                    if siloc ==0:
-                        F[sinod[0], s_glob_node(e-N_e_r,2)[1]] = F[sinod[0], s_glob_node(e-N_e_r,2)[1]] + flux[0] #e11, global node 38 to 30
-                        F[sinod[1], s_glob_node(e-N_e_r,2)[0]] = F[sinod[1], s_glob_node(e-N_e_r,2)[0]] + flux[0] #e11, global node 39 to 31
-                    #elif siloc==1:
-                        #F[sinod[0], sinod[0]] = F[sinod[0], sinod[0]] + flux[0] # e11, global node 39 to 39
-                        #F[sinod[1], sinod[1]] = F[sinod[1], sinod[1]] + flux[0] # e11, global node 47 to 47
-                    elif siloc==2:
-                        #F[sinod[1], sinod[1]] = F[sinod[1], sinod[1]] + flux[0] # e11, global node 46 to 46
-                        F[s_glob_node(e,0)[1], sjnod[0]] = F[s_glob_node(e,0)[1], sinod[0]] + flux[0] # e11, global node 39 to 47
-                    elif siloc==3:
-                        F[sinod[1], s_glob_node(e-1,1)[0]] = F[sinod[1], s_glob_node(e-1,1)[0]] + flux[0] # e11, global node 38 to 37
-                        F[sinod[0], s_glob_node(e-1,1)[1]] = F[sinod[0], s_glob_node(e-1,1)[1]] + flux[0] # e11, global node 46 to 45
+                if suf ==0:
+                    F[sinod[0], s_glob_node(e-N_e_r,3)[1]] = flux #F[sinod[0], s_glob_node(e-N_e_r,3)[1]] + flux[0] #e11, global node 38 to 30
+                    F[sinod[1], s_glob_node(e-N_e_r,3)[0]] = flux #F[sinod[1], s_glob_node(e-N_e_r,3)[0]] + flux[0] #e11, global node 39 to 31
+                elif suf==1:
+                    F[sinod[0], sinod[0]] = flux #F[sinod[0], sinod[0]] + flux[0] # e11, global node 39 to 39
+                    F[sinod[1], sinod[1]] = flux #F[sinod[1], sinod[1]] + flux[0] # e11, global node 47 to 47
+                elif suf==3:
+                    F[sinod[1], sinod[1]] = flux #F[sinod[1], sinod[1]] + flux[0] # e11, global node 46 to 46
+                    F[sinod[0], sinod[0]] = flux #F[sinod[0], sinod[0]] + flux[0] # e11, global node 47 to 47
+                elif suf==2:
+                    F[sinod[1], s_glob_node(e-1,1)[0]] = flux #F[sinod[1], s_glob_node(e-1,1)[0]] + flux[0] # e11, global node 38 to 37
+                    F[sinod[0], s_glob_node(e-1,1)[1]] = flux #F[sinod[0], s_glob_node(e-1,1)[1]] + flux[0] # e11, global node 46 to 45
                         
-# plt.spy(F)                
+F[0:16, 39:48]=0
+plt.spy(F)                
     
      
-
-
 
 
 
