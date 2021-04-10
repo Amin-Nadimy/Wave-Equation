@@ -95,9 +95,9 @@ for e in range(nx//2):
             surf[global_si, global_sj+1] = (n_hat[s_i]*c*dt* phi[s_i](L_xi[1]) *
                                                              phi[s_j](L_xi[1]))
 surf = -surf[:,1:]
-#
+##
 #RHS_cst = (MM + KK + surf)
-
+#
 ##-Matrix method----------------------------------------------------------------
 ##Mrching forward in time
 #Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t)

@@ -8,11 +8,13 @@ qweight = np.array(([25/81],[40/81],[25/81],
                    [25/81],[40/81],[25/81]))
 C = 0.05
 c = 0.1
-dx = 0.125
-dy = 0.1667
-dt = C*dx*dy/(c*(dy+dx))
+L = 0.5
 N_e_r = 4
 N_e_c= 3
+nt = 10
+dx = L/(N_e_r)
+dy = L/(N_e_c)
+dt = C*dx*dy/(c*(dy+dx))
 local_node_no = 4
 total_element=N_e_r * N_e_c
 
@@ -20,6 +22,25 @@ total_nodes = total_element * local_node_no
 vol_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
+U = np.zeros(total_element*local_node_no)                          # Wave matrix
+Un = np.zeros(total_element*local_node_no)                         # Dummy variable to save current components of U
+U1=U2 = U                                # Dummy matrices to plot 3 time steps
+#U_plot = np.ones((3,N*Np))                 # A matrix to save 3 time steps used for plotting the results
+
+U[int(total_element*local_node_no*.3):int(total_element*local_node_no*.8)]=1              # Defining wave components
+
+############### DG nodes and meshgrid #########################################
+## DG x-coordinates
+x = np.linspace(0, L, N_e_r+1)
+x = [ele for ele in x for i in range(2)]
+x=x[1:]
+x=x[:-1]
+
+## DG y-coordinates
+y = np.linspace(0, L, N_e_c+1)
+y = [ele for ele in y for i in range(2)]
+y=y[1:]
+y=y[:-1]
 
 # global node coordinates
 def coordinates(e):            
@@ -211,22 +232,36 @@ for e in range(total_element):              # element numbering starts from 0
                                     * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
                                     * L_det_jac)
                     
-                    print(siloc,sjloc,shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]), shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]) ,flux, suf)
-                if suf ==0:
-                    F[sinod[0], s_glob_node(e-N_e_r,3)[1]] = flux #F[sinod[0], s_glob_node(e-N_e_r,3)[1]] + flux[0] #e11, global node 38 to 30
-                    F[sinod[1], s_glob_node(e-N_e_r,3)[0]] = flux #F[sinod[1], s_glob_node(e-N_e_r,3)[0]] + flux[0] #e11, global node 39 to 31
+                if suf ==0 and e>>N_e_r:
+                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux # 38 to 30
+                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[0]] = flux # 38 to 31
+                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[1]] = flux # 39 to 30
+                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux # 39 to 31
                 elif suf==1:
-                    F[sinod[0], sinod[0]] = flux #F[sinod[0], sinod[0]] + flux[0] # e11, global node 39 to 39
-                    F[sinod[1], sinod[1]] = flux #F[sinod[1], sinod[1]] + flux[0] # e11, global node 47 to 47
+                    F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]] = flux # 39 to 39
+                    F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]] = flux # 47 to 47
                 elif suf==3:
-                    F[sinod[1], sinod[1]] = flux #F[sinod[1], sinod[1]] + flux[0] # e11, global node 46 to 46
-                    F[sinod[0], sinod[0]] = flux #F[sinod[0], sinod[0]] + flux[0] # e11, global node 47 to 47
-                elif suf==2:
-                    F[sinod[1], s_glob_node(e-1,1)[0]] = flux #F[sinod[1], s_glob_node(e-1,1)[0]] + flux[0] # e11, global node 38 to 37
-                    F[sinod[0], s_glob_node(e-1,1)[1]] = flux #F[sinod[0], s_glob_node(e-1,1)[1]] + flux[0] # e11, global node 46 to 45
-                        
-F[0:16, 39:48]=0
-plt.spy(F)                
+                    F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]]+flux # 47 to 47
+                    F[s_glob_node(e,3)[1], s_glob_node(e,3)[1]] = flux # 46 to 46
+                elif suf==2 and e>>0 and e!=0 and e!=4 and e!=8:
+                    F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[1]] = flux # 46 to 45
+                    F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[0]] = flux # 46 to 37
+                    F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[1]] = flux # 38 to 45
+                    F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[0]] = flux # 38 to 37
+                    
+#plt.spy(F)                
+########################### solving for U #####################################
+
+RHS_cst = (M + K - F)
+plt.spy(RHS_cst)
+for n in range(nt):                 # Marching in time
+    Un = U.copy()
+    RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
+    U=np.linalg.solve(M,RHS)        # solving for U(t+1)
+    if n==1:                        # saving U at timestep 1 to plot
+        U1=U
+    elif n==nt//2:                  # saving U at half timestep to plot
+        U2=U
     
      
 
