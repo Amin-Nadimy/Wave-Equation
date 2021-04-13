@@ -1,4 +1,4 @@
-## How to upload a file from you computer on to GitHub ##
+## git-- How to upload a file from you computer on to GitHub ##
 
 1. Create a new repository on GitHub account.
 2. Copy its SSH key from the top of the page.
@@ -64,6 +64,14 @@ make mp
 make all
 make fltools
 
+
+                                              # shell scripting
+1- nano <filename.sh>                            # creates and open a new shell file with nano text editor
+# the first line of any shell script is below. Then write you commands. vbls={<vbl name>} in capital and in the command is used like ${<vbl name>}
+2- #!/bin/bash                                   # #! called shebang
+# save the file and change the mode to be executable by:
+3- chmod +x <file name.sh>
+4- # put the file in one of the bin folders found by $ echo $PATH command 
                                               
                                               
                                               # remote computer
