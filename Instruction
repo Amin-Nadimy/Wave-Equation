@@ -36,8 +36,12 @@ Branching
 15- git branch                             # showes which branch currently your working on
 16- git branch -D name_of_function
 17- git push origin <name of the branch>   # pushes to a specific branch
-18- git branch list                        # gives the list of all branches, * shows which branch currently we're in
-19- git push --set-upstream origin <name of a new branch>     # for the first time if the new branch is not yet on the git hub, you need to use this command
+18- git branch -a                          # to see all local and remote branches, * shows which branch currently we're in
+19- git branch -r                          # to see remote branches
+20- git push --set-upstream origin <name of a new branch>     # for the first time if the new branch is not yet on the git hub, you need to use this command
+21- git push -u origin <name of the branch> or git push -u origin HEAD.     # the same as above command
+22- git branch -D <name of banch>         # force delete the local branch
+23- git push origin --delete <name of brach>    # delete remote branch
 Pull Requests
 Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QWEykA&index=1
 
