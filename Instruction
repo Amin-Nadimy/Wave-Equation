@@ -14,7 +14,6 @@
 Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 
 ## Useful Commands ##
-
 1- git clone <url> # clone gets a copy of your files from github and copy them on  your local computer
                    # url is the address of sme repository which you can find when click on cloe or dwnload bottom on your github/repository
 2- git add name_of_your_repository         # adds changes you've made on to therepository
@@ -26,21 +25,20 @@ Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 
 Merge Conflicts
 8- git log                                 # gives you the history of all commits you've done
-9- git reset --hard commit_ID              # if your not happy with the changes you've made you can reset back to the older stage using thi command ID can come from git log
-10- git reset --hard origin/master        # it resets back to the original file which was uploaded from the start
+9- git reset --hard commit_ID              # if yourn't happy with the changes you've made you can reset back to the older stage using the command ID can come from git log
+10- git reset --hard origin/master         # it resets back to the original file which was uploaded from the start
 
 Branching
 11- git branch name_of_branch              # makes another branch of you master 
 12- git checkout name_of_branch            # switch from master to the new branch 
 13- git branch -b name_of_branch           # creates and switch to the new branch
-14- git merge name_of_branch               # merch 2 differenct branches together
+14- git merge name_of_branch               # merch 2 differenct branches together. e.g. go to master branch using checkout, then use this command with the name of the other branch which you want to merg with 
 15- git branch                             # showes which branch currently your working on
 16- git branch -D name_of_function
-
+17- git push origin <name of the branch>   # pushes to a specific branch
+18- git branch list                        # gives the list of all branches, * shows which branch currently we're in
+19- git push --set-upstream origin <name of a new branch>     # for the first time if the new branch is not yet on the git hub, you need to use this command
 Pull Requests
-
-
-
 Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QWEykA&index=1
 
                                               
