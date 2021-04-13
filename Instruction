@@ -48,6 +48,8 @@ Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QW
                                               
                                               
                                               # simulation commands
+# refining the mesh file. if you run this command it will be applied twice
+gmsh -refine <path tothe finle.msh>
 # excecutable files in ic-ferst are always in 1 folder (bin folder in the main ic-ferst folder and the actrual executable file is called icferst)
 # the path is to MultiFluids_Dev/legacy_reservoir_prototype/schemas/ in th eic-ferst folder
 diamond -s <path to multiphase.rng> <name>.mpml
