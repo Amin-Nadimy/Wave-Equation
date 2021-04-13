@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-nx = 500                    # total number of nodes(degree of freedom)
+nx = 300                    # total number of nodes(degree of freedom)
 nt = 1000                   # total number of time steps
 L =  0.5                     # Totla length
 C = .01                     # Courant number

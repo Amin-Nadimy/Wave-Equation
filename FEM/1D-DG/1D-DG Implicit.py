@@ -15,12 +15,12 @@ dx = L/(nx//2)               # Distace stepping size
 dt = C*dx/c                 # Time stepping size
 #x  = np.arange(0, nx)*dx    # or x=np.linspace(0,L,nx)
 #print(x)
-x = np.linspace(0, L, nx//2+1)
+x = np.linspace(0, L, (nx+2)//2+1)
 x = [ele for ele in x for i in range(2)]
 #print(x)
 x=x[1:-1]
-U = np.zeros(nx)            # U is a square wave between 0 <U< 1
-U_plot = np.ones((3,nx))    # A matrix to save 3 time steps used for plotting the results
+U = np.zeros(nx+2)            # U is a square wave between 0 <U< 1
+U_plot = np.ones((3,nx+2))    # A matrix to save 3 time steps used for plotting the results
 
 #------------------------------------------------------------------------------
 # Boundary Conditions
@@ -95,35 +95,35 @@ for e in range(nx//2):
             surf[global_si, global_sj+1] = (n_hat[s_i]*c*dt* phi[s_i](L_xi[1]) *
                                                              phi[s_j](L_xi[1]))
 surf = -surf[:,1:]
-##
-#RHS_cst = (MM + KK + surf)
-#
+
+RHS_cst = (MM + KK + surf)
+
 ##-Matrix method----------------------------------------------------------------
-##Mrching forward in time
+#Mrching forward in time
 #Un=np.zeros(nx)                     # dummy vbl to save current values of U (U^t)
-#t3 = time.time()
-#for n in range(nt):                 # Marching in time
-#    Un = U.copy()
-#    RHS = RHS_cst.dot(Un)           # saving U^t to be used in the next time step calculation
-#    U=np.linalg.solve(MM,RHS)
-#
-#    if n==1:
-#        U_plot[0,:] = U.copy()      # saving U(t=1)
-#    if n==int(nt/2):
-#        U_plot[1,:] = U.copy()      # saving U(t=nt/2)
-#    if n==int(nt*0.99):
-#        U_plot[2,:] = U.copy()      # saving U(t= almost the end to time steps)
-#t4 = time.time()
+t3 = time.time()
+for n in range(nt):                 # Marching in time
+    Un = U.copy()
+    RHS = RHS_cst.dot(Un[1:nx+1])           # saving U^t to be used in the next time step calculation
+    U[1:nx+1]=np.linalg.solve(MM,RHS)
+
+    if n==1:
+        U_plot[0,:] = U.copy()      # saving U(t=1)
+    if n==int(nt/2):
+        U_plot[1,:] = U.copy()      # saving U(t=nt/2)
+    if n==int(nt*0.99):
+        U_plot[2,:] = U.copy()      # saving U(t= almost the end to time steps)
+t4 = time.time()
 ##------------------------------plot initiation --------------------------------
-#plt.figure(1)
-#plt.axis([0,L, -1,2])
-#plt.plot(x, U_plot[0,:], label='Timestep 1')
-#plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
-#plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
-#plt.xlabel('Distrance')
-#plt.ylabel('U')
-#plt.legend()
-#plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')                
+plt.figure(1)
+plt.axis([0,L, -1,2])
+plt.plot(x, U_plot[0,:], label='Timestep 1')
+plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
+plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
+plt.xlabel('Distrance')
+plt.ylabel('U')
+plt.legend()
+plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')                
         
         
         

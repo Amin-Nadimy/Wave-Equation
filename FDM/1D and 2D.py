@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import seaborn as sb
+#import seaborn as sb
 
 #------------------------------- 2-D FDM------------------------------------------
 C= .01                           # CLF number
@@ -58,7 +58,6 @@ ax = fig.gca(projection='3d')
 surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
 #ax.plot(x, y, U, label='Square Wave')
 plt.show()
-
 # import pygmsh
 # def test():
 #     with pygmsh.geo.Geometry() as geom:

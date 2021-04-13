@@ -11,7 +11,7 @@ c = 0.1
 L = 0.5
 N_e_r = 4
 N_e_c= 3
-nt = 10
+nt = 30
 dx = L/(N_e_r)
 dy = L/(N_e_c)
 dt = C*dx*dy/(c*(dy+dx))
@@ -22,13 +22,14 @@ total_nodes = total_element * local_node_no
 vol_qp = 9 # degree of polynomial**2
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
-U = np.zeros(total_element*local_node_no)                          # Wave matrix
+U = np.zeros(total_nodes)                          # Wave matrix
 Un = np.zeros(total_element*local_node_no)                         # Dummy variable to save current components of U
 U1=U2 = U                                # Dummy matrices to plot 3 time steps
 #U_plot = np.ones((3,N*Np))                 # A matrix to save 3 time steps used for plotting the results
 
-U[int(total_element*local_node_no*.3):int(total_element*local_node_no*.8)]=1              # Defining wave components
-
+U[10:14]=U[18:22]=1
+#U[int(total_element*local_node_no*.3):int(total_element*local_node_no*.8)]=1              # Defining wave components
+#U[0:8]=U[16] = U[24] = U[32]=U[40]=0
 ############### DG nodes and meshgrid #########################################
 ## DG x-coordinates
 x = np.linspace(0, L, N_e_r+1)
@@ -209,14 +210,6 @@ for e in range(total_element):              # element numbering starts from 0
                 # boundary Gaussian integration: loop over all ng
                 # cal det_jac
                 L_det_jac =0
-#                F[sinod[0], s_glob_node(e-N_e_r,3)[1]] = 0 #e11, global node 38 to 30
-#                F[sinod[1], s_glob_node(e-N_e_r,3)[0]] = 0 #e11, global node 39 to 31
-#                F[sinod[0], sinod[0]] = 0 # e11, global node 39 to 39
-#                F[sinod[1], sinod[1]] = 0  # e11, global node 47 to 47
-#                F[sinod[1], sinod[1]] = 0 # e11, global node 46 to 46
-#                F[sinod[0], sinod[0]] = 0  # e11, global node 47 to 47
-#                F[sinod[1], s_glob_node(e-1,1)[0]] = 0 # e11, global node 38 to 37
-#                F[sinod[0], s_glob_node(e-1,1)[1]] = 0 # e11, global node 46 to 45
                 flux=0
                 for g in range(ng):
                     if suf==0 or suf==3:
@@ -232,28 +225,31 @@ for e in range(total_element):              # element numbering starts from 0
                                     * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
                                     * L_det_jac)
                     
-                if suf ==0 and e>>N_e_r:
-                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux # 38 to 30
-                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[0]] = flux # 38 to 31
-                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[1]] = flux # 39 to 30
-                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux # 39 to 31
+                if suf ==0 and e>=N_e_r:
+                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux # 38 to 30 
+                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[0]] = flux # 38 to 31 
+                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[1]] = flux # 39 to 30 
+                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux # 39 to 31 
+#                    F[s_glob_node(e-N_e_r,3)[1], s_glob_node(e,0)[0]] = flux # 38 to 30 - y- inv
+#                    F[s_glob_node(e-N_e_r,3)[0], s_glob_node(e,0)[0]] = flux # 38 to 31 - y- inv
+#                    F[s_glob_node(e-N_e_r,3)[1], s_glob_node(e,0)[1]] = flux # 39 to 30 - y- inv
+#                    F[s_glob_node(e-N_e_r,3)[0], s_glob_node(e,0)[1]] = flux # 39 to 31 - y- inv
                 elif suf==1:
                     F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]] = flux # 39 to 39
                     F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]] = flux # 47 to 47
                 elif suf==3:
-                    F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]]+flux # 47 to 47
+                    F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]]+flux # 47 to 47
                     F[s_glob_node(e,3)[1], s_glob_node(e,3)[1]] = flux # 46 to 46
-                elif suf==2 and e>>0 and e!=0 and e!=4 and e!=8:
+                elif suf==2  and e!=0 and e!=4 and e!=8:
                     F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[1]] = flux # 46 to 45
                     F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[0]] = flux # 46 to 37
                     F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[1]] = flux # 38 to 45
                     F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[0]] = flux # 38 to 37
                     
-#plt.spy(F)                
+# plt.spy(F)                
 ########################### solving for U #####################################
 
 RHS_cst = (M + K - F)
-plt.spy(RHS_cst)
 for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
@@ -271,9 +267,21 @@ for n in range(nt):                 # Marching in time
 
 
 
+#data = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 16:0, 24:0, 32:0, 40:0}
+## node freedom array
+#nf = [0, 0, 0, 0, 0, 0, 0, 0, 
+#      0, 1, 2, 3, 4, 5, 6, 7,
+#      0, 8, 9, 10, 11, 12, 13, 14,
+#      0, 15, 16, 17, 18, 19, 20, 21,
+#      0, 22, 23, 24, 25, 26, 27, 28,
+#      0, 29, 30, 31, 32, 33, 34, 35]
+#for i in range(total_nodes):
+#    nf.append()
 
-
-
+#Steering vector p95
+g = {0:[0,0,0,1],   1:[0,0,2,3],     2:[0,0,4,5],      3:[0,0,6,7], 
+     4:[0,8,0,15],  5:[9,10,16,17],  6:[11,12,18,19],  7:[13,14,20,21],
+     8:[0,22,0,29], 9:[23,24,30,31], 10:[25,26,32,33], 11:[27,28,34,35]}
 
 
 
