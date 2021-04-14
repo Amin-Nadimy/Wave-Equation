@@ -24,10 +24,10 @@ M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
 U = np.zeros(total_nodes)                          # Wave matrix
 Un = np.zeros(total_element*local_node_no)                         # Dummy variable to save current components of U
-U1=U2 = U                                # Dummy matrices to plot 3 time steps
+#U1=U2 = U                                # Dummy matrices to plot 3 time steps
 #U_plot = np.ones((3,N*Np))                 # A matrix to save 3 time steps used for plotting the results
 
-U[10:14]=U[18:22]=1
+U[10:14]=U[18:22]=U[26:30]=1
 #U[int(total_element*local_node_no*.3):int(total_element*local_node_no*.8)]=1              # Defining wave components
 #U[0:8]=U[16] = U[24] = U[32]=U[40]=0
 ############### DG nodes and meshgrid #########################################
@@ -258,8 +258,41 @@ for n in range(nt):                 # Marching in time
         U1=U
     elif n==nt//2:                  # saving U at half timestep to plot
         U2=U
-    
+
+
+
+U1=np.zeros(([len(y),len(x)]))
+
+j=0
+k=0
+while j< len(y):
+    i=0
+    while i< len(x):
+        U1[j,i]=U[k]
+        i+=1
+        k+=1
+    j+=1
+        
+x_coo=[]
+y_coo=[] 
+coo=[]   
+for e in range(total_element):
+    for j in range(nsuf):
+        x_coo.append(coordinates(e)[j][0])
+        y_coo.append(coordinates(e)[j][1])
+        coo.append([coordinates(e)[j][0],coordinates(e)[j][1]])
      
+X, Y =np.meshgrid(x,y)           # Creating a mesh grid
+plt.figure(1)        
+ax = plt.gca(projection='3d')
+ax.plot_surface(X, Y, U1 , label='t=0')
+ax.set_ylabel('$y$')
+ax.set_xlabel('$x$')
+ax.set_zlabel('$U$')
+plt.legend()
+plt.show()
+
+
 
 
 
@@ -294,14 +327,6 @@ g = {0:[0,0,0,1],   1:[0,0,2,3],     2:[0,0,4,5],      3:[0,0,6,7],
 
 
 
-           
-#            L_det_jac = {0: np.sqrt(dx_dxi(-1)**2 + dy_dxi(-1)**2),
-#                         1: np.sqrt(dx_deta(1)**2 + dy_deta(1)**2),
-#                         2: np.sqrt(dx_dxi(1)**2 + dy_dxi(1)**2),
-#                         3: np.sqrt(dx_deta(-1)**2 + dy_deta(-1)**2)}
-
-
-                
 #                def L_gauss(f, L_xi, L_eta, L_weights):  
 #                    flux = 0
 #                    for gi in range(gp):
@@ -313,58 +338,6 @@ g = {0:[0,0,0,1],   1:[0,0,2,3],     2:[0,0,4,5],      3:[0,0,6,7],
 #                        L_gauss(lambda xi,eta: dt * c * n_hat[sjloc] * shape_func[siloc](xi,eta)*shape_func[sjloc](xi,eta), L_xi, L_eta, L_weights))
 
 
-
-
-            # vector from centre to one node on a boundary line
-            # r = {0: np.subtract([coordinates(e)[0,0], coordinates(e)[0,1],0] , e_centre(e)),
-            #      1: np.subtract([coordinates(e)[1,0], coordinates(e)[1,1],0] , e_centre(e)),
-            #      2: np.subtract([coordinates(e)[3,0], coordinates(e)[3,1],0] , e_centre(e)),
-            #      3: np.subtract([coordinates(e)[2,0], coordinates(e)[2,1],0] , e_centre(e))}
-            
-            # sign (norm . r)
-            # n_hat = np.sign(np.dot(s_norm[siloc], r[siloc]))
-            # print(e, siloc, n_hat[siloc])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# e=1
-# x_centre = 0
-# y_centre = 0
-# for i in range(len(coordinates(e))):
-#     x_centre = x_centre + coordinates(e)[i][0] / len(coordinates(e))
-#     y_centre = y_centre + coordinates(e)[i][1] / len(coordinates(e)) 
-# e_centre = [x_centre, y_centre]
-# print(e_centre)             
-
-# r1=[3,0,0]
-# r2=[0.5,0,1]
-# print(np.dot(r2,r1))
-# print(np.linalg.norm(np.cross(r1,r2)))
-#print(np.sign(np.cross(r1,r2))[1])
-#s_glob_node(1-1,0)
-#s_glob_node(1-1,1)
-#s_glob_node(1-1,2)
-#s_glob_node(1-1,3)
-#coordinates(1)
-#
-#e=0
-#
-#0.5*abs(np.linalg.norm([coordinates(e)[0]-coordinates(e)[2]]))
-#  
-
-
-#
 ##------------------------ J, det and coordinates ------------------------------
 #class Element:
 #    def jacobian(self, xi, eta, element_no):
