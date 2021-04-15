@@ -6,12 +6,12 @@ qpoint = np.array(([-np.sqrt(0.6), -np.sqrt(0.6)],[0, -np.sqrt(0.6)],[np.sqrt(0.
 qweight = np.array(([25/81],[40/81],[25/81],
                    [40/81],[64/81],[40/81],
                    [25/81],[40/81],[25/81]))
-C = 0.04
+C = 0.01
 c = 0.1
 L = 0.1
 N_e_r = 20
 N_e_c= 20
-nt = 20
+nt = 100
 dx = L/(N_e_r)
 dy = L/(N_e_c)
 dt = C*dx*dy/(c*(dy+dx))
@@ -27,7 +27,6 @@ Un = np.zeros(total_element*local_node_no)                         # Dummy varia
 #U1=U2 = U                                # Dummy matrices to plot 3 time steps
 #U_plot = np.ones((3,N*Np))                 # A matrix to save 3 time steps used for plotting the results
 
-#U[414:430]=U[454:470]=U[494:510]=U[534:550]=U[574:590]=U[614:630]=1
 for i in range(12):
     U[N_e_r*2*(i+2)+N_e_r//4+1:N_e_r*2*(i+2)+N_e_r//1]=1
 #U[10:14]=U[18:22]=U[26:30]=1
@@ -260,19 +259,18 @@ for n in range(nt):                 # Marching in time
     U[0:N_e_r*2]=U[N_e_c*2:0]=0
     if n==1:                        # saving U at timestep 1 to plot
         U1=U
-    elif n==nt//2:                  # saving U at half timestep to plot
-        U2=U
 
 
-
-U1=np.zeros(([len(y),len(x)]))
+U1_plot=np.zeros(([len(y),len(x)]))
+U2_plot=np.zeros(([len(y),len(x)]))
 
 j=0
 k=0
 while j< len(y):
     i=0
     while i< len(x):
-        U1[j,i]=U[k]
+        U1_plot[j,i]=U1[k]
+        U2_plot[j,i]=U[k]
         i+=1
         k+=1
     j+=1
@@ -280,7 +278,8 @@ while j< len(y):
 X, Y =np.meshgrid(x,y)           # Creating a mesh grid
 plt.figure(1)        
 ax = plt.gca(projection='3d')
-ax.plot_surface(X, Y, U1 , label='t=0')
+#ax.plot_surface(X, Y, U1_plot , label='t=0')
+ax.plot_surface(X, Y, U2_plot , label='t=final')
 ax.set_ylabel('$y$')
 ax.set_xlabel('$x$')
 ax.set_zlabel('$U$')
