@@ -5,7 +5,7 @@ import sympy as sy
 import time
 
 nx = 100                   # total number of nodes(degree of freedom)
-nt = 500                   # total number of time steps
+nt = 20                   # total number of time steps
 N_i = 2                     # number of interpolation functions
 L =  0.5                    # Totla length
 C = .05                     # Courant number
@@ -28,7 +28,7 @@ U[0] = U[nx-1] = 0          # Dirichlet BC
 
 #------------------------------------------------------------------------------
 # Initial conditions
-U[int(L*nx*0.2):int(L*nx*0.5)]=1
+U[int(L*nx*0.4):int(L*nx*0.9)]=1
 
 
 xi = [-1/np.sqrt(3), 1/np.sqrt(3)] # quad points
@@ -117,13 +117,13 @@ t4 = time.time()
 ##------------------------------plot initiation --------------------------------
 plt.figure(1)
 plt.axis([0,L, -1,2])
-plt.plot(x, U_plot[0,:], label='Timestep 1')
-plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
-plt.plot(x, U_plot[2,:], label='Timestep 0.9 nt')
-plt.xlabel('Distrance')
+#plt.plot(x, U_plot[0,:], label='Timestep 1')
+#plt.plot(x, U_plot[1,:], label='Timestep 0.5 nt')
+plt.plot(x, U_plot[2,:], label='Final Timestep')
+plt.xlabel('x-Distrance')
 plt.ylabel('U')
 plt.legend()
-plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')                
+#plt.title(f'Simulation Duration: {round((t4-t3)/60, 2)} minutes')                
         
         
         
