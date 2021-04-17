@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 #------------------------------- 2-D FDM------------------------------------------
 C= .01                           # CLF number
-nt = 5000                        # Number of time steps
+nt = 2000                        # Number of time steps
 nx = 100                         # Number of steps in x-direction
 ny = 200                        # Number of steps in y-direction
 L = 2                            # Lengths of the domain in x and y directions
@@ -15,7 +15,7 @@ d_displacement = (dx**2+dy**2)**0.5 # overall displacement of the wave in both d
 x=np.linspace(0, L, nx)
 y=np.linspace(0, L, ny)
 c_x = 0.1                        # Wave velocity in x-dir
-c_y = 0.1                        # Wave velocity in y-di
+c_y = 0                        # Wave velocity in y-di
 c = (c_x**2+c_y**2)**0.5            # overall velocity of the wave
 dt = C*d_displacement/c          # length of time step. 
 U = np.zeros((ny,nx))            # Wave matrix

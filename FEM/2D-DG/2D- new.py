@@ -1,40 +1,41 @@
 import numpy as np
 import matplotlib.pyplot as plt
 qpoint = np.array(([-np.sqrt(0.6), -np.sqrt(0.6)],[0, -np.sqrt(0.6)],[np.sqrt(0.6), -np.sqrt(0.6)],
-                 [-np.sqrt(0.6), 0],              [0, 0],            [np.sqrt(0.6), 0],
-                 [-np.sqrt(0.6), np.sqrt(0.6)],   [0, np.sqrt(0.6)], [np.sqrt(0.6), np.sqrt(0.6)]))
+                   [-np.sqrt(0.6), 0],              [0, 0],            [np.sqrt(0.6), 0],
+                   [-np.sqrt(0.6), np.sqrt(0.6)],   [0, np.sqrt(0.6)], [np.sqrt(0.6), np.sqrt(0.6)]))
+
 qweight = np.array(([25/81],[40/81],[25/81],
-                   [40/81],[64/81],[40/81],
-                   [25/81],[40/81],[25/81]))
-C = 0.001
-c = 0.1
+                    [40/81],[64/81],[40/81],
+                    [25/81],[40/81],[25/81]))
+
+s_ng = {0: [[-3**(-0.5), -1], [3**(-0.5), -1]],
+        1: [[1, -3**(-0.5)],  [1, 3**(-0.5)]],
+        3: [[3**(-0.5), 1],   [-3**(-0.5), 1]],
+        2: [[-1, 3**(-0.5)],  [-1, -3**(-0.5)]]}
+
+L_weights=[1,1]
+
+nsuf = 4
+ng =2
+gp = nsuf * ng
+C = 0.05
+c_x=0.1
+c_y=0.1
 L = 0.5
 N_e_r = 20
 N_e_c= 20
-nt = 5000
+nt = 50
+domain_norm = [0,0,1]
 dx = L/(N_e_r)
 dy = L/(N_e_c)
-dt = C*dx*dy/(c*(dy+dx))
+dt = C/((c_x/dx)+(c_y/dy))
 local_node_no = 4
 total_element=N_e_r * N_e_c
-
 total_nodes = total_element * local_node_no
+total_nsuf = total_element * nsuf
 vol_qp = 9 # degree of polynomial**2
-M = np.zeros((total_nodes, total_nodes))
-K = np.zeros((total_nodes, total_nodes))
-U = np.zeros(total_nodes)                          # Wave matrix
-Un = np.zeros(total_element*local_node_no)                         # Dummy variable to save current components of U
-#U1=U2 = U                                # Dummy matrices to plot 3 time steps
-#U_plot = np.ones((3,N*Np))                 # A matrix to save 3 time steps used for plotting the results
 
-# initial con
-for i in range(12):
-    U[N_e_r*2*(i+2)+N_e_r//4+3:N_e_r*2*(i+2)+N_e_r//1]=1
-#U[10:14]=U[18:22]=U[26:30]=1
-#U[int(total_element*local_node_no*.3):int(total_element*local_node_no*.8)]=1              # Defining wave components
-#U[0:8]=U[16] = U[24] = U[32]=U[40]=0
-############### DG nodes and meshgrid #########################################
-## DG x-coordinates
+# DG x-coordinates
 x = np.linspace(0, L, N_e_r+1)
 x = [ele for ele in x for i in range(2)]
 x=x[1:]
@@ -46,6 +47,25 @@ y = [ele for ele in y for i in range(2)]
 y=y[1:]
 y=y[:-1]
 
+sdot = np.zeros(nsuf)
+n_hat = np.zeros(nsuf)
+M = np.zeros((total_nodes, total_nodes))
+K = np.zeros((total_nodes, total_nodes))
+F = np.zeros((total_nodes, total_nodes))
+U = np.zeros(total_nodes)                          # Wave matrix
+
+# initial con
+for i in range(12):
+    U[N_e_r*2*(i+2)+N_e_r//4+3:N_e_r*2*(i+2)+N_e_r//1]=1
+
+#======================== Boundary elements in y-dir ==========================
+    boundary_element_ydir=[]
+n=0
+while n< total_element:
+    boundary_element_ydir.append(n)
+    n=n+N_e_r
+    
+#==============================================================================
 # global node coordinates
 def coordinates(e):            
     col =int(np.ceil((e+1)/N_e_r))
@@ -55,6 +75,41 @@ def coordinates(e):
                              [dx*(row-1), dy*(col)],
                              [dx*row  , dy*(col)]))
     return co_ordinates
+
+
+# =============================================================================
+# function giving global node numbers of 2 points of each face
+def s_glob_node(e,suf):
+    global_nod ={0: [loc_to_glob_list[e][0]-1, loc_to_glob_list[e][1]-1],
+                 1: [loc_to_glob_list[e][1]-1, loc_to_glob_list[e][3]-1],
+                 3: [loc_to_glob_list[e][3]-1, loc_to_glob_list[e][2]-1],
+                 2: [loc_to_glob_list[e][2]-1, loc_to_glob_list[e][0]-1]}
+    return global_nod[suf]
+
+
+#==============================================================================
+# calculating the center of each element used to calculate the sign of normal
+def e_centre(e):
+    x_centre =0
+    y_centre =0
+    for i in range(local_node_no):
+        x_centre = x_centre + coordinates(e)[i,0]         
+        y_centre = y_centre + coordinates(e)[i,1]
+        z_centre = 0
+        e_centre = [x_centre/local_node_no, y_centre/local_node_no, z_centre]
+    return e_centre
+
+
+#------------------------------ global node numbering -------------------------
+def global_no(e,N_e_r):
+    col=int(np.ceil(e/N_e_r))
+    glob_no = np.array([(col-1)*2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*(e-1)+2, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+2])
+    return glob_no
+
+
+loc_to_glob_list=[]
+for i in range(1,total_element+1):
+    loc_to_glob_list.append(global_no(i,N_e_r))
 
 #-------------------- shape func, ddx and ddy ---------------------------------
 shape_func = {0:lambda xi,eta: 1/4*(1-xi)*(1-eta),
@@ -76,16 +131,6 @@ dx_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,0] +(1-eta)*coordinates(e)[1,
 dy_dxi = lambda eta: 1/4*((eta-1)*coordinates(e)[0,1] +(1-eta)*coordinates(e)[1,1] -(1+eta)*coordinates(e)[2,1] +(1+eta)*coordinates(e)[3,1])
 dx_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,0] -(xi+1)*coordinates(e)[1,0] +(1-xi)*coordinates(e)[2,0] +(1+xi)*coordinates(e)[3,0])
 dy_deta = lambda xi: 1/4*((xi-1)*coordinates(e)[0,1] -(xi+1)*coordinates(e)[1,1] +(1-xi)*coordinates(e)[2,1] +(1+xi)*coordinates(e)[3,1])
-
-#------------------------------ global node numbering -------------------------
-def global_no(e,N_e_r):
-    col=int(np.ceil(e/N_e_r))
-    glob_no = np.array([(col-1)*2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*(e-1)+2, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+1, (col-1)*2*N_e_r+2*N_e_r+2*(e-1)+2])
-    return glob_no
-
-loc_to_glob_list=[]
-for i in range(1,total_element+1):
-    loc_to_glob_list.append(global_no(i,N_e_r))
 
 #------------------------------ Main structure of the code --------------------
 for e in range (total_element):    # element numbers starts from 1 
@@ -114,78 +159,20 @@ for e in range (total_element):    # element numbers starts from 1
                 ddy_shape_func = 1/det_jac * (dx_dxi(qpoint[i,1]) * ddeta_shape_func[iloc](qpoint[i,0]) - 
                                     dx_deta(qpoint[i,0]) * ddxi_shape_func[iloc](qpoint[i,1]))
                 
-                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i] * c*dt*(shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func +
-                                                                                         shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)
+                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(shape_func[jloc](qpoint[i,0], qpoint[i,1])*c_x * ddx_shape_func +
+                                                                                         shape_func[jloc](qpoint[i,0], qpoint[i,1])*c_y * ddy_shape_func)
                                                                                          * det_jac)
-print("M and K are done")
 ###############################################################################
-###############################################################################
-#------------------------- surface integration ---------------------------------
-#  do iface =1,nface
-#! for surface iface...
-#      do siloc=1,snloc ! local row siloc for surface element
-#          sinod=   ! global node number
-#          do sjloc=1,snloc ! local coln sjloc for surface element
-#             sjnod=   ! global node number
-#
-#               do sgi=1,sngi ! loop over the quadrature points on surface
-# L_quadrature_points, L_weights = np.polynomial.legendre.leggauss(2) 
-L_xi = [-1/np.sqrt(3), 1/np.sqrt(3),  1   ,    1,   1/np.sqrt(3), -1/np.sqrt(3), -1          , -1  ]
-L_eta = [-1          , -1          ,  -1/np.sqrt(3),  1/np.sqrt(3),   1           ,  1           , 1/np.sqrt(3), -1/np.sqrt(3)]
-L_qpoint = ([-1/np.sqrt(3), -1],[1/np.sqrt(3), -1],[1, -1/np.sqrt(3)],[1, 1/np.sqrt(3)],
-                      [3**(-0.5), 1],[-3**(-0.5), 1],[-1, 3**(-0.5)],[-1, -3**(-0.5)])
-
-s_ng = {0: [[-3**(-0.5), -1], [3**(-0.5), -1]],
-        1: [[1, -3**(-0.5)],  [1, 3**(-0.5)]],
-        3: [[3**(-0.5), 1],   [-3**(-0.5), 1]],
-        2: [[-1, 3**(-0.5)],  [-1, -3**(-0.5)]]}
-
-L_weights=[1,1]
-gp = len(L_qpoint)
-#sloc = 2
-nsuf = 4
-ng =2
-total_nsuf = total_element * nsuf
-sdot = np.zeros(nsuf)
-n_hat = np.zeros(nsuf)
-domain_norm = [0,0,1]
-F = np.zeros((total_nodes, total_nodes))
-#F = np.zeros((total_nodes+2*N_e_r, total_nodes+2*N_e_c))
-
-# =============================================================================
-# function giving global node numbers of 2 points of each face
-def s_glob_node(e,suf):
-    global_nod ={0: [loc_to_glob_list[e][0]-1, loc_to_glob_list[e][1]-1],
-                 1: [loc_to_glob_list[e][1]-1, loc_to_glob_list[e][3]-1],
-                 3: [loc_to_glob_list[e][3]-1, loc_to_glob_list[e][2]-1],
-                 2: [loc_to_glob_list[e][2]-1, loc_to_glob_list[e][0]-1]}
-    return global_nod[suf]
-
-
-#==============================================================================
-# calculating the center of each element used to calculate the sign of normal
-def e_centre(e):
-    x_centre =0
-    y_centre =0
-    for i in range(local_node_no):
-        x_centre = x_centre + coordinates(e)[i,0]         
-        y_centre = y_centre + coordinates(e)[i,1]
-        z_centre = 0
-        e_centre = [x_centre/local_node_no, y_centre/local_node_no, z_centre]
-    return e_centre
-    
-    
-#------------------------------- Main stucture of the code --------------------    
-for e in range(total_element):              # element numbering starts from 0
+############################ surface integration ##############################
     for suf in range(nsuf):             # no.faces in each e
         for siloc in range(4):           # = 4, number of local surfaces
             sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
             # =================================================================
             # normal to the boundary lines 
-            snormal = {0: np.cross([dx_dxi(-1) , dy_dxi(-1)  ,0], domain_norm),                  # n_ds of the line (-1,-1) and (-1,1)
-                       1: np.cross([dx_deta(1) , dy_deta(1)  ,0], domain_norm),                  # n_ds of the line (-1,1)  and (1,1)
+            snormal = {0: np.cross([dx_dxi(-1) , dy_dxi(-1)  ,0], domain_norm),      # n_ds of the line (-1,-1) and (-1,1)
+                       1: np.cross([dx_deta(1) , dy_deta(1)  ,0], domain_norm),      # n_ds of the line (-1,1)  and (1,1)
                        2: np.cross([dx_dxi(1)  , dy_dxi(1)   ,0], domain_norm),      # n_ds of the line (1,1)   and (1,-1)
-                       3: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm)}  # n_ds of the line (-1,1)  and (-1,-1)
+                       3: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm)}      # n_ds of the line (-1,1)  and (-1,-1)
             
             # vector from the centre of the element to a node on a boundary line
             r = {0: np.subtract([coordinates(e)[0,0], coordinates(e)[0,1],0] , e_centre(e)),
@@ -218,38 +205,40 @@ for e in range(total_element):              # element numbering starts from 0
                     if suf==0 or suf==3:
                         eta=s_ng[sl][g][1]
                         L_det_jac = np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)
-                    elif suf==1 or suf==2:
-                        xi = s_ng[sl][g][0]
-                        L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
-                    #==========================================================
-                    # cal flux
-                    flux =  (flux+L_weights[g] * c*dt * n_hat[suf] 
+                        l_flux = (L_weights[g] * c_y*dt * n_hat[suf] 
                                     * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1])
                                     * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
                                     * L_det_jac)
+                    elif suf==1 or suf==2:
+                        xi = s_ng[sl][g][0]
+                        L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
+                        l_flux = (L_weights[g] * c_x*dt * n_hat[suf] 
+                                    * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1])
+                                    * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
+                                    * L_det_jac)
+                    #==========================================================
+                    # cal flux
+                    flux =  flux + l_flux
+                    l_flux=0
                     
                 if suf ==0 and e>=N_e_r:
                     F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux # 38 to 30 
                     F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[0]] = flux # 38 to 31 
                     F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[1]] = flux # 39 to 30 
                     F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux # 39 to 31 
-#                    F[s_glob_node(e-N_e_r,3)[1], s_glob_node(e,0)[0]] = flux # 38 to 30 - y- inv
-#                    F[s_glob_node(e-N_e_r,3)[0], s_glob_node(e,0)[0]] = flux # 38 to 31 - y- inv
-#                    F[s_glob_node(e-N_e_r,3)[1], s_glob_node(e,0)[1]] = flux # 39 to 30 - y- inv
-#                    F[s_glob_node(e-N_e_r,3)[0], s_glob_node(e,0)[1]] = flux # 39 to 31 - y- inv
                 elif suf==1:
                     F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]] = flux # 39 to 39
                     F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]] = flux # 47 to 47
                 elif suf==3:
                     F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]]+flux # 47 to 47
                     F[s_glob_node(e,3)[1], s_glob_node(e,3)[1]] = flux # 46 to 46
-                elif suf==2:#  and e!=0 and e!=4 and e!=8:
+                elif suf==2 and e!=0 and e!=4 and e!=8:
                     F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[1]] = flux # 46 to 45
                     F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[0]] = flux # 46 to 37
                     F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[1]] = flux # 38 to 45
                     F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[0]] = flux # 38 to 37
-print("F is done")                    
-#plt.spy(F)                
+    print('e',e)
+
 ########################### solving for U #####################################
 
 RHS_cst = (M + K - F)
@@ -260,9 +249,11 @@ for n in range(nt):                 # Marching in time
     U[0:N_e_r*2]=U[N_e_c*2:0]=0
     if n==1:                        # saving U at timestep 1 to plot
         U1=U
+    elif n==100:
+        U2=U
     print(n)
 
-
+######################### Plotting the results ################################
 U1_plot=np.zeros(([len(y),len(x)]))
 U2_plot=np.zeros(([len(y),len(x)]))
 
@@ -282,7 +273,6 @@ plt.figure(1)
 ax = plt.gca(projection='3d')
 ax.plot_surface(X, Y, U2_plot , label='t=final')
 #ax.plot_surface(X, Y, U1_plot , label='t=0')
-
 ax.set_ylabel('$y$')
 ax.set_xlabel('$x$')
 ax.set_zlabel('$U$')
@@ -290,6 +280,45 @@ plt.legend()
 plt.show()
 
 
+
+plt.spy(F)
+
+
+#for i in range(len(boundary_element_ydir)):
+#    if e!=boundary_element_ydir[i]:    
+
+
+
+
+#do ele=1,totele
+#
+#! for voln...
+#      do iloc=1,nloc ! local row iloc for element
+#          inod=   ! global node number
+#          do jloc=1,nloc ! local coln jloc for element
+#              jnod=  ! global node number
+#
+#               do gi=1,ngi ! loop over the quadrature points in element
+#
+#                   a=a+...
+#              end do
+#         end do
+#   endo
+#
+#    do iface =1,nface
+#! for surface iface...
+#      do siloc=1,snloc ! local row siloc for surface element
+#          sinod=   ! global node number
+#          do sjloc=1,snloc ! local coln sjloc for surface element
+#             sjnod=   ! global node number
+#
+#               do sgi=1,sngi ! loop over the quadrature points on surface
+#
+#                   sa=sa+...
+#              end do
+#         end do
+#   endo
+#   
 #x_coo=[]
 #y_coo=[] 
 #coo=[]   
@@ -316,9 +345,9 @@ plt.show()
 #    nf.append()
 
 #Steering vector p95
-g = {0:[0,0,0,1],   1:[0,0,2,3],     2:[0,0,4,5],      3:[0,0,6,7], 
-     4:[0,8,0,15],  5:[9,10,16,17],  6:[11,12,18,19],  7:[13,14,20,21],
-     8:[0,22,0,29], 9:[23,24,30,31], 10:[25,26,32,33], 11:[27,28,34,35]}
+#g = {0:[0,0,0,1],   1:[0,0,2,3],     2:[0,0,4,5],      3:[0,0,6,7], 
+#     4:[0,8,0,15],  5:[9,10,16,17],  6:[11,12,18,19],  7:[13,14,20,21],
+#     8:[0,22,0,29], 9:[23,24,30,31], 10:[25,26,32,33], 11:[27,28,34,35]}
 
 
 
