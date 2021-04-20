@@ -10,8 +10,8 @@ qweight = np.array(([25/81],[40/81],[25/81],
 
 s_ng = {0: [[-3**(-0.5), -1], [3**(-0.5), -1]],
         1: [[1, -3**(-0.5)],  [1, 3**(-0.5)]],
-        3: [[3**(-0.5), 1],   [-3**(-0.5), 1]],
-        2: [[-1, 3**(-0.5)],  [-1, -3**(-0.5)]]}
+        2: [[-1, 3**(-0.5)],  [-1, -3**(-0.5)]],
+        3: [[3**(-0.5), 1],   [-3**(-0.5), 1]]}
 
 L_weights=[1,1]
 
@@ -23,8 +23,8 @@ c_x=0.1
 c_y=0.1
 L = 0.5
 N_e_r = 20
-N_e_c= 20
-nt = 50
+N_e_c= 8
+nt = 20
 domain_norm = [0,0,1]
 dx = L/(N_e_r)
 dy = L/(N_e_c)
@@ -52,11 +52,11 @@ n_hat = np.zeros(nsuf)
 M = np.zeros((total_nodes, total_nodes))
 K = np.zeros((total_nodes, total_nodes))
 F = np.zeros((total_nodes, total_nodes))
-U = np.zeros(total_nodes)                          # Wave matrix
+U = np.zeros(total_nodes)                          
 
 # initial con
-for i in range(12):
-    U[N_e_r*2*(i+2)+N_e_r//4+3:N_e_r*2*(i+2)+N_e_r//1]=1
+for i in range(8):
+    U[N_e_r*2*(i+4)+N_e_r//4+1:N_e_r*2*(i+4)+N_e_r//1+2]=1
 
 #======================== Boundary elements in y-dir ==========================
     boundary_element_ydir=[]
@@ -159,12 +159,13 @@ for e in range (total_element):    # element numbers starts from 1
                 ddy_shape_func = 1/det_jac * (dx_dxi(qpoint[i,1]) * ddeta_shape_func[iloc](qpoint[i,0]) - 
                                     dx_deta(qpoint[i,0]) * ddxi_shape_func[iloc](qpoint[i,1]))
                 
-                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(shape_func[jloc](qpoint[i,0], qpoint[i,1])*c_x * ddx_shape_func +
-                                                                                         shape_func[jloc](qpoint[i,0], qpoint[i,1])*c_y * ddy_shape_func)
+                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(c_x * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func +
+                                                                                     c_y * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)
                                                                                          * det_jac)
 ###############################################################################
 ############################ surface integration ##############################
     for suf in range(nsuf):             # no.faces in each e
+        flux=0
         for siloc in range(4):           # = 4, number of local surfaces
             sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
             # =================================================================
@@ -182,71 +183,62 @@ for e in range (total_element):    # element numbers starts from 1
             
             # dot product of Snormal and r 
             for sl in range(nsuf):
-                sdot[sl] = np.dot(snormal[sl], r[sl])
-                if sdot[sl] <= 0:
+                sdot = np.dot(snormal[sl], r[sl])
+                if sdot <= 0:
                     snormal[sl] = snormal[sl] * (-1)
             
             # sign of normal for each surface
-            n_hat = {0: np.sign(snormal[0][1]),
-                     1: np.sign(snormal[1][0]),
-                     3: np.sign(snormal[2][1]),
-                     2: np.sign(snormal[3][0])}
+            n_hat = {0: [np.sign(snormal[0][0]), np.sign(snormal[0][1])],
+                     1: [np.sign(snormal[1][0]), np.sign(snormal[1][1])],
+                     3: [np.sign(snormal[2][0]), np.sign(snormal[2][1])],
+                     2: [np.sign(snormal[3][0]), np.sign(snormal[3][1])]}
                     
             # =================================================================
             for sjloc in range(4):                   # = 4, number of local surfaces
                 sjnod = s_glob_node(e,sjloc)         # gives two nodes numbrs of each j-surface
           
                 # =============================================================
-                # boundary Gaussian integration: loop over all ng
                 # cal det_jac
                 L_det_jac =0
-                flux=0
                 for g in range(ng):
                     if suf==0 or suf==3:
                         eta=s_ng[sl][g][1]
                         L_det_jac = np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)
-                        l_flux = (L_weights[g] * c_y*dt * n_hat[suf] 
-                                    * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1])
-                                    * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
-                                    * L_det_jac)
+                        
                     elif suf==1 or suf==2:
                         xi = s_ng[sl][g][0]
                         L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
-                        l_flux = (L_weights[g] * c_x*dt * n_hat[suf] 
-                                    * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1])
-                                    * shape_func[sjloc](s_ng[sjloc][g][0],s_ng[sjloc][g][1]) 
-                                    * L_det_jac)
-                    #==========================================================
-                    # cal flux
-                    flux =  flux + l_flux
-                    l_flux=0
+                        
+                    flux=flux+ L_weights[g] * L_det_jac *(c_x * dt * n_hat[suf][0] 
+                                                        * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1])
+                                                        * shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]) 
+                                                        + c_y * dt * n_hat[suf][1] 
+                                                        * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1])
+                                                        * shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]))
                     
-                if suf ==0 and e>=N_e_r:
-                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux # 38 to 30 
-                    F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[0]] = flux # 38 to 31 
-                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[1]] = flux # 39 to 30 
-                    F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux # 39 to 31 
-                elif suf==1:
-                    F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]] = flux # 39 to 39
-                    F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]] = flux # 47 to 47
-                elif suf==3:
-                    F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]]+flux # 47 to 47
-                    F[s_glob_node(e,3)[1], s_glob_node(e,3)[1]] = flux # 46 to 46
-                elif suf==2 and e!=0 and e!=4 and e!=8:
-                    F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[1]] = flux # 46 to 45
-                    F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[0]] = flux # 46 to 37
-                    F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[1]] = flux # 38 to 45
-                    F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[0]] = flux # 38 to 37
+        #==========================================================
+        if suf ==0 and e>=N_e_r:
+            F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux/2 # 38 to 30
+            F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux/2 # 39 to 31 
+        elif suf==1:
+            F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]] = flux/2 # 39 to 39
+            F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]] = flux/2 # 47 to 47
+        elif suf==2 and e!=0 and e!=20 and e!=40 and e!=60 and e!=80 and e!=100:
+            F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[1]] = flux/2 # 46 to 45
+            F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[0]] = flux/2 # 38 to 37
+        elif suf==3:
+            F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]]+flux/2 # 47 to 47
+            F[s_glob_node(e,3)[1], s_glob_node(e,3)[1]] = flux/2 # 46 to 46
+
     print('e',e)
 
 ########################### solving for U #####################################
-
 RHS_cst = (M + K - F)
 for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
     U=np.linalg.solve(M,RHS)        # solving for U(t+1)
-    U[0:N_e_r*2]=U[N_e_c*2:0]=0
+    U[0:N_e_r*2]=0#U[N_e_c*2:0]=0
     if n==1:                        # saving U at timestep 1 to plot
         U1=U
     elif n==100:
@@ -279,9 +271,7 @@ ax.set_zlabel('$U$')
 plt.legend()
 plt.show()
 
-
-
-plt.spy(F)
+#plt.spy(F)
 
 
 #for i in range(len(boundary_element_ydir)):
@@ -318,7 +308,18 @@ plt.spy(F)
 #              end do
 #         end do
 #   endo
-#   
+# 
+
+
+
+
+
+
+
+
+
+
+  
 #x_coo=[]
 #y_coo=[] 
 #coo=[]   

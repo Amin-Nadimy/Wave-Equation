@@ -6,12 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-nx = 1000                    # total number of nodes(degree of freedom)
-nt = 2000                   # total number of time steps
+nx = 100                    # total number of nodes(degree of freedom)
+nt = 20                   # total number of time steps
 L =  0.5                    # Totla length
 C = .05                     # Courant number
 c = .1                      # Wave velocity
-dx = L/(nx-1)               # Distace stepping size
+dx = L/(nx//2)               # Distace stepping size
 dt = C*dx/c                 # Time stepping size
 x  = np.arange(0, nx)*dx    # or x=np.linspace(0,2,nx)
 U = np.zeros(nx)            # U is a square wave between 0 <U< 1

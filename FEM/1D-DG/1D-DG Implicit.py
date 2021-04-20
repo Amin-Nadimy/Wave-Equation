@@ -28,7 +28,7 @@ U[0] = U[nx-1] = 0          # Dirichlet BC
 
 #------------------------------------------------------------------------------
 # Initial conditions
-U[int(L*nx*0.4):int(L*nx*0.9)]=1
+U[int(L*nx*0.37):int(L*nx*1.27)]=1
 
 
 xi = [-1/np.sqrt(3), 1/np.sqrt(3)] # quad points
@@ -42,8 +42,8 @@ phi = {0: lambda xi: 1/2*(1-xi),
 d_dx = {0: -1/2,
         1: 1/2}
 
-MM = np.zeros((nx,nx))
-KK = np.zeros((nx,nx))
+M = np.zeros((nx,nx))
+K = np.zeros((nx,nx))
 surf = np.zeros((nx,nx+1))
 
 # global node numbers of each elements
@@ -72,12 +72,12 @@ for e in range(nx//2):
         global_i = glob(e)[i_n]
         for j_n in range(2):
             global_j = glob(e)[j_n]
-            MM[global_i , global_j] = 0
-            KK[global_i , global_j] = 0
+            M[global_i , global_j] = 0
+            K[global_i , global_j] = 0
             for g in range(len(xi)):
-                MM[global_i, global_j] = MM[global_i , global_j] + (phi[i_n](xi[g])
+                M[global_i, global_j] = M[global_i , global_j] + (phi[i_n](xi[g])
                                                                         * phi[j_n](xi[g]) * jac)
-                KK[global_i , global_j] = KK[global_i , global_j] + (c*dt*phi[j_n](xi[g])
+                K[global_i , global_j] = K[global_i , global_j] + (c*dt*phi[j_n](xi[g])
                 * d_dx[i_n])
 
 
@@ -90,13 +90,13 @@ for e in range(nx//2):
             global_sj = glob(e)[s_j]
             
             surf[global_si, glob(e-1)[1]+1] = (n_hat[0] *c*dt* phi[s_i](L_xi[0]) *
-                                                               phi[s_j](L_xi[1]))
+                                                               phi[s_j](L_xi[1])) # 99,98
             
             surf[global_si, global_sj+1] = (n_hat[s_i]*c*dt* phi[s_i](L_xi[1]) *
-                                                             phi[s_j](L_xi[1]))
+                                                             phi[s_j](L_xi[1])) #99,100
 surf = -surf[:,1:]
 
-RHS_cst = (MM + KK + surf)
+RHS_cst = (M + K + surf)
 
 ##-Matrix method----------------------------------------------------------------
 #Mrching forward in time
@@ -105,7 +105,7 @@ t3 = time.time()
 for n in range(nt):                 # Marching in time
     Un = U.copy()
     RHS = RHS_cst.dot(Un[1:nx+1])           # saving U^t to be used in the next time step calculation
-    U[1:nx+1]=np.linalg.solve(MM,RHS)
+    U[1:nx+1]=np.linalg.solve(M,RHS)
 
     if n==1:
         U_plot[0,:] = U.copy()      # saving U(t=1)
