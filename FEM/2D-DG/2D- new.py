@@ -19,8 +19,9 @@ nsuf = 4
 ng =2
 gp = nsuf * ng
 C = 0.05
-c_x=0.1
-c_y=0.1
+c=np.array([0.1,0.1])
+#c_x=0.1
+#c_y=0.1
 L = 0.5
 N_e_r = 20
 N_e_c= 8
@@ -28,7 +29,7 @@ nt = 20
 domain_norm = [0,0,1]
 dx = L/(N_e_r)
 dy = L/(N_e_c)
-dt = C/((c_x/dx)+(c_y/dy))
+dt = C/((c[0]/dx)+(c[1]/dy))
 local_node_no = 4
 total_element=N_e_r * N_e_c
 total_nodes = total_element * local_node_no
@@ -159,8 +160,8 @@ for e in range (total_element):    # element numbers starts from 1
                 ddy_shape_func = 1/det_jac * (dx_dxi(qpoint[i,1]) * ddeta_shape_func[iloc](qpoint[i,0]) - 
                                     dx_deta(qpoint[i,0]) * ddxi_shape_func[iloc](qpoint[i,1]))
                 
-                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(c_x * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func +
-                                                                                     c_y * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)
+                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(c[0] * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func +
+                                                                                     c[1] * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)
                                                                                          * det_jac)
 ###############################################################################
 ############################ surface integration ##############################
@@ -193,83 +194,62 @@ for e in range (total_element):    # element numbers starts from 1
                      3: [np.sign(snormal[2][0]), np.sign(snormal[2][1])],
                      2: [np.sign(snormal[3][0]), np.sign(snormal[3][1])]}
                     
-            # =================================================================
-            for sjloc in range(4):                   # = 4, number of local surfaces
-                sjnod = s_glob_node(e,sjloc)         # gives two nodes numbrs of each j-surface
-          
-                # =============================================================
-                # cal det_jac
-                L_det_jac =0
-                for g in range(ng):
-                    if suf==0 or suf==3:
-                        eta=s_ng[sl][g][1]
-                        L_det_jac = np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)
-                        
-                    elif suf==1 or suf==2:
-                        xi = s_ng[sl][g][0]
-                        L_det_jac = np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2)
-                        
-                    flux=flux+ L_weights[g] * L_det_jac *(c_x * dt * n_hat[suf][0] 
-                                                        * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1])
-                                                        * shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]) 
-                                                        + c_y * dt * n_hat[suf][1] 
-                                                        * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1])
-                                                        * shape_func[sjloc](s_ng[suf][g][0],s_ng[suf][g][1]))
+            # =============================================================
+            # cal det_jac
+            L_det_jac =0
+            for g in range(ng):
+                eta=s_ng[suf][g][1]
+                xi = s_ng[suf][g][0]
+                L_det_jac = {0: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2),
+                             1: np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2),
+                             2: np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2),
+                             3: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)}
                     
-        #==========================================================
-        if suf ==0 and e>=N_e_r:
-            F[s_glob_node(e,0)[0], s_glob_node(e-N_e_r,3)[1]] = flux/2 # 38 to 30
-            F[s_glob_node(e,0)[1], s_glob_node(e-N_e_r,3)[0]] = flux/2 # 39 to 31 
-        elif suf==1:
-            F[s_glob_node(e,1)[0], s_glob_node(e,1)[0]] = flux/2 # 39 to 39
-            F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]] = flux/2 # 47 to 47
-        elif suf==2 and e!=0 and e!=20 and e!=40 and e!=60 and e!=80 and e!=100:
-            F[s_glob_node(e,2)[0], s_glob_node(e-1,1)[1]] = flux/2 # 46 to 45
-            F[s_glob_node(e,2)[1], s_glob_node(e-1,1)[0]] = flux/2 # 38 to 37
-        elif suf==3:
-            F[s_glob_node(e,3)[0], s_glob_node(e,3)[0]] = F[s_glob_node(e,1)[1], s_glob_node(e,1)[1]]+flux/2 # 47 to 47
-            F[s_glob_node(e,3)[1], s_glob_node(e,3)[1]] = flux/2 # 46 to 46
-
+                flux=flux+ L_weights[g] * L_det_jac[suf] *(c.dot(n_hat[suf]) * dt 
+                                                        * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
+        print(suf, flux)
+    
     print('e',e)
 
 ########################### solving for U #####################################
-RHS_cst = (M + K - F)
-for n in range(nt):                 # Marching in time
-    Un = U.copy()
-    RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
-    U=np.linalg.solve(M,RHS)        # solving for U(t+1)
-    U[0:N_e_r*2]=0#U[N_e_c*2:0]=0
-    if n==1:                        # saving U at timestep 1 to plot
-        U1=U
-    elif n==100:
-        U2=U
-    print(n)
-
-######################### Plotting the results ################################
-U1_plot=np.zeros(([len(y),len(x)]))
-U2_plot=np.zeros(([len(y),len(x)]))
-
-j=0
-k=0
-while j< len(y):
-    i=0
-    while i< len(x):
-        U1_plot[j,i]=U1[k]
-        U2_plot[j,i]=U[k]
-        i+=1
-        k+=1
-    j+=1
-        
-X, Y =np.meshgrid(x,y)           # Creating a mesh grid
-plt.figure(1)        
-ax = plt.gca(projection='3d')
-ax.plot_surface(X, Y, U2_plot , label='t=final')
-#ax.plot_surface(X, Y, U1_plot , label='t=0')
-ax.set_ylabel('$y$')
-ax.set_xlabel('$x$')
-ax.set_zlabel('$U$')
-plt.legend()
-plt.show()
+M_inv = np.linalg.inv(M)
+#RHS_cst = (M + K - F)
+#for n in range(nt):                 # Marching in time
+#    Un = U.copy()
+#    RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
+#    U=np.linalg.solve(M,RHS)        # solving for U(t+1)
+#    U[0:N_e_r*2]=0#U[N_e_c*2:0]=0
+#    if n==1:                        # saving U at timestep 1 to plot
+#        U1=U
+#    elif n==100:
+#        U2=U
+#    print(n)
+#
+########################## Plotting the results ################################
+#U1_plot=np.zeros(([len(y),len(x)]))
+#U2_plot=np.zeros(([len(y),len(x)]))
+#
+#j=0
+#k=0
+#while j< len(y):
+#    i=0
+#    while i< len(x):
+#        U1_plot[j,i]=U1[k]
+#        U2_plot[j,i]=U[k]
+#        i+=1
+#        k+=1
+#    j+=1
+#        
+#X, Y =np.meshgrid(x,y)           # Creating a mesh grid
+#plt.figure(1)        
+#ax = plt.gca(projection='3d')
+#ax.plot_surface(X, Y, U2_plot , label='t=final')
+##ax.plot_surface(X, Y, U1_plot , label='t=0')
+#ax.set_ylabel('$y$')
+#ax.set_xlabel('$x$')
+#ax.set_zlabel('$U$')
+#plt.legend()
+#plt.show()
 
 #plt.spy(F)
 

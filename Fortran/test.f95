@@ -378,7 +378,43 @@
 !   a=2
 !   print'(f5.2)',a,p
 ! end program point
-!-------------------------------------------------------------------------------
+!------------------------------ interface --------------------------------------
+! real function power_real(a,b) result(c)
+!   implicit NONE
+!   real, intent(in):: a,b
+!   c=a**b
+! end function power_real
+!
+! real function power_int(a,b) result(c)
+!   implicit NONE
+!   integer, intent(in):: a,b
+!   c=a**b
+! end function power_int
+!
+! PROGRAM inter
+!   implicit NONE
+!   real:: a1=2.0, b1=3.0,c1, c2, power
+!   integer:: a2=3, b2=2
+!
+!   interface pow
+!     real function power_real(a,b) result(c)
+!       implicit NONE
+!       real, intent(in):: a,b
+!     end function power_real
+!
+!     real function power_int(a,b) result(c)
+!       implicit NONE
+!       integer, intent(in):: a,b
+!     end function power_int
+!
+!   end interface pow
+!
+!   c1=pow(a1,b1)
+!   print*, c1
+! END PROGRAM inter
+
+-------------------------------------------------------------------------------
+
 subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
                   got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx, face_sweigh, npoly,ele_type, & ! shape functions
                   face_ele, face_list_no,  & ! face info
@@ -912,7 +948,7 @@ SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SD
 
           ! Calculate the normal at the Gauss pts...
           ! Perform x-product. N=T1 x T2
-          CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+            CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
                DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
                NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
        END DO
