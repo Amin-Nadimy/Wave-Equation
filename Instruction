@@ -18,7 +18,7 @@ Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
                    # url is the address of sme repository which you can find when click on cloe or dwnload bottom on your github/repository
 2- git add name_of_your_repository         # adds changes you've made on to therepository
 3- git commit -m "type a message"          # apply changes on Git
-4- git commit -am "a message"              # combine both above Commands
+4- git commit -am "a message"              # combine both above Commands add + commit
 5- git status                              # shows the status of your project
 6- git push                                # Upload al saved changes on GitHub
 7- git pull                                # is oppisit git push. if you make some changes online then using this command you can update your local machine.
