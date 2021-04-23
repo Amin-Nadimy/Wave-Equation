@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-nx = 100                    # total number of nodes(degree of freedom)
+nx = 6                    # total number of nodes(degree of freedom)
 nt = 20                   # total number of time steps
 L =  0.5                    # Totla length
 C = .05                     # Courant number
