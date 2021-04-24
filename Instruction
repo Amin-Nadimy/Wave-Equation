@@ -22,6 +22,10 @@ Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 5- git status                              # shows the status of your project
 6- git push                                # Upload al saved changes on GitHub
 7- git pull                                # is oppisit git push. if you make some changes online then using this command you can update your local machine.
+8- git clean -fd                           # to remove directories after commit but before push
+9- git clean -fX                           # to remove ignored file after commit before push
+10- git clean -fx                          # to remove ignored and un-ignored file after commit before push
+11- git clean -n                           # to remove file after commit before push
 
 Merge Conflicts
 8- git log                                 # gives you the history of all commits you've done
