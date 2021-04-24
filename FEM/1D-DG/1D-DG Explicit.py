@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-nx = 6                    # total number of nodes(degree of freedom)
+nx = 100                    # total number of nodes(degree of freedom)
 nt = 20                   # total number of time steps
 L =  0.5                    # Totla length
 C = .05                     # Courant number
@@ -86,16 +86,21 @@ Un=np.zeros(nx)                      # dummy vbl to save current values of U (U^
 t3 = time.time() 
 for n in range(nt):                  # Marching in time
     Un = U.copy()                    # saving U^t to be used in the next time step calculation
-    U[1] = RHS_cst[0,0]*Un[1] + RHS_cst[0,1]*Un[2]
-    U[2] = RHS_cst[1,0]*Un[1] + RHS_cst[1,1]*Un[2]
-    i=3
-    j=1
-    while i<nx-2:
-        U[i] = RHS_cst[i-1,j]*Un[i-1] + RHS_cst[i-1,j+1]*Un[i] + RHS_cst[i-1,j+2]*Un[i+1]
+    while i<= nx-2:
+        while j<= nx-2:
+            U[i] = U[i]+RHS_cst[i,j]*Un[j]
+            j+=1
         i+=1
-        U[i] = RHS_cst[i-1,j]*Un[i-2] + RHS_cst[i-1,j+1]*Un[i-1] + RHS_cst[i-1,j+2]*Un[i]
-        i+=1
-        j+=2
+#    U[1] = RHS_cst[0,0]*Un[1] + RHS_cst[0,1]*Un[2]
+#    U[2] = RHS_cst[1,0]*Un[1] + RHS_cst[1,1]*Un[2]
+#    i=3
+#    j=1
+#    while i<nx-2:
+#        U[i] = RHS_cst[i-1,j]*Un[i-1] + RHS_cst[i-1,j+1]*Un[i] + RHS_cst[i-1,j+2]*Un[i+1]
+#        i+=1
+#        U[i] = RHS_cst[i-1,j]*Un[i-2] + RHS_cst[i-1,j+1]*Un[i-1] + RHS_cst[i-1,j+2]*Un[i]
+#        i+=1
+#        j+=2
     if n==1:
         U_plot[0,:] = U.copy()       # saving U(t=1)
     if n==int(nt/2):
