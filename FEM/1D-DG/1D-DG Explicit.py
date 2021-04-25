@@ -86,11 +86,16 @@ Un=np.zeros(nx)                      # dummy vbl to save current values of U (U^
 t3 = time.time() 
 for n in range(nt):                  # Marching in time
     Un = U.copy()                    # saving U^t to be used in the next time step calculation
+    i=1
+    R=0
     while i<= nx-2:
-        while j<= nx-2:
-            U[i] = U[i]+RHS_cst[i,j]*Un[j]
-            j+=1
+        Rid=0
+        for j in range(nx-2):
+            Rid = Rid+RHS_cst[i-1,j]*Un[j+1]
+        U[i]=Rid
         i+=1
+     
+    
 #    U[1] = RHS_cst[0,0]*Un[1] + RHS_cst[0,1]*Un[2]
 #    U[2] = RHS_cst[1,0]*Un[1] + RHS_cst[1,1]*Un[2]
 #    i=3
