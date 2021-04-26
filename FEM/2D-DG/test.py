@@ -19,13 +19,13 @@ nsuf = 4
 ng =2
 gp = nsuf * ng
 C = 0.05
-c=np.array([0.1,0.1])
+c=np.array([0.1,0])
 #c_x=0.1
 #c_y=0.1
 L = 0.5
-N_e_r = 20
+N_e_r = 10
 N_e_c= 10
-nt = 1
+nt = 3
 domain_norm = [0,0,1]
 dx = L/(N_e_r)
 dy = L/(N_e_c)
@@ -163,12 +163,13 @@ for e in range (total_element):    # element numbers starts from 1
                 K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(c[0] * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func +
                                                                                      c[1] * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)
                                                                                          * det_jac)
-    #print(e)
 M_inv = np.linalg.inv(M)
 ###############################################################################
 ############################ surface integration ##############################
 Un_hat = np.zeros(total_element*nsuf)
+
 for n in range(nt):
+    flux_n_hat = []
     Un=U.copy()
     r_cst = M_inv.dot(K)
     r_cst = r_cst.dot(Un)      # M_inv * K * Un
@@ -176,6 +177,7 @@ for n in range(nt):
     for e in range(total_element):
         for suf in range(nsuf):             # no.faces in each e
             sol = e*nsuf+suf#s_glob_node(e,suf)[0] # e*nsuf+suf
+            times =0
             for siloc in range(4):           # = 4, number of local surfaces
                 sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
                 # =================================================================
@@ -207,7 +209,6 @@ for n in range(nt):
                 # cal det_jac
                 L_det_jac =0
                 flux =0
-                #U[sol] = 0
                 for g in range(ng):
                     eta=s_ng[siloc][g][1]
                     xi = s_ng[siloc][g][0]
@@ -216,46 +217,30 @@ for n in range(nt):
                                  2: np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2),
                                  3: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)}
                         
-                    flux= L_weights[g] * L_det_jac[siloc] * dt *(c.dot(n_hat[siloc]) 
+                    flux= flux + L_weights[g] * L_det_jac[siloc] * dt *(c.dot(n_hat[siloc]) 
                                                             * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1]))
                     
-                    if siloc==0:
-                        Un_hat = Un[(sol-N_e_r*4)+3]
-                    elif siloc==2:
-                        Un_hat = Un[sol-5]
-                    else:
-                        Un_hat = Un[sol]
+                if siloc==0:
+                    Un_hat = Un[(sol-N_e_r*4)+3]
+                elif siloc==2:
+                    Un_hat = Un[sol-5]
+                else:
+                    Un_hat = Un[sol]
+                times = times +flux*Un_hat
                         
-                    j=0
-                    while j <= total_nodes-1:
-                        sum = sum + ( Un[sol] 
-                                        +  r_cst[sol] 
-                                        -  M_inv[sol, j] * flux * Un_hat )
-                    
-                        j+=1
-                    U[sol]=sum
+            flux_n_hat.append(times)
+    flux_n_hat_M_inv = M_inv.dot(flux_n_hat)
+    flux_n_hat_M_inv[0:N_e_r*2]=0
+    
+    for i in range(total_nodes):
+        U[i] = Un[i] + r_cst[i] - flux_n_hat_M_inv[i]
+        
+    i=0
+    while i <total_nodes:
+        U[i]=0
+        i+=N_e_r*2
+                
 
-#for n in range(nt):
-#    for j in range(total_nodes):
-#        for i in range(4):
-#            Un=U.copy
-#            U[j] = ( Un[j] 
-#                    + dt * M_inv[i,j] * K[i,j] * Un[j] 
-#                    - dt * M_inv[i,j] * flux * Un[j] )
-            
-########################### solving for U #####################################
-#RHS_cst = (M + K - F)
-#for n in range(nt):                 # Marching in time
-#    Un = U.copy()
-#    RHS = RHS_cst.dot(Un)           # saving U^t to be used at the next timestep calculation
-#    U=np.linalg.solve(M,RHS)        # solving for U(t+1)
-#    U[0:N_e_r*2]=0#U[N_e_c*2:0]=0
-#    if n==1:                        # saving U at timestep 1 to plot
-#        U1=U
-#    elif n==100:
-#        U2=U
-#    print(n)
-#
 ########################### Plotting the results ################################
 U1_plot=np.zeros(([len(y),len(x)]))
 U2_plot=np.zeros(([len(y),len(x)]))
