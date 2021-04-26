@@ -230,11 +230,10 @@ for n in range(nt):
                         
             flux_n_hat.append(times)
     flux_n_hat_M_inv = M_inv.dot(flux_n_hat)
-    flux_n_hat_M_inv[0:N_e_r*2]=0
     
     for i in range(total_nodes):
         U[i] = Un[i] + r_cst[i] - flux_n_hat_M_inv[i]
-        
+    U[0:N_e_r*2]=0    
     i=0
     while i <total_nodes:
         U[i]=0
