@@ -234,33 +234,33 @@
 !
 ! end program derived_data_type
 !--------------------------------------- pointer -------------------------------
-program pointers
-  implicit none
-  integer, target:: x1, x2
-  integer, pointer:: P1, P2
-  integer, dimension(3,4), target:: M
-  integer, dimension(:,:), pointer:: PM
-
-  x1 = 4
-  x2 = 7
-
-  M=8
-  PM=>M
-
-  pm(1,3)=2
-
-
-  p1=>x1
-  p2=>x2
-  p1 = 5
-  x1 = 10
-
-  print*, M
-  !print*, associated(p1,x1)
-  !nullify(p1)
-  !print*, associated(p1),p1
-
-end program pointers
+! program pointers
+!   implicit none
+!   integer, target:: x1, x2
+!   integer, pointer:: P1, P2
+!   integer, dimension(3,4), target:: M
+!   integer, dimension(:,:), pointer:: PM
+!
+!   x1 = 4
+!   x2 = 7
+!
+!   M=8
+!   PM=>M
+!
+!   pm(1,3)=2
+!
+!
+!   p1=>x1
+!   p2=>x2
+!   p1 = 5
+!   x1 = 10
+!
+!   print*, M
+!   !print*, associated(p1,x1)
+!   !nullify(p1)
+!   !print*, associated(p1),p1
+!
+! end program pointers
 !-------------------------------------- module ---------------------------------
 ! module para
 !   implicit none
@@ -413,6 +413,36 @@ end program pointers
 !   print*, c1
 ! END PROGRAM inter
 
+!---------------------------- Read and write in external file ------------------
+! program read_write
+!   implicit NONE
+!   real:: num, x,y,z
+!   integer:: i
+!   open(3, file='test_2')
+!   ! do i=1,3
+!   !   num = i*2
+!   !   write(3,*) num
+!   ! end do
+!   read(3,*) x,y,z
+!   print*, x,y,z
+! print *, "done"
+!
+! end program read_write
+
+!------------------------------- present ---------------------------------------
+!The PRESENT function determines whether or not an optional argument is present.
+! a is INTENT(IN) and must be an optional dummy argument of the procedure
+! in which the PRESENT function appears.
+!syntax = present(a)
+! function fun1(a,b)
+!   real :: fun1,a
+!   real,optional :: b
+!   if(present(b)) then ! don't reference b unless
+!     fun1=a+b          ! it is present
+!   else
+!     fun1=a
+!   end if
+! end function
 !-------------------------------------------------------------------------------
 
 ! subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
