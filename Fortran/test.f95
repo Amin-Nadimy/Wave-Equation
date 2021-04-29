@@ -443,7 +443,20 @@
 !     fun1=a
 !   end if
 ! end function
-!-------------------------------------------------------------------------------
+!------------------------------ forall -----------------------------------------
+! it is the same as for loop but you can have nested loops in onw line
+! syntax: forll(j=1:x, j=1:y)
+! you can mask a condition too. meaning that an if statement can be i the same line
+! e.g forll(j=1:x, j=1:y, i/=2.andj/=3)
+! it menas do the operatin everywhere except when i is not 2 and j is not 3
+! note: forall perform simultaneuosly on all components, but when do loop is
+! used, the matrix is updated after each i or j operation, so the results
+! of do loop and ifall can be different.
+!note: if you follow this structure: forall (<variables and consitions>)
+!                                              operations
+!                                    end forall
+! or no need end forall if: forall (<vabls and conditions>) <operations>
+! ------------------------------------------------------------------------------
 
 ! subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
 !                   got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx, face_sweigh, npoly,ele_type, & ! shape functions

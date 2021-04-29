@@ -23,9 +23,9 @@ c=np.array([0.1,0])
 #c_x=0.1
 #c_y=0.1
 L = 0.5
-N_e_r = 10
-N_e_c= 10
-nt = 3
+N_e_r = 4
+N_e_c= 3
+nt = 1
 domain_norm = [0,0,1]
 dx = L/(N_e_r)
 dy = L/(N_e_c)
@@ -176,8 +176,10 @@ for n in range(nt):
     sum = 0
     for e in range(total_element):
         for suf in range(nsuf):             # no.faces in each e
-            sol = e*nsuf+suf#s_glob_node(e,suf)[0] # e*nsuf+suf
+            #sol = e*nsuf+suf#s_glob_node(e,suf)[0] # e*nsuf+suf
+            globi=global_no(e+1,N_e_r)[suf]-1
             times =0
+            flux =0
             for siloc in range(4):           # = 4, number of local surfaces
                 sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
                 # =================================================================
@@ -208,25 +210,26 @@ for n in range(nt):
                 # =============================================================
                 # cal det_jac
                 L_det_jac =0
-                flux =0
+                
                 for g in range(ng):
-                    eta=s_ng[siloc][g][1]
-                    xi = s_ng[siloc][g][0]
+                    eta=s_ng[suf][g][1]
+                    xi = s_ng[suf][g][0]
                     L_det_jac = {0: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2),
                                  1: np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2),
                                  2: np.sqrt(dx_deta(xi)**2 + dy_deta(xi)**2),
                                  3: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)}
                         
-                    flux= flux + L_weights[g] * L_det_jac[siloc] * dt *(c.dot(n_hat[siloc]) 
-                                                            * shape_func[siloc](s_ng[siloc][g][0],s_ng[siloc][g][1]))
+                    flux= flux + L_weights[g] * L_det_jac[suf] * dt *(c.dot(n_hat[suf]) 
+                                                            * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
                     
-                if siloc==0:
-                    Un_hat = Un[(sol-N_e_r*4)+3]
-                elif siloc==2:
-                    Un_hat = Un[sol-5]
+                if suf==0:
+                    Un_hat = Un[(globi-N_e_r*4)+3]
+                elif suf==2:
+                    Un_hat = Un[globi-5]
                 else:
-                    Un_hat = Un[sol]
+                    Un_hat = Un[globi]
                 times = times +flux*Un_hat
+                print
                         
             flux_n_hat.append(times)
     flux_n_hat_M_inv = M_inv.dot(flux_n_hat)
