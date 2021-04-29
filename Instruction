@@ -1,44 +1,44 @@
-## git-- How to upload a file from you computer on to GitHub ##
+## git-- How to upload a file from your computer on to GitHub ##
 
 1. Create a new repository on GitHub account.
 2. Copy its SSH key from the top of the page.
-3. Open terminal and navigate to the folder with you need to upload.
+3. Open the terminal and navigate to the folder wich you need to upload.
 4. In terminal type: git init   # initiates the process
-5. In terminal type: git remote add origin SSH   # Here type your SSH key in stead of word SSH 
+5. In terminal type: git remote add origin SSH   # Here type your SSH key instead of word SSH 
 6. In terminal type: git remote -v    # It's just a way to check if everything is fine. you need to see (fetch) and (push)
 7. In terminal type: git add .    # Takes all the files in the repository and prepares them to be pushed.
 8. In terminal type: git commit -m "type a name like first commit"
 9. git push origin master
-10. it might ask your GitHub user/pass which you nrrd to provide
+10. it might ask your GitHub user/pass which you need to provide
 11. everything is uploaded as a folder.
 Video: https://www.youtube.com/watch?v=BWiAUtwtqjM
 
 ## Useful Commands ##
 1- git clone <url> # clone gets a copy of your files from github and copy them on  your local computer
-                   # url is the address of sme repository which you can find when click on cloe or dwnload bottom on your github/repository
-2- git add name_of_your_repository         # adds changes you've made on to therepository
+                   # url is the address of the repository which you can find when clicking on clone or download bottom on your github/repository
+2- git add name_of_your_repository         # adds changes you've made on to the repository
 3- git commit -m "type a message"          # apply changes on Git
 4- git commit -am "a message"              # combine both above Commands add + commit
 5- git status                              # shows the status of your project
-6- git push                                # Upload al saved changes on GitHub
-7- git pull                                # is oppisit git push. if you make some changes online then using this command you can update your local machine.
+6- git push                                # Upload all saved changes on GitHub
+7- git pull                                # is opposit git push. if you make some changes online then using this command you can update your local machine.
 8- git clean -fd                           # to remove directories after commit but before push
 9- git clean -fX                           # to remove ignored file after commit before push
 10- git clean -fx                          # to remove ignored and un-ignored file after commit before push
 11- git clean -n                           # to remove file after commit before push
-12- git reset hard HEAD^                   # to delete the last commit or HEAD^2 for couple of commits
+12- git reset hard HEAD^                   # to delete the last commit or HEAD^2 for a couple of commits
 
 Merge Conflicts
 8- git log                                 # gives you the history of all commits you've done
-9- git reset --hard commit_ID              # if yourn't happy with the changes you've made you can reset back to the older stage using the command ID can come from git log
+9- git reset --hard commit_ID              # if yourn't happy with the changes you've made you can reset back to the older stage using the command ID that  can come from git log
 10- git reset --hard origin/master         # it resets back to the original file which was uploaded from the start
 
 Branching
-11- git branch name_of_branch              # makes another branch of you master 
+11- git branch name_of_branch              # makes another branch of your master 
 12- git checkout name_of_branch            # switch from master to the new branch 
 13- git branch -b name_of_branch           # creates and switch to the new branch
-14- git merge name_of_branch               # merch 2 differenct branches together. e.g. go to master branch using checkout, then use this command with the name of the other branch which you want to merg with 
-15- git branch                             # showes which branch currently your working on
+14- git merge name_of_branch               # merch 2 different branches together. e.g. go to master branch using checkout, then use this command with the name of the other branch which you want to merge with 
+15- git branch                             # showes which branch currently working on
 16- git branch -D name_of_function
 17- git push origin <name of the branch>   # pushes to a specific branch
 18- git branch -a                          # to see all local and remote branches, * shows which branch currently we're in
@@ -53,19 +53,19 @@ Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QW
                                               
                                               
                                               # simulation commands
-# in .msh file : in th element section: 
+# in .msh file : in the element section: 
                85=element number, 1 or 2=means type lines and surface respectively ,2=type of element(triangle), 10=global surface id, 5=global line number, 5,47=node numbers
                in the node section:
                it is just node numbers and its x,y,z coordinates
 # refining the mesh file. if you run this command it will be applied twice
-gmsh -refine <path tothe finle.msh>
+gmsh -refine <path to the file.msh>
 # excecutable files in ic-ferst are always in 1 folder (bin folder in the main ic-ferst folder and the actrual executable file is called icferst)
 # the path is to MultiFluids_Dev/legacy_reservoir_prototype/schemas/ in th eic-ferst folder
 diamond -s <path to multiphase.rng> <name>.mpml
-# when modification is finished with diamond, then call the path to icferst file in bin and then name of the mpml file, which you want to run
+# when modification is finished with diamond, then call the path to icferst file in bin and then the name of the mpml file, which you want to run
 $ <path to icfest file in bin folder> <name of simulation file>.mpml
 
-# for generating simulation files, it has the flag to enable 2d adaptivity. '.' should refer to where c-ferst code is. 
+# for generating simulation files, it has the flag to enable 2d adaptivity. '.' should refer to where ic-ferst code is. 
 ./configure --enable-2d-adaptivity 
 # then compile the code and then make the code
 make clean
@@ -73,10 +73,13 @@ make mp
 make all
 make fltools
 
+# when changing the IC-FERST code and want to apply it you need to recompile the code. the first time do the below command and for the next time just to make mp. 
+./configure --enable-debugging --enable-2d-adaptivity && make clean && make -j4 mp
+
 
                                               # shell scripting
 1- nano <filename.sh>                            # creates and open a new shell file with nano text editor
-# the first line of any shell script is below. Then write you commands. vbls={<vbl name>} in capital and in the command is used like ${<vbl name>}
+# the first line of any shell script is below. Then write your commands. vbls={<vbl name>} in capital and in the command is used like ${<vbl name>}
 2- #!/bin/bash                                   # #! called shebang
 # save the file and change the mode to be executable by:
 3- chmod +x <file name.sh>
@@ -84,7 +87,7 @@ make fltools
                                               
                                               
                                               # remote computer
-# To login through terminal just turn on Imperial VPN and input:
+# To log in through the terminal just turn on Imperial VPN and input:
 ssh an619@ese-ao1414g4.ese.ic.ac.uk
 
 # copy from local to remote:
@@ -99,7 +102,7 @@ scp an619@ese-ao1414g4.ese.ic.ac.uk:<remote location of file> <local location yo
 # to set number of cpu cores (cpu affinity) before running a program
 taskset -c <no. CPU. e.g. 1 or 1-10>  < path to the program>
 
-# to set number of cpu cores while running a program. PID is shown in terminal when running top or htop.
+# to set number of cpu cores while running a program. PID is shown in the terminal when running top or htop.
 taskset -cp <no. CPU. e.g. 1 or 1-10>  < PID >
 
 # to check number of cpu affinity while running a program
@@ -116,15 +119,15 @@ the second command creates .halo files
 3- mpirun -n <ncores> <address to>/icferst <file>.mpml
 
 # Optimising a simulation mesh
-when starting a imulation it generates a <file name.sat> file. If using the below command one camn see the plots and start optimising the simulation based on the number of
-degrees of freedom and also the #cores by examining the plots. 50,000 degrees of freedom on each core would be ideal ( or 10,000 to 20,000 elements pre core).
+when starting a simulation it generates a <file name.sat> file. If using the below command one can see the plots and start optimising the simulation based on the number of
+degrees of freedom and also the #cores by examining the plots. 50,000 degrees of freedom on each core would be ideal ( or 10,000 to 20,000 elements per core).
 $ statplot <file_name.sat>
 wall_time = whole simulation time
 elapsetime = finish time of the simulation specified in diamond
 
 # adding sudo access for the workstation to a person
-sudo gedit /etc/group    # which opens a txt file, then add the username whereever an619 is
-# one can use vim or cat instead of gedit too. after than the computer should be rebooted, the command is:
+sudo gedit /etc/group    # which opens a txt file, then add the username wherever an619 is
+# one can use vim or cat instead of gedit too. after tht the computer should be rebooted, the command is:
 # sudo reboot
 
 
