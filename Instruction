@@ -54,9 +54,9 @@ Video: https://www.youtube.com/watch?v=MJUJ4wbFm_A&list=RDCMUCcabW7890RKJzL968QW
                                               
                                               # simulation commands
 # in .msh file : in th element section: 
-                 $85=element number, 2= ,2=type of element(triangle), 10=global surface id, 5=global line number, 5,47=node numbers
-                 in the nodce section:
-                 it is just node numbers and its x,y,z coordinates
+               85=element number, 1 or 2=means type lines and surface respectively ,2=type of element(triangle), 10=global surface id, 5=global line number, 5,47=node numbers
+               in the node section:
+               it is just node numbers and its x,y,z coordinates
 # refining the mesh file. if you run this command it will be applied twice
 gmsh -refine <path tothe finle.msh>
 # excecutable files in ic-ferst are always in 1 folder (bin folder in the main ic-ferst folder and the actrual executable file is called icferst)
