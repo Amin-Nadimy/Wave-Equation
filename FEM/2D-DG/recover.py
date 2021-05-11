@@ -19,7 +19,7 @@ nsuf = 4
 ng =2
 gp = nsuf * ng
 C = 0.05
-c=np.array([0.1,0])
+c=np.array([0.1,0.2])
 #c_x=0.1
 #c_y=0.1
 L = 0.5
@@ -160,9 +160,9 @@ for e in range (total_element):    # element numbers starts from 1
                 ddy_shape_func = 1/det_jac * (dx_dxi(qpoint[i,1]) * ddeta_shape_func[iloc](qpoint[i,0]) - 
                                     dx_deta(qpoint[i,0]) * ddxi_shape_func[iloc](qpoint[i,1]))
                 
-                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*(c[0] * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func +
-                                                                                     c[1] * shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)
-                                                                                         * det_jac)
+                K[global_i-1,global_j-1] =(K[global_i-1,global_j-1] + qweight[i]*dt*det_jac*c.dot(np.array([(shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddx_shape_func),
+                                                                                                            (shape_func[jloc](qpoint[i,0], qpoint[i,1]) * ddy_shape_func)])))
+                
 M_inv = np.linalg.inv(M)
 ###############################################################################
 ############################ surface integration ##############################
@@ -175,11 +175,13 @@ for n in range(nt):
     r_cst = r_cst.dot(Un)      # M_inv * K * Un
     sum = 0
     for e in range(total_element):
+        times =np.zeros(4)
+        flux =0
+        Un_hat2 = np.zeros(4)
         for suf in range(nsuf):             # no.faces in each e
             #sol = e*nsuf+suf#s_glob_node(e,suf)[0] # e*nsuf+suf
-            globi=global_no(e+1,N_e_r)[suf]-1
-            times =0
-            flux =0
+            globi=s_glob_node(e,suf)
+
             for siloc in range(4):           # = 4, number of local surfaces
                 sinod = s_glob_node(e,siloc)    # gives two nodes numbrs of each i-surface
                 # =================================================================
@@ -220,17 +222,33 @@ for n in range(nt):
                                  3: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2)}
                         
                     flux= flux + L_weights[g] * L_det_jac[suf] * dt *(c.dot(n_hat[suf]) 
-                                                            * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
+                                                            * shape_func[siloc](xi,eta))
                     
-                if suf==0:
-                    Un_hat = Un[(globi-N_e_r*4)+3]
-                elif suf==2:
-                    Un_hat = Un[globi-5]
-                else:
-                    Un_hat = Un[globi]
-                times = times +flux*Un_hat
+                    if suf==0:
+                        Un_hat2[0] = Un[globi[0]-N_e_r*4]
+                        times[0] = Un_hat2[0] * flux
+                        Un_hat2[1] = Un[globi[1]-N_e_r*4]
+                        times[1] = Un_hat2[1] * flux
+                    elif suf==2:
+                        Un_hat2[2] = Un[globi[0]-1]
+                        times[2] = Un_hat2[0] * flux
+                        Un_hat2[0] = Un[globi[1]-1]
+                        times[0] = times[0] + Un_hat2[0] * flux
+                    elif suf==1:
+                        Un_hat2[1] = Un[globi[0]]
+                        times[1] = times[1] + Un_hat2[1] * flux
+                        Un_hat2[3] = Un[globi[1]]
+                        times[3] = Un_hat2[3] * flux
+                    else:
+                        Un_hat2[3] = Un[globi[0]]
+                        times[3] = times[3] + Un_hat2[3] * flux
+                        Un_hat2[2] = Un[globi[1]]
+                        times[2] = times[2] + Un_hat2[2] * flux
                         
-            flux_n_hat.append(times)
+        flux_n_hat.append(times[0])
+        flux_n_hat.append(times[1])
+        flux_n_hat.append(times[2])
+        flux_n_hat.append(times[3])
     flux_n_hat_M_inv = M_inv.dot(flux_n_hat)
     
     for i in range(total_nodes):
@@ -255,7 +273,7 @@ while j< len(y):
         U2_plot[j,i]=U[k]
         i+=1
         k+=1
-    j+=1
+#    j+=1
         
 #X, Y =np.meshgsum(x,y)           # Creating a mesh gsum
 #plt.figure(1)        

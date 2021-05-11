@@ -26,7 +26,7 @@
 ! END PROGRAM sort
 
 !-------------------------------------------------------------------------------
-!!! To run hte progrma
+!!! To run the progrma
 ! Creates an executable file
 ! gfortran -o test test.f95
 
@@ -49,6 +49,138 @@
 !   REAL:: res
 !   res = SQRT(xx**2 + yy**2 + zz**2)
 ! END FUNCTION mynorm
+!----------------------------- arrays ------------------------------------------
+! program test
+!   implicit NONE
+!   real,allocatable, dimension(:,:)::numbers
+!   integer:: nID_size, ndim_size, i,j
+!   nID_size = 3
+!   ndim_size = 5
+!   allocate(numbers(nID_size, ndim_size))
+!   do i=1,min(nID_size,ndim_size)
+!     numbers(i,i)=1
+!   end do
+! !  allocate(numbers(size))
+!
+! ! this prints the numbers in the matrix form
+! do i=1,nID_size
+!   do j=1,ndim_size
+!     !print*, numbers(i,j)
+!     write(*,'(f8.1, t3)', advance='no'),numbers(i,j)
+!   end do
+!   write(*,*)
+! end do
+!
+! !  deallocate(numbers)
+!
+! end program test
+
+!-------------------------- open, read, allocate ------------------------------
+! program test
+!   implicit NONE
+!   integer:: i,size,j,size2
+!   real, allocatable, dimension(:)::ID, x,y,z, ID2, x2,y2,z2
+!   size=9
+!   size2=size*2-1
+!   allocate(ID(size), x(size), y(size), z(size))
+!   allocate(ID2(size2), x2(size2), y2(size2), z2(size2))
+!
+!   print*, 'hi1'
+!   ! Reading mesh data
+!   open(4, file='node_coo.txt')
+!     do i=1,size
+!       read(4,*) ID(i), x(i), y(i), z(i)
+!     end do
+!   close(4)
+! print*, 'hi2'
+!
+! ! inserting new points between initial nodes
+!   j=1
+!   do i=1,size
+!     x2(j) = x(i)
+!     y2(j) = y(i)
+!     z2(j) = z(i)
+!     j=j+2
+!   end do
+!
+! ! adding node IDs
+!   ID2(1:size2) =  [(i, i=1,size2)] ! the same as for loop written below that
+! ! do i=1,size2
+! ! ID2(i) = i
+! ! end do
+!
+! ! calculating midpoint values
+!   j=2
+!   do while (j<=size2)
+!     x2(j)= 0.5*(x2(j-1)+x2(j+1))
+!     y2(j)= 0.5*(y2(j-1)+y2(j+1))
+!     z2(j)= 0.5*(z2(j-1)+z2(j+1))
+!     j=j+2
+!   end do
+!
+! print*, 'hhhhhhhh'
+! ! Copy elements of node_coo.txt into node_coo2.txt and double the size
+!   open(unit=6, file='node_coo2.txt')
+!     do i=1,size2
+!       write(6,*) ID2(i), x2(i), y2(i), z2(i)
+!     end do
+!   close(6)
+! print*, 'hi33'
+!
+!
+!   deallocate(ID, x,y,z, ID2, x2,y2,z2)
+! end program test
+
+! ---------------------- Dictionary --------------------------------------------
+! Program Dictionary
+!   implicit none
+!   ! real, dimension(:), allocatable:: b
+!   real, dimension(:,:), allocatable:: a
+!   integer:: i,j,size=2
+!   allocate(a(6,size))
+!   ! allocate(b(6))
+!
+!   ! b=(/1,2,3,4,7,8/)
+!   do i=1,size
+!     a(:,i)=1
+!   end do
+!   a(1,:)=4
+!   a(3,:)=8
+!
+! ! do i=1,size(b)
+! !     if (present(a(i))) then
+! !       print*, a(i)
+! !     end if
+! ! end do
+! do i=1,6
+!   do j=1,size
+!     write(*,'(f8.1, t3)', advance='no') a(i,j)
+!   end do
+!   write(*,*)
+! end do
+!   deallocate(a)
+! end program Dictionary
+! !---------------------- the same as above -----------------------------------
+! program writeandread
+!   implicit none
+!   integer::i, a(5), b(5)
+!   open(unit=2, file="writeandread")
+!
+!   do i=1,5
+!     read(2,*) a(i), b(i)
+!     a(i)=a(i)*2
+!     b(i)=b(i)*3
+!   end do
+!   close(2)
+!
+!   open(unit=3, file="writeandread2")
+!   do i=1,5
+!     write(3,*) a(i), b(i)
+!   end do
+!   close(3)
+!   print*, a,b
+!
+! end program writeandread
 !-------------------------------------------------------------------------------
 ! ! FINDS THE LARGEST
 ! PROGRAM X
@@ -96,16 +228,172 @@
 ! end program tri_area
 
 !-------------------------------------------------------------------------------
-! program logic
-!   implicit none
-!   real :: a,b
-!   LOGICAL:: m,n
-!    m = .true.
-!   ! n= .false.
-!   a= 5
-!   b=4
+program logic
+  implicit none
+  real :: a,b
+  LOGICAL:: m,n
+   m = .true.
+  ! n= .false.
+  a= 5
+  b=4
+  if (.not.m) THEN
+    print*, 'hast'
+  else
+    print*, 'nist'
+  end if
 ! PRINT*, "not m is", m
-! end program logic
+end program logic
+!
+numNodes = size(nodes)
+numFaces = size(faces)
+numElements = size(elements)
+
+allocate(ele_combination(6,2), faces2(numNodes+numElements-1,2))
+forall (i=1:((size(faces2)/2)), j=1:2) faces2(i,j)=-1
+open(unit=12, file='amin_gmsh.txt')
+write(12,*) '$MeshFormat'
+write(12,*) '2.2 0 8'
+write(12,*) '$EndMeshFormat'
+
+write(12,*) '$Nodes'
+do i=1,numNodes
+    write(12,*) nodes(i)%nodeID, nodes(i)%x
+  end do
+do i=1,numFaces
+      write(12,*) i+numFaces+1, (nodes(faces(i)%nodeIDs(1))%x(1)+ nodes(faces(i)%nodeIDs(2))%x(1))/2.0, &
+                                (nodes(faces(i)%nodeIDs(1))%x(2)+ nodes(faces(i)%nodeIDs(2))%x(2))/2.0, &
+                                (nodes(faces(i)%nodeIDs(1))%x(3)+ nodes(faces(i)%nodeIDs(2))%x(3))/2.0
+  ! numNodes=i+numfaces+1
+  end do
+write(12,*) '$EndNodes'
+
+write(12,*) '$Elements'
+ ! j=1
+ ! do i=1,numFaces
+ !     write(12,*)j,faces(i)%type,faces(i)%numTags,faces(i)%tags,faces(i)%nodeIDs(1), i+numFaces+1
+ !     j=j+1
+ !     write(12,*)j,faces(i)%type,faces(i)%numTags,faces(i)%tags, i+numFaces+1, faces(i)%nodeIDs(2)
+ !     j=j+1
+ ! end do
+
+write(12,*) 'Now Faces'
+ do i=1,numFaces
+   faces2(i,1)=faces(i)%nodeIDs(1)
+   faces2(i,2)=faces(i)%nodeIDs(2)
+   write(12,*) faces(i)%nodeIDs
+ end do
+
+ write(12,*) 'next'
+ write(12,*) numElements+numFaces
+ do i=1,((size(faces2)/2))
+     write(12,*) faces2(i,1), faces2(i,2)
+ end do
+
+! write(12,*) 'Now combinations of faces'
+!      do i=1,numFaces
+!        faces2(i,1) = faces(i)%nodeIDs(1)
+!        faces2(i,2) = faces(i)%nodeIDs(2)
+!        write(12,*) faces2(i,:)
+!      end do
+!
+!      do i=numFaces,2*numFaces-1
+!        faces2(i,1) = faces(i-numFaces+1)%nodeIDs(2)
+!        faces2(i,2) = faces(i-numFaces+1)%nodeIDs(1)
+!        write(12,*) faces2(i,:)
+!      end do
+
+
+k=1
+write(12,*) 'Now element'
+ do i=1, numElements
+   write(12,*) elements(i)%nodeIDs
+   do j=1,(numNodes+numElements-1)
+     ! checks all combinations of faces if the midpoint is already calculated in the Node section
+     if ((elements(i)%nodeIDs(1) == faces2(j,1) .and. elements(i)%nodeIDs(2) == faces2(j,2))&
+        .or. (elements(i)%nodeIDs(1) == faces2(j,2) .and. elements(i)%nodeIDs(2) == faces2(j,1))) then
+        check=0
+        exit
+     else
+        check=1
+     end if
+    end do
+    if (check == 1) then
+       write(12,*) 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(2))%x(1)),&
+                   0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(2))%x(2)),&
+                   0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(2))%x(3))
+       faces2(numFaces+k,1)=elements(i)%nodeIDs(1)
+       faces2(numFaces+k,2)=elements(i)%nodeIDs(2)
+       k=k+1
+     end if
+
+    do j=1,(numNodes+numElements-1)
+      if ((elements(i)%nodeIDs(1) == faces2(j,1) .and. elements(i)%nodeIDs(3) == faces2(j,2))&
+             .or. (elements(i)%nodeIDs(1) == faces2(j,2) .and. elements(i)%nodeIDs(3) == faces2(j,1))) then
+          check2 =0
+          exit
+      else
+          check2=1
+      end if
+    end do
+    if (check2==1) then
+     write(12,*) 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(3))%x(1)),&
+                 0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(3))%x(2)),&
+                 0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(3))%x(3))
+      faces2(numFaces+k,1)=elements(i)%nodeIDs(1)
+      faces2(numFaces+k,2)=elements(i)%nodeIDs(3)
+      k=k+1
+    end if
+
+
+    do j=1,(numNodes+numElements-1)
+    if ((elements(i)%nodeIDs(2) == faces2(j,1) .and. elements(i)%nodeIDs(3) == faces2(j,2) )&
+            .or. (elements(i)%nodeIDs(2) == faces2(j,2) .and. elements(i)%nodeIDs(3) == faces2(j,1) )) then
+      check3 =0
+      exit
+    else
+      check3=1
+    end if
+    end do
+    if (check3==1) then
+     write(12,*) 0.5*(nodes(elements(i)%nodeIDs(2))%x(1) + nodes(elements(i)%nodeIDs(3))%x(1)),&
+                 0.5*(nodes(elements(i)%nodeIDs(2))%x(2) + nodes(elements(i)%nodeIDs(3))%x(2)),&
+                 0.5*(nodes(elements(i)%nodeIDs(2))%x(3) + nodes(elements(i)%nodeIDs(3))%x(3))
+      faces2(numFaces+k,1)=elements(i)%nodeIDs(2)
+      faces2(numFaces+k,2)=elements(i)%nodeIDs(3)
+      k=k+1
+    end if
+ end do
+
+ do i=1,((size(faces2)/2))
+     write(12,*) faces2(i,1), faces2(i,2)
+ end do
+     ! write(12,*) elements(i)%elementID, elements(i)%type, elements(i)%numTags , elements(i)%tags, elements(i)%nodeIDs
+      ! ele_combination(1,1)= elements(i)%nodeIDs(1)
+      ! ele_combination(1,2)= elements(i)%nodeIDs(2)
+      ! write(12,*) ele_combination(1,:)
+      ! ele_combination(2,1)= elements(i)%nodeIDs(1)
+      ! ele_combination(2,2)= elements(i)%nodeIDs(3)
+      ! write(12,*) ele_combination(2,:)
+      ! ele_combination(3,1)= elements(i)%nodeIDs(2)
+      ! ele_combination(3,2)= elements(i)%nodeIDs(3)
+      ! write(12,*) ele_combination(3,:)
+      ! ele_combination(4,1)= elements(i)%nodeIDs(2)
+      ! ele_combination(4,2)= elements(i)%nodeIDs(1)
+      ! write(12,*) ele_combination(4,:)
+      ! ele_combination(5,1)= elements(i)%nodeIDs(3)
+      ! ele_combination(5,2)= elements(i)%nodeIDs(1)
+      ! write(12,*) ele_combination(5,:)
+      ! ele_combination(6,1)= elements(i)%nodeIDs(3)
+      ! ele_combination(6,2)= elements(i)%nodeIDs(2)
+      ! write(12,*) ele_combination(6,:), 'next'
+     ! do i=1,numElements
+     !     ! write(12,*) elements(i)%nodeIDs(1)
+ write(12,*) '$EndElements'
+
+close(12)
+deallocate(ele_combination, faces2)
+print*, 'done'
+stop
 !---------------------- characters  --------------------------------------------
 ! program character
 ! implicit none
@@ -452,11 +740,11 @@
 ! note: forall perform simultaneuosly on all components, but when do loop is
 ! used, the matrix is updated after each i or j operation, so the results
 ! of do loop and ifall can be different.
-!note: if you follow this structure: forall (<variables and consitions>)
+! note: if you follow this structure: forall (<variables and consitions>)
 !                                              operations
 !                                    end forall
 ! or no need end forall if: forall (<vabls and conditions>) <operations>
-! ------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
 
 ! subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
 !                   got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx, face_sweigh, npoly,ele_type, & ! shape functions
@@ -936,8 +1224,8 @@
 !       end do ! do ele = 1, totele ! Surface integral
 !
 !       end subroutine dg_advection_general
-!
-! ================================================================================
+
+!================================================================================
 !       call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
 ! SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
 ! !       inv_jac )
