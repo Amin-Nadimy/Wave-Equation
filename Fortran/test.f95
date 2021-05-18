@@ -227,296 +227,297 @@
 ! print*, "area of the triangle is", area
 ! end program tri_area
 
-!-------------------------------------------------------------------------------
-!    Copyright (C) 2006 Imperial College London and others.
+! !-------------------------------------------------------------------------------
+! !    Copyright (C) 2006 Imperial College London and others.
+! !
+! !    Please see the AUTHORS file in the main source directory for a full list
+! !    of copyright holders.
+! !
+! !    Prof. C Pain
+! !    Applied Modelling and Computation Group
+! !    Department of Earth Science and Engineering
+! !    Imperial College London
+! !
+! !    amcgsoftware@imperial.ac.uk
+! !
+! !    This library is free software; you can redistribute it and/or
+! !    modify it under the terms of the GNU Lesser General Public
+! !    License as published by the Free Software Foundation,
+! !    version 2.1 of the License.
+! !
+! !    This library is distributed in the hope that it will be useful,
+! !    but WITHOUT ANY WARRANTY; without even the implied warranty of
+! !    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+! !    Lesser General Public License for more details.
+! !
+! !    You should have received a copy of the GNU Lesser General Public
+! !    License along with this library; if not, write to the Free Software
+! !    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
+! !    USA
 !
-!    Please see the AUTHORS file in the main source directory for a full list
-!    of copyright holders.
+! #include "fdebug.h"
 !
-!    Prof. C Pain
-!    Applied Modelling and Computation Group
-!    Department of Earth Science and Engineering
-!    Imperial College London
+! module read_gmsh
+!   ! This module reads GMSH files and results in a vector field of
+!   ! positions.
 !
-!    amcgsoftware@imperial.ac.uk
+!   use fldebug
+!   use global_parameters, only : OPTION_PATH_LEN
+!   use futils
+!   use quadrature
+!   use elements
+!   use spud
+!   use parallel_tools
+!   use fields
+!   use state_module
+!   use gmsh_common
 !
-!    This library is free software; you can redistribute it and/or
-!    modify it under the terms of the GNU Lesser General Public
-!    License as published by the Free Software Foundation,
-!    version 2.1 of the License.
+!   implicit none
 !
-!    This library is distributed in the hope that it will be useful,
-!    but WITHOUT ANY WARRANTY; without even the implied warranty of
-!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-!    Lesser General Public License for more details.
+!   private
 !
-!    You should have received a copy of the GNU Lesser General Public
-!    License along with this library; if not, write to the Free Software
-!    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
-!    USA
-
-#include "fdebug.h"
-
-module read_gmsh
-  ! This module reads GMSH files and results in a vector field of
-  ! positions.
-
-  use fldebug
-  use global_parameters, only : OPTION_PATH_LEN
-  use futils
-  use quadrature
-  use elements
-  use spud
-  use parallel_tools
-  use fields
-  use state_module
-  use gmsh_common
-
-  implicit none
-
-  private
-
-  interface read_gmsh_file
-     module procedure read_gmsh_simple
-  end interface
-
-  public :: read_gmsh_file
-
-  integer, parameter:: GMSH_LINE=1, GMSH_TRIANGLE=2, GMSH_QUAD=3, GMSH_TET=4, GMSH_HEX=5, GMSH_NODE=15
-
-contains
-
-  ! -----------------------------------------------------------------
-  ! The main function for reading GMSH files
-
-  function read_gmsh_simple( filename, quad_degree, &
-         quad_ngi, quad_family, mdim ) &
-       result (field)
-    !!< Read a GMSH file into a coordinate field.
-    !!< In parallel the filename must *not* include the process number.
-
-    character(len=*), intent(in) :: filename
-    !! The degree of the quadrature.
-    integer, intent(in), optional, target :: quad_degree
-    !! The degree of the quadrature.
-    integer, intent(in), optional, target :: quad_ngi
-    !! What quadrature family to use
-    integer, intent(in), optional :: quad_family
-    !! Dimension of mesh
-    integer, intent(in), optional :: mdim
-    !! result: a coordinate field
-    type(vector_field) :: field
-
-    type(quadrature_type):: quad
-    type(element_type):: shape
-    type(mesh_type):: mesh
-
-    integer :: fd
-    integer,  pointer, dimension(:) :: sndglno, boundaryIDs, faceOwner
-    integer, ALLOCATABLE, DIMENSION(:,:):: faces2, dummy_faces
-    integer, ALLOCATABLE, DIMENSION(:):: nodes2_ID
-    real, ALLOCATABLE, DIMENSION(:,:):: nodes2_X
-
-    character(len = parallel_filename_len(filename)) :: lfilename
-    integer :: loc, sloc,i,j
-    integer :: numNodes, numElements, numFaces, numFaces2
-    logical :: haveBounds, haveElementOwners, haveRegionIDs
-    integer :: dim, coordinate_dim, gdim
-    integer :: gmshFormat
-    integer :: n, d, e, f, nodeID, check, check2, check3
-
-    type(GMSHnode), pointer :: nodes(:)
-    type(GMSHelement), pointer :: elements(:), faces(:)
-
-
-    ! If running in parallel, add the process number
-    if(isparallel()) then
-       lfilename = trim(parallel_filename(filename)) // ".msh"
-    else
-       lfilename = trim(filename) // ".msh"
-    end if
-
-    fd = free_unit()
-
-    ! Open node file
-    ewrite(2, *) "Opening "//trim(lfilename)//" for reading."
-    open( unit=fd, file=trim(lfilename), err=43, action="read", &
-         access="stream", form="formatted" )
-
-    ! Read in header information, and validate
-    call read_header( fd, lfilename, gmshFormat )
-
-    ! Read in the nodes
-    call read_nodes_coords( fd, lfilename, gmshFormat, nodes )
-
-    ! Read in elements
-    call read_faces_and_elements( fd, lfilename, gmshFormat, &
-         elements, faces, dim)
-
-    call read_node_column_IDs( fd, lfilename, gmshFormat, nodes )
-
-    ! According to fluidity/bin/gmsh2triangle, Fluidity doesn't need
-    ! anything past $EndElements, so we close the file.
-    close( fd )
-
-
-    numNodes = size(nodes)
-    numFaces = size(faces)
-    numElements = size(elements)
-
-    numFaces2=numFaces*2
-
-
-
-
-
-
-    allocate(nodes2_ID(numElements*12), nodes2_x(numElements*12,3), faces2(numFaces*2,7))
-    allocate(dummy_faces(numElements*3,2))
-    forall (i=1:((size(faces2)/7)), j=1:7) faces2(i,j)=-1
-    forall (i=1:numElements*12, j=1:3) nodes2_x(i,j)=-1
-    forall (i=1:numElements*12) nodes2_ID(i)=-1
-    forall (i=1:numElements*3, j=1:2) dummy_faces(i,j)=-1
-
-open(unit=12, file='amin_gmsh.txt')
-write(12,*) '$MeshFormat'
-write(12,*) '2.2 0 8'
-write(12,*) '$EndMeshFormat'
-
-write(12,*) '$Nodes'
-    ! copying old nodes
-    do i=1,numNodes
-      nodes2_ID(i) = nodes(i)%nodeID
-      forall (j=1:3) nodes2_x(i,j) = nodes(i)%x(j)
-      ! write(12,*) nodes2_ID(i), nodes2_x(i,:)
-    end do
-    ! copying new nodes
-    do i=1,numFaces
-      nodes2_ID(i+numNodes) = i+numNodes
-      forall (j=1:3) nodes2_x(i+numNodes,j) = (nodes(faces(i)%nodeIDs(1))%x(j)+ nodes(faces(i)%nodeIDs(2))%x(j))/2.0
-      ! write(12,*) nodes2_ID(i+numNodes), nodes2_X(i,:)
-      faces2(i*2-1,6)=faces(i)%nodeIDs(1)
-      faces2(i*2-1,7)=i+numNodes
-      faces2(i*2-1,2)=faces(i)%type
-      faces2(i*2-1,3)=faces(i)%numTags
-      faces2(i*2-1,4:5)=faces(i)%tags
-
-      faces2(i*2,6)=i+numNodes
-      faces2(i*2,7)=faces(i)%nodeIDs(2)
-      faces2(i*2,2)=faces(i)%type
-      faces2(i*2,3)=faces(i)%numTags
-      faces2(i*2,4:5)=faces(i)%tags
-    end do
-    forall (i=1:(size(faces2)/7)) faces2(i,1)=i
-    numNodes=numNodes+numFaces
-    do i=1,numNodes
-      write(12,*) nodes2_ID(i), nodes2_X(i,:)
-    end do
-write(12,*) '$EndNodes'
-
-
-write(12,*) '$Elements'
-! write(12,*) 'Old Faces'
-!      do i=1,numFaces
-!        write(12,*) faces(i)%elementID, faces(i)%type, faces(i)%numTags, faces(i)%tags, faces(i)%nodeIDs
+!   interface read_gmsh_file
+!      module procedure read_gmsh_simple
+!   end interface
+!
+!   public :: read_gmsh_file
+!
+!   integer, parameter:: GMSH_LINE=1, GMSH_TRIANGLE=2, GMSH_QUAD=3, GMSH_TET=4, GMSH_HEX=5, GMSH_NODE=15
+!
+! contains
+!
+!   ! -----------------------------------------------------------------
+!   ! The main function for reading GMSH files
+!
+!   function read_gmsh_simple( filename, quad_degree, &
+!          quad_ngi, quad_family, mdim ) &
+!        result (field)
+!     !!< Read a GMSH file into a coordinate field.
+!     !!< In parallel the filename must *not* include the process number.
+!
+!     character(len=*), intent(in) :: filename
+!     !! The degree of the quadrature.
+!     integer, intent(in), optional, target :: quad_degree
+!     !! The degree of the quadrature.
+!     integer, intent(in), optional, target :: quad_ngi
+!     !! What quadrature family to use
+!     integer, intent(in), optional :: quad_family
+!     !! Dimension of mesh
+!     integer, intent(in), optional :: mdim
+!     !! result: a coordinate field
+!     type(vector_field) :: field
+!
+!     type(quadrature_type):: quad
+!     type(element_type):: shape
+!     type(mesh_type):: mesh
+!
+!     integer :: fd
+!     integer,  pointer, dimension(:) :: sndglno, boundaryIDs, faceOwner
+!     integer, ALLOCATABLE, DIMENSION(:,:):: faces2, dummy_faces
+!     integer, ALLOCATABLE, DIMENSION(:):: nodes2_ID
+!     real, ALLOCATABLE, DIMENSION(:,:):: nodes2_X
+!
+!     character(len = parallel_filename_len(filename)) :: lfilename
+!     integer :: loc, sloc,i,j
+!     integer :: numNodes, numElements, numFaces, numFaces2
+!     logical :: haveBounds, haveElementOwners, haveRegionIDs
+!     integer :: dim, coordinate_dim, gdim
+!     integer :: gmshFormat
+!     integer :: n, d, e, f, nodeID, check, check2, check3
+!
+!     type(GMSHnode), pointer :: nodes(:)
+!     type(GMSHelement), pointer :: elements(:), faces(:)
+!
+!
+!     ! If running in parallel, add the process number
+!     if(isparallel()) then
+!        lfilename = trim(parallel_filename(filename)) // ".msh"
+!     else
+!        lfilename = trim(filename) // ".msh"
+!     end if
+!
+!     fd = free_unit()
+!
+!     ! Open node file
+!     ewrite(2, *) "Opening "//trim(lfilename)//" for reading."
+!     open( unit=fd, file=trim(lfilename), err=43, action="read", &
+!          access="stream", form="formatted" )
+!
+!     ! Read in header information, and validate
+!     call read_header( fd, lfilename, gmshFormat )
+!
+!     ! Read in the nodes
+!     call read_nodes_coords( fd, lfilename, gmshFormat, nodes )
+!
+!     ! Read in elements
+!     call read_faces_and_elements( fd, lfilename, gmshFormat, &
+!          elements, faces, dim)
+!
+!     call read_node_column_IDs( fd, lfilename, gmshFormat, nodes )
+!
+!     ! According to fluidity/bin/gmsh2triangle, Fluidity doesn't need
+!     ! anything past $EndElements, so we close the file.
+!     close( fd )
+!
+!
+!     numNodes = size(nodes)
+!     numFaces = size(faces)
+!     numElements = size(elements)
+!
+!     numFaces2=numFaces*2
+!
+!
+!
+!
+!
+!
+!     allocate(nodes2_ID(numElements*12), nodes2_x(numElements*12,3), faces2(numFaces*2,7))
+!     allocate(dummy_faces(numElements*3,2))
+!     forall (i=1:((size(faces2)/7)), j=1:7) faces2(i,j)=-1
+!     forall (i=1:numElements*12, j=1:3) nodes2_x(i,j)=-1
+!     forall (i=1:numElements*12) nodes2_ID(i)=-1
+!     forall (i=1:numElements*3, j=1:2) dummy_faces(i,j)=-1
+!
+! open(unit=12, file='amin_gmsh.txt')
+! write(12,*) '$MeshFormat'
+! write(12,*) '2.2 0 8'
+! write(12,*) '$EndMeshFormat'
+!
+! write(12,*) '$Nodes'
+!     ! copying old nodes
+!     do i=1,numNodes
+!       nodes2_ID(i) = nodes(i)%nodeID
+!       forall (j=1:3) nodes2_x(i,j) = nodes(i)%x(j)
+!       ! write(12,*) nodes2_ID(i), nodes2_x(i,:)
+!     end do
+!     ! copying new nodes
+!     do i=1,numFaces
+!       nodes2_ID(i+numNodes) = i+numNodes
+!       forall (j=1:3) nodes2_x(i+numNodes,j) = (nodes(faces(i)%nodeIDs(1))%x(j)+ nodes(faces(i)%nodeIDs(2))%x(j))/2.0
+!       ! write(12,*) nodes2_ID(i+numNodes), nodes2_X(i,:)
+!       faces2(i*2-1,6)=faces(i)%nodeIDs(1)
+!       faces2(i*2-1,7)=i+numNodes
+!       faces2(i*2-1,2)=faces(i)%type
+!       faces2(i*2-1,3)=faces(i)%numTags
+!       faces2(i*2-1,4:5)=faces(i)%tags
+!
+!       faces2(i*2,6)=i+numNodes
+!       faces2(i*2,7)=faces(i)%nodeIDs(2)
+!       faces2(i*2,2)=faces(i)%type
+!       faces2(i*2,3)=faces(i)%numTags
+!       faces2(i*2,4:5)=faces(i)%tags
+!     end do
+!     forall (i=1:(size(faces2)/7)) faces2(i,1)=i
+!     numNodes=numNodes+numFaces
+!     do i=1,numNodes
+!       write(12,*) nodes2_ID(i), nodes2_X(i,:)
+!     end do
+! write(12,*) '$EndNodes'
+!
+!
+! write(12,*) '$Elements'
+! ! write(12,*) 'Old Faces'
+! !      do i=1,numFaces
+! !        write(12,*) faces(i)%elementID, faces(i)%type, faces(i)%numTags, faces(i)%tags, faces(i)%nodeIDs
+! !      end do
+!
+! write(12,*) 'New Faces'
+!      write(12,*) numFaces*2
+!      do i=1,((numFaces*2))
+!          write(12,*) faces2(i,:)
 !      end do
-
-write(12,*) 'New Faces'
-     write(12,*) numFaces*2
-     do i=1,((numFaces*2))
-         write(12,*) faces2(i,:)
-     end do
-
-    do i=1,numFaces
-      dummy_faces(i,:)=faces(i)%nodeIDs
-    end do
-
-write(12,*) 'Now element'
-     do i=1, numElements
-       write(12,*) elements(i)%nodeIDs
-       do j=1,(size(dummy_faces)/2)
-         ! checks all combinations of faces if the midpoint is already calculated in the Node section
-         if     ((elements(i)%nodeIDs(1) == dummy_faces(j,1) .and. elements(i)%nodeIDs(2) == dummy_faces(j,2))&
-            .or. (elements(i)%nodeIDs(1) == dummy_faces(j,2) .and. elements(i)%nodeIDs(2) == dummy_faces(j,1))) then
-            check=0
-            exit
-         else
-            check=1
-         end if
-        end do
-        if (check == 1) then
-           ! write(12,*) 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(2))%x(1)),&
-           !             0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(2))%x(2)),&
-           !             0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(2))%x(3))
-           dummy_faces(numFaces+1,1)=elements(i)%nodeIDs(1)
-           dummy_faces(numFaces+1,2)=elements(i)%nodeIDs(2)
-           numFaces=numFaces+1
-
-           nodes2_X(numNodes+1,1) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(2))%x(1))
-           nodes2_X(numNodes+1,2) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(2))%x(2))
-           nodes2_X(numNodes+1,3) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(2))%x(3))
-           nodes2_ID(numNodes+1) = numNodes+1
-           numNodes = numNodes+1
-         end if
-
-        do j=1,(numFaces)
-          if    ((elements(i)%nodeIDs(1) == dummy_faces(j,1) .and. elements(i)%nodeIDs(3) == dummy_faces(j,2))&
-            .or. (elements(i)%nodeIDs(1) == dummy_faces(j,2) .and. elements(i)%nodeIDs(3) == dummy_faces(j,1))) then
-              check2 =0
-              exit
-          else
-              check2=1
-          end if
-        end do
-        if (check2==1) then
-            dummy_faces(numFaces+1,1)=elements(i)%nodeIDs(1)
-            dummy_faces(numFaces+1,2)=elements(i)%nodeIDs(3)
-            numFaces=numFaces+1
-
-            nodes2_X(numNodes+1,1) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(3))%x(1))
-            nodes2_X(numNodes+1,2) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(3))%x(2))
-            nodes2_X(numNodes+1,3) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(3))%x(3))
-            nodes2_ID(numNodes+1) = numNodes+1
-            numNodes = numNodes+1
-        end if
-
-
-        do j=1,(numFaces)
-        if ((elements(i)%nodeIDs(2) == dummy_faces(j,1) .and. elements(i)%nodeIDs(3) == dummy_faces(j,2) )&
-                .or. (elements(i)%nodeIDs(2) == dummy_faces(j,2) .and. elements(i)%nodeIDs(3) == dummy_faces(j,1) )) then
-          check3 =0
-          exit
-        else
-          check3=1
-        end if
-        end do
-        if (check3==1) then
-            dummy_faces(numFaces+1,1)=elements(i)%nodeIDs(2)
-            dummy_faces(numFaces+1,2)=elements(i)%nodeIDs(3)
-            numFaces=numFaces+1
-
-            nodes2_X(numNodes+1,1) = 0.5*(nodes(elements(i)%nodeIDs(2))%x(1) + nodes(elements(i)%nodeIDs(3))%x(1))
-            nodes2_X(numNodes+1,2) = 0.5*(nodes(elements(i)%nodeIDs(2))%x(2) + nodes(elements(i)%nodeIDs(3))%x(2))
-            nodes2_X(numNodes+1,3) = 0.5*(nodes(elements(i)%nodeIDs(2))%x(3) + nodes(elements(i)%nodeIDs(3))%x(3))
-            nodes2_ID(numNodes+1) = numNodes+1
-            numNodes = numNodes+1
-        end if
-     end do
-write(12,*) '$EndElements'
-
-     ! do i=1,(size(dummy_faces)/2)
-     !     write(12,*) dummy_faces(i,1), dummy_faces(i,2)
-     !   end do
-     write(12,*) '~nodes=', numNodes, numFaces2,numElements
-
-     do i=1,numNodes
-       write(12,*) nodes2_ID(i), nodes2_X(i,:)
-     end do
-
-    close(12)
-    deallocate(nodes2_ID, nodes2_x, faces2)
-    print*, 'done'
-    stop!---------------------- characters  --------------------------------------------
+!
+!     do i=1,numFaces
+!       dummy_faces(i,:)=faces(i)%nodeIDs
+!     end do
+!
+! write(12,*) 'Now element'
+!      do i=1, numElements
+!        write(12,*) elements(i)%nodeIDs
+!        do j=1,(size(dummy_faces)/2)
+!          ! checks all combinations of faces if the midpoint is already calculated in the Node section
+!          if     ((elements(i)%nodeIDs(1) == dummy_faces(j,1) .and. elements(i)%nodeIDs(2) == dummy_faces(j,2))&
+!             .or. (elements(i)%nodeIDs(1) == dummy_faces(j,2) .and. elements(i)%nodeIDs(2) == dummy_faces(j,1))) then
+!             check=0
+!             exit
+!          else
+!             check=1
+!          end if
+!         end do
+!         if (check == 1) then
+!            ! write(12,*) 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(2))%x(1)),&
+!            !             0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(2))%x(2)),&
+!            !             0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(2))%x(3))
+!            dummy_faces(numFaces+1,1)=elements(i)%nodeIDs(1)
+!            dummy_faces(numFaces+1,2)=elements(i)%nodeIDs(2)
+!            numFaces=numFaces+1
+!
+!            nodes2_X(numNodes+1,1) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(2))%x(1))
+!            nodes2_X(numNodes+1,2) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(2))%x(2))
+!            nodes2_X(numNodes+1,3) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(2))%x(3))
+!            nodes2_ID(numNodes+1) = numNodes+1
+!            numNodes = numNodes+1
+!          end if
+!
+!         do j=1,(numFaces)
+!           if    ((elements(i)%nodeIDs(1) == dummy_faces(j,1) .and. elements(i)%nodeIDs(3) == dummy_faces(j,2))&
+!             .or. (elements(i)%nodeIDs(1) == dummy_faces(j,2) .and. elements(i)%nodeIDs(3) == dummy_faces(j,1))) then
+!               check2 =0
+!               exit
+!           else
+!               check2=1
+!           end if
+!         end do
+!         if (check2==1) then
+!             dummy_faces(numFaces+1,1)=elements(i)%nodeIDs(1)
+!             dummy_faces(numFaces+1,2)=elements(i)%nodeIDs(3)
+!             numFaces=numFaces+1
+!
+!             nodes2_X(numNodes+1,1) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(1) + nodes(elements(i)%nodeIDs(3))%x(1))
+!             nodes2_X(numNodes+1,2) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(2) + nodes(elements(i)%nodeIDs(3))%x(2))
+!             nodes2_X(numNodes+1,3) = 0.5*(nodes(elements(i)%nodeIDs(1))%x(3) + nodes(elements(i)%nodeIDs(3))%x(3))
+!             nodes2_ID(numNodes+1) = numNodes+1
+!             numNodes = numNodes+1
+!         end if
+!
+!
+!         do j=1,(numFaces)
+!         if ((elements(i)%nodeIDs(2) == dummy_faces(j,1) .and. elements(i)%nodeIDs(3) == dummy_faces(j,2) )&
+!                 .or. (elements(i)%nodeIDs(2) == dummy_faces(j,2) .and. elements(i)%nodeIDs(3) == dummy_faces(j,1) )) then
+!           check3 =0
+!           exit
+!         else
+!           check3=1
+!         end if
+!         end do
+!         if (check3==1) then
+!             dummy_faces(numFaces+1,1)=elements(i)%nodeIDs(2)
+!             dummy_faces(numFaces+1,2)=elements(i)%nodeIDs(3)
+!             numFaces=numFaces+1
+!
+!             nodes2_X(numNodes+1,1) = 0.5*(nodes(elements(i)%nodeIDs(2))%x(1) + nodes(elements(i)%nodeIDs(3))%x(1))
+!             nodes2_X(numNodes+1,2) = 0.5*(nodes(elements(i)%nodeIDs(2))%x(2) + nodes(elements(i)%nodeIDs(3))%x(2))
+!             nodes2_X(numNodes+1,3) = 0.5*(nodes(elements(i)%nodeIDs(2))%x(3) + nodes(elements(i)%nodeIDs(3))%x(3))
+!             nodes2_ID(numNodes+1) = numNodes+1
+!             numNodes = numNodes+1
+!         end if
+!      end do
+! write(12,*) '$EndElements'
+!
+!      ! do i=1,(size(dummy_faces)/2)
+!      !     write(12,*) dummy_faces(i,1), dummy_faces(i,2)
+!      !   end do
+!      write(12,*) '~nodes=', numNodes, numFaces2,numElements
+!
+!      do i=1,numNodes
+!        write(12,*) nodes2_ID(i), nodes2_X(i,:)
+!      end do
+!
+!     close(12)
+!     deallocate(nodes2_ID, nodes2_x, faces2)
+!     print*, 'done'
+!     stop
+    !---------------------- characters  --------------------------------------------
 ! program character
 ! implicit none
 ! character :: a
@@ -1347,7 +1348,7 @@ write(12,*) '$EndElements'
 !
 !       end subroutine dg_advection_general
 
-!================================================================================
+! ================================================================================
 !       call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
 ! SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
 ! !       inv_jac )
@@ -1409,3 +1410,39 @@ write(12,*) '$EndElements'
 !     RETURN
 !
 !   END SUBROUTINE det_snlx_all
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! program arraycons
+!   implicit none
+!   integer :: i
+!   real :: a(10) = (/(i, i=2,20, 2)/)
+!   print *, a
+! end program arraycons
+
+program arraycons
+  implicit none
+  integer :: N_e_r=4, i,j, col, row,e=1
+  real:: dx=0.125, dy=0.1667, co_ordinates(4,2)
+call coordinates(e,N_e_r, dx,dy, co_ordinates)
+
+do i=1,4
+  write(*,*) co_ordinates(i,1), co_ordinates(i,2)
+end do
+write(*,*) col, row
+end program arraycons
+
+subroutine coordinates(e, N_e_r, dx, dy,co_ordinates)
+  implicit none
+  integer:: col, row, N_e_r, e
+  real:: dx, dy
+  real, dimension(4,2):: co_ordinates
+  row = ceiling(real(e)/N_e_r)
+  col = e-(N_e_r*((ceiling(real(e)/N_e_r))-1))
+  co_ordinates(1,1) = (col-1)*dx
+  co_ordinates(1,2) = dy*(row-1)
+  co_ordinates(2,1) = dx*col
+  co_ordinates(2,2) = dy*(row-1)
+  co_ordinates(3,1) = dx*(col-1)
+  co_ordinates(3,2) = dy*row
+  co_ordinates(4,1) = dx*col
+  co_ordinates(4,2) = dy*row
+end subroutine coordinates

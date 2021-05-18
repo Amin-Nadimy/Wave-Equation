@@ -17,11 +17,8 @@ L_weights=[1,1]
 
 nsuf = 4
 ng =2
-gp = nsuf * ng
 C = 0.05
-c=np.array([0.1,0])
-#c_x=0.1
-#c_y=0.1
+c=np.array([0.1,0.1])
 L = 0.5
 N_e_r = 4
 N_e_c= 3
@@ -33,7 +30,6 @@ dt = C/((c[0]/dx)+(c[1]/dy))
 local_node_no = 4
 total_element=N_e_r * N_e_c
 total_nodes = total_element * local_node_no
-total_nsuf = total_element * nsuf
 vol_qp = 9 # degree of polynomial**2
 
 # DG x-coordinates
