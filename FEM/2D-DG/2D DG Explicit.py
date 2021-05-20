@@ -31,7 +31,7 @@ L = 0.5                                       # x and y lengths
 dx = L/(N_e_r)
 dy = L/(N_e_c)
 c_x = 0.1                                   # Wave velocity in x-dir
-c_y = 0.1                                 # Wave velocity in y-dir
+c_y = 0                                # Wave velocity in y-dir
 dt = C*dx*dy/(c_x*dy+c_y*dx)
 
 U = np.zeros(N*Np)                          # Wave matrix

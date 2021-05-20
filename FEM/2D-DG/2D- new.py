@@ -207,7 +207,7 @@ for e in range (total_element):    # element numbers starts from 1
                     
                 flux=flux+ L_weights[g] * L_det_jac[suf] *(c.dot(n_hat[suf]) * dt 
                                                         * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
-        print(suf, flux)
+        #print(suf, flux)
     
     print('e',e)
 

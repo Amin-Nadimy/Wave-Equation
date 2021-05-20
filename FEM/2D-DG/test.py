@@ -18,7 +18,7 @@ L_weights=[1,1]
 nsuf = 4
 ng =2
 C = 0.05
-c=np.array([0.1,0.1])
+c=np.array([0.1,0])
 L = 0.5
 N_e_r = 4
 N_e_c= 3
@@ -263,3 +263,53 @@ while j< len(y):
 #ax.set_zlabel('$U$')
 #plt.legend()
 #plt.show()
+
+#   do ele=1,totele
+#  
+#   # for voln...
+#         do iloc=1,nloc ! local row iloc for element
+#             inod=   ! global node number
+#             do jloc=1,nloc ! local coln jloc for element
+#                 jnod=  ! global node number
+#  
+#                  do gi=1,ngi ! loop over the quadrature points in element
+#  
+#                      a=a+...
+#                 end do
+#            end do
+#      endo
+#  
+#       do iface =1,nface
+#   # for surface iface...
+#         do siloc=1,snloc ! local row siloc for surface element
+#             sinod=   ! global node number
+#             do sjloc=1,snloc ! local coln sjloc for surface element
+#                sjnod=   ! global node number
+#  
+#                  do sgi=1,sngi ! loop over the quadrature points on surface
+#  
+#                      sa=sa+...
+#                 end do
+#            end do
+#      end do
+#    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

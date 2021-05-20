@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-qpoint = np.array(([-np.sqrt(0.6), -np.sqrt(0.6)],[0, -np.sqrt(0.6)],[np.sqrt(0.6), -np.sqrt(0.6)],
-                   [-np.sqrt(0.6), 0],              [0, 0],            [np.sqrt(0.6), 0],
-                   [-np.sqrt(0.6), np.sqrt(0.6)],   [0, np.sqrt(0.6)], [np.sqrt(0.6), np.sqrt(0.6)]))
+qpoint = np.array(([-np.sqrt(0.6), -np.sqrt(0.6)] , [0, -np.sqrt(0.6)] , [np.sqrt(0.6), -np.sqrt(0.6)],
+                   [-np.sqrt(0.6), 0],              [0, 0],              [np.sqrt(0.6), 0],
+                   [-np.sqrt(0.6), np.sqrt(0.6)] ,   [0, np.sqrt(0.6)] , [np.sqrt(0.6), np.sqrt(0.6)]))
 
 qweight = np.array(([25/81],[40/81],[25/81],
                     [40/81],[64/81],[40/81],
@@ -19,14 +19,14 @@ nsuf = 4
 ng =2
 gp = nsuf * ng
 C = 0.05
-c=np.array([0.1,0.2])
+c=np.array([0.1,0])
 #c_x=0.1
 #c_y=0.1
 L = 0.5
 N_e_r = 4
 N_e_c= 3
 nt = 1
-domain_norm = [0,0,1]
+domain_norm = [0,0.1]
 dx = L/(N_e_r)
 dy = L/(N_e_c)
 dt = C/((c[0]/dx)+(c[1]/dy))
@@ -144,7 +144,7 @@ for e in range (total_element):    # element numbers starts from 1
 #==============================================================================
             # M matrix Gaussian integration
             # loop over all qp
-            M[global_i-1,global_j-1] = 0
+#            M[global_i-1,global_j-1] = 0
             K[global_i-1,global_j-1] = 0
             det_jac = 0
             for i in range(vol_qp):

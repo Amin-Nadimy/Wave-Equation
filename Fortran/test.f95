@@ -1419,30 +1419,35 @@
 ! end program arraycons
 
 program arraycons
+  use amin
   implicit none
-  integer :: N_e_r=4, i,j, col, row,e=1
+  integer :: N_e_r=4, i,j, col, row,e=12
   real:: dx=0.125, dy=0.1667, co_ordinates(4,2)
-call coordinates(e,N_e_r, dx,dy, co_ordinates)
+  call coordinates(e,N_e_r, dx,dy, co_ordinates)
 
-do i=1,4
-  write(*,*) co_ordinates(i,1), co_ordinates(i,2)
-end do
-write(*,*) col, row
+  do i=1,4
+    write(*,*) co_ordinates(i,1), co_ordinates(i,2)
+  end do
+  write(*,*) col, row
 end program arraycons
 
-subroutine coordinates(e, N_e_r, dx, dy,co_ordinates)
-  implicit none
-  integer:: col, row, N_e_r, e
-  real:: dx, dy
-  real, dimension(4,2):: co_ordinates
-  row = ceiling(real(e)/N_e_r)
-  col = e-(N_e_r*((ceiling(real(e)/N_e_r))-1))
-  co_ordinates(1,1) = (col-1)*dx
-  co_ordinates(1,2) = dy*(row-1)
-  co_ordinates(2,1) = dx*col
-  co_ordinates(2,2) = dy*(row-1)
-  co_ordinates(3,1) = dx*(col-1)
-  co_ordinates(3,2) = dy*row
-  co_ordinates(4,1) = dx*col
-  co_ordinates(4,2) = dy*row
-end subroutine coordinates
+module amin
+  implicit NONE
+  contains
+    subroutine coordinates(e, N_e_r, dx, dy,co_ordinates)
+      implicit none
+      integer:: col, row, N_e_r, e
+      real:: dx, dy
+      real, dimension(4,2):: co_ordinates
+      row = ceiling(real(e)/N_e_r)
+      col = e-(N_e_r*((ceiling(real(e)/N_e_r))-1))
+      co_ordinates(1,1) = (col-1)*dx
+      co_ordinates(1,2) = dy*(row-1)
+      co_ordinates(2,1) = dx*col
+      co_ordinates(2,2) = dy*(row-1)
+      co_ordinates(3,1) = dx*(col-1)
+      co_ordinates(3,2) = dy*row
+      co_ordinates(4,1) = dx*col
+      co_ordinates(4,2) = dy*row
+    end subroutine coordinates
+end module amin

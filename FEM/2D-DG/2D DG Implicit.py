@@ -22,7 +22,7 @@ dx = L/(N_e_r)
 dy = L/(N_e_c)
 
 c_x = 0.1                                  # Wave velocity in x-dir
-c_y = 0.1                                 # Wave velocity in y-dir
+c_y = 0                                # Wave velocity in y-dir
 #c = (c_x**2+c_y**2)**0.5                    # speed of the wave
 dt = C*dx*dy/(c_x*dy+c_y*dx)
 
