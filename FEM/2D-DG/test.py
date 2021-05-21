@@ -182,14 +182,14 @@ for n in range(nt):
                 # normal to the boundary lines 
                 snormal = {0: np.cross([dx_dxi(-1) , dy_dxi(-1)  ,0], domain_norm),      # n_ds of the line (-1,-1) and (-1,1)
                            1: np.cross([dx_deta(1) , dy_deta(1)  ,0], domain_norm),      # n_ds of the line (-1,1)  and (1,1)
-                           2: np.cross([dx_dxi(1)  , dy_dxi(1)   ,0], domain_norm),      # n_ds of the line (1,1)   and (1,-1)
-                           3: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm)}      # n_ds of the line (-1,1)  and (-1,-1)
-                
+                           2: np.cross([dx_deta(-1), dy_deta(-1) ,0], domain_norm),      # n_ds of the line (-1,1)  and (-1,-1)
+                           3: np.cross([dx_dxi(1)  , dy_dxi(1)   ,0], domain_norm)}      # n_ds of the line (1,1)   and (1,-1)
+                           
                 # vector from the centre of the element to a node on a boundary line
                 r = {0: np.subtract([coordinates(e)[0,0], coordinates(e)[0,1],0] , e_centre(e)),
                      1: np.subtract([coordinates(e)[1,0], coordinates(e)[1,1],0] , e_centre(e)),
-                     2: np.subtract([coordinates(e)[3,0], coordinates(e)[3,1],0] , e_centre(e)),
-                     3: np.subtract([coordinates(e)[2,0], coordinates(e)[2,1],0] , e_centre(e))}
+                     2: np.subtract([coordinates(e)[2,0], coordinates(e)[2,1],0] , e_centre(e)),
+                     3: np.subtract([coordinates(e)[3,0], coordinates(e)[3,1],0] , e_centre(e))}
                 
                 # dot product of Snormal and r 
                 for sl in range(nsuf):
@@ -200,8 +200,8 @@ for n in range(nt):
                 # sign of normal for each surface
                 n_hat = {0: [np.sign(snormal[0][0]), np.sign(snormal[0][1])],
                          1: [np.sign(snormal[1][0]), np.sign(snormal[1][1])],
-                         3: [np.sign(snormal[2][0]), np.sign(snormal[2][1])],
-                         2: [np.sign(snormal[3][0]), np.sign(snormal[3][1])]}
+                         2: [np.sign(snormal[2][0]), np.sign(snormal[2][1])],
+                         3: [np.sign(snormal[3][0]), np.sign(snormal[3][1])]}
                         
                 # =============================================================
                 # cal det_jac
@@ -217,7 +217,7 @@ for n in range(nt):
                         
                     flux= flux + L_weights[g] * L_det_jac[suf] * dt *(c.dot(n_hat[suf]) 
                                                             * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
-                    
+                    print(suf, shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
                 if suf==0:
                     Un_hat = Un[(globi-N_e_r*4)+3]
                 elif suf==2:

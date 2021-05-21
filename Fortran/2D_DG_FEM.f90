@@ -5,13 +5,13 @@ program wave_equation
 
   integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, tot_n, totele, ngi, e, s_node(4,2)
   integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc
-  real, dimension(3):: domain_norm
-  integer, dimension(4):: sdot, n_hat, glob_no
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac
-  real :: sh_func(4),jac(2,2), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
+  integer, dimension(4):: sdot, glob_no
+  real, dimension(3):: domain_norm, n_hat
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux
+  real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real, dimension(4,2) :: co_ordinates
-  real :: c(2), tangent(3), snormal(3), e_center(3), r(3)
-  real :: vol_ngi(9,2), vol_ngw(9), s_ngi(8,2), s_ngw(8)
+  real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
+  real :: vol_ngi(9,2), vol_ngw(9), s_ngi(8,2), s_ngw(8), K2
   real,allocatable,dimension(:,:) :: M, K
   real,allocatable,dimension(:) :: U, x, y, x_coo, y_coo, x_dummy, y_dummy
 
@@ -45,8 +45,8 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 4
-  N_e_c= 3
+  N_e_r = 10
+  N_e_c= 1
   nt = 1  ! number of timesteps
 
   ! normal to the domain
@@ -115,9 +115,10 @@ program wave_equation
 
   ! initial condition
   allocate(U(tot_n))
-  do i=1,2
-    U(N_e_r*4*i+3:N_e_r*4*i+6)=1
-  end do
+  ! do i=1,2
+  !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
+  ! end do
+  U(5:11) = 1
 
   call sl_global_node(e, s_node, N_e_r)
 
@@ -134,8 +135,8 @@ program wave_equation
         det_jac = 0
         do g=1,ngi
           call shape_func(vol_ngi(g,1),vol_ngi(g,2), sh_func)
-          call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac)
-          det_jac = jac(1,1)*jac(2,2) - jac(1,2)*jac(2,1)
+          call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
+                           det_jac,s_det_jac, tangent)
           M(inod,jnod) = M(inod,jnod) + vol_ngw(g)*sh_func(iloc)*sh_func(jloc)*det_jac
 
           ! ddx_sh_func = det_jac**(-1) *(jac(2,2)*ddxi_sh(iloc) - jac(1,2)*ddeta_sh(iloc))
@@ -146,63 +147,82 @@ program wave_equation
       end do
     end do
   end do
-
+          open(unit=10, file='quad_points.txt')
  ! surface integration
   do e=1,totele
     do iface = 1,nface
+      flux = 0
+      K2 = 0
       do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
         do g=1,sngi
-          call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac)
+          call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
+                           det_jac, s_det_jac, tangent)
           call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center)
+          call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
 
-          ! tangent to the iface
-          tangent(1) = jac(1,1)
-          tangent(2) = jac(1,2)
-          tangent(3) = 0
           ! normal to the iface
-          snormal = cross(tangent,domain_norm)
+          snormal = cross(tangent(iface,:),domain_norm)
 
           ! vector from the centre of the element to a node on a boundary line
           r(1) = s_ngi(g,1) - e_center(1)
           r(2) = s_ngi(g,2) - e_center(2)
           r(3) = 0
-          
+
+          ! dot product of snormal and the vector joining e_center and a gaussian point
+          s_dot = dot_product(snormal,r)
+          if (s_dot <= 0 ) then
+            snormal = snormal * (-1)
+          end if
+
+          n_hat = sign(1.0,snormal)
+
+          flux = flux + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
+                                                                   * sh_func(siloc)
+
+          ddx_sh_func = det_jac**(-1) *(jac(2,2)*ddxi_sh(siloc) - jac(1,2)*ddeta_sh(siloc))
+          ddy_sh_func = det_jac**(-1) *(jac(1,1)*ddeta_sh(siloc) - jac(2,1)*ddxi_sh(siloc))
+
+          K2 = K2 + s_ngw(g)*dt*s_det_jac(iface)* (c(1)*ddx_sh_func + c(2)*ddy_sh_func)
+
+          write(10,*) iface, sh_func(siloc)
+
         end do
       end do
     end do   ! do iface = 1, nface !  Between_Elements_And_Boundary
   end do   ! do ele = 1, totele ! Surface integral
 
+          close(10)
 
-  open(unit=10, file='quad_points.txt')
-  ! print in matrix form
-  ! do i=1,1
-  !   do j=1,10
-  !     write(10,'(f8.5)', advance='no') K(i,j)
-  !   end do
-  ! end do
-  ! do g=1,4
-  !   write(10,*) co_ordinates(g,1), co_ordinates(g,2)
-  ! end do
+  ! open(unit=10, file='quad_points.txt')
+  ! ! print in matrix form
+  ! ! do i=1,1
+  ! !   do j=1,10
+  ! !     write(10,'(f8.5)', advance='no') M(i,j)
+  ! !   end do
+  ! ! end do
+  ! ! do g=1,4
+  ! !   write(10,*) co_ordinates(g,1), co_ordinates(g,2)
+  ! ! end do
+  !
+  ! ! write(10,*) ' x'
+  ! ! do i=1,N_e_r*2
+  ! ! write(10,*) x(i)
+  ! ! end do
+  !
+  ! ! write(10,*) ' y'
+  ! ! do i=1,N_e_c*2
+  ! ! write(10,*) y(i)
+  ! ! end do
+  !
+  ! write(10,*) 'element coordinates'
+  ! ! do i=1,8
+  ! !   write(10,*) s_ngi(i,1), s_ngi(i,2)
+  ! ! end do
+  ! write(10,*) 'U=', s_det_jac
+  ! write(10,*)  'done'
+  ! close(10)
 
-  ! write(10,*) ' x'
-  ! do i=1,N_e_r*2
-  ! write(10,*) x(i)
-  ! end do
-
-  ! write(10,*) ' y'
-  ! do i=1,N_e_c*2
-  ! write(10,*) y(i)
-  ! end do
-
-  write(10,*) 'element coordinates'
-  ! do i=1,8
-  !   write(10,*) s_ngi(i,1), s_ngi(i,2)
-  ! end do
-  write(10,*) 'U='
-  write(10,*)  'done'
-  close(10)
-
-  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M)!, K)
+  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K)
 end program wave_equation
 
 
@@ -285,10 +305,11 @@ end subroutine shape_func
 
 
 
-subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac)
+subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac, det_jac,s_det_jac, tangent)
   ! this module give derivatives of shape functions, x and y with respect to xi and eta
   implicit none
-  real :: xi, eta, dx, dy, co_ordinates(4,2), jac(2,2), ddxi_sh(4), ddeta_sh(4), e_center(3)
+  real :: xi, eta, dx, dy, det_jac
+  real :: s_det_jac(4), jac(2,2), ddxi_sh(4), ddeta_sh(4), e_center(3),tangent(4,3), co_ordinates(4,2)
   integer :: e, N_e_r, col, row
 
   ddxi_sh(1) = -0.25*(1-eta)
@@ -310,6 +331,28 @@ subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinate
   jac(2,1) = 0.25*((xi-1)*co_ordinates(1,1) - (1+xi)*co_ordinates(2,1) + (1-xi)*co_ordinates(3,1) + (1+xi)*co_ordinates(4,1))
   ! dy_deta
   jac(2,2) = 0.25*((xi-1)*co_ordinates(1,2) - (1+xi)*co_ordinates(2,2) + (1-xi)*co_ordinates(3,2) + (1+xi)*co_ordinates(4,2))
+
+  ! |J| of the element
+  det_jac = jac(1,1)*jac(2,2) - jac(1,2)*jac(2,1)
+  ! |J| of the surface
+  s_det_jac(1) = sqrt(jac(1,1)**2 + jac(1,2)**2)
+  s_det_jac(2) = sqrt(jac(2,1)**2 + jac(2,2)**2)
+  s_det_jac(3) = sqrt(jac(2,1)**2 + jac(2,2)**2)
+  s_det_jac(4) = sqrt(jac(1,1)**2 + jac(1,2)**2)
+
+  ! tangent to a face
+  tangent(1,1) = jac(1,1)
+  tangent(1,2) = jac(1,2)
+  tangent(1,3) = 0
+  tangent(2,1) = jac(2,1)
+  tangent(2,2) = jac(2,2)
+  tangent(2,3) = 0
+  tangent(3,1) = jac(2,1)
+  tangent(3,2) = jac(2,2)
+  tangent(3,3) = 0
+  tangent(4,1) = jac(1,1)
+  tangent(4,2) = jac(1,2)
+  tangent(4,3) = 0
 
 end subroutine derivatives
 
