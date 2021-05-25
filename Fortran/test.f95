@@ -1418,83 +1418,17 @@
 !   print *, a
 ! end program arraycons
 
-! Returns the inverse of a matrix calculated by finding the LU
-! decomposition.  Depends on LAPACK.
-subroutine matrixinv(a,b,n)
- ! subroutine to calculate the inverse of a matrix using Gauss-Jordan elimination
- ! the inverse of matrix a(n,n) is calculated and stored in the matrix b(n,n)
- integer :: i,j,k,l,m,n,irow
- real:: big,a(n,n),b(n,n),dum
-
- !build the identity matrix
- do i = 1,n
- do j = 1,n
- b(i,j) = 0.0
- end do
- b(i,i) = 1.0
- end do
-
- do i = 1,n ! this is the big loop over all the columns of a(n,n)
- ! in case the entry a(i,i) is zero, we need to find a good pivot; this pivot
- ! is chosen as the largest value on the column i from a(j,i) with j = 1,n
- big = a(i,i)
- do j = i,n
- if (a(j,i).gt.big) then
- big = a(j,i)
- irow = j
- end if
- end do
- ! interchange lines i with irow for both a() and b() matrices
- if (big.gt.a(i,i)) then
- do k = 1,n
- dum = a(i,k) ! matrix a()
- a(i,k) = a(irow,k)
- a(irow,k) = dum
- dum = b(i,k) ! matrix b()
- b(i,k) = b(irow,k)
- b(irow,k) = dum
- end do
- end if
- ! divide all entries in line i from a(i,j) by the value a(i,i);
- ! same operation for the identity matrix
- dum = a(i,i)
- do j = 1,n
- a(i,j) = a(i,j)/dum
- b(i,j) = b(i,j)/dum
- end do
- ! make zero all entries in the column a(j,i); same operation for indent()
- do j = i+1,n
- dum = a(j,i)
- do k = 1,n
- a(j,k) = a(j,k) - dum*a(i,k)
- b(j,k) = b(j,k) - dum*b(i,k)
- end do
- end do
- end do
-
- ! substract appropiate multiple of row j from row j-1
- do i = 1,n-1
- do j = i+1,n
- dum = a(i,j)
- do l = 1,n
- a(i,l) = a(i,l)-dum*a(j,l)
- b(i,l) = b(i,l)-dum*b(j,l)
- end do
- end do
- end do
-
-end subroutine matrixinv
-
 program test
   implicit none
   real :: A(3,3), B(3,3)
-  integer::i,j
+  integer::i,j,n=3
   A = reshape((/1,2,3,4,5,6,7,8,9/),(/3,3/))
-  call matrixinv(A,B,3)
   do i=1,3
     do j=1,3
-      print*, A(i,j)
+      print*, i,j,A(i,j)
     end do
+    print*, i,j
   end do
+  print*, 'now',i,j
 
 end program test

@@ -52,15 +52,16 @@ F = np.zeros((total_nodes, total_nodes))
 U = np.zeros(total_nodes)                          
 
 # initial con
-for i in range(8):
-    U[N_e_r*2*(i+4)+N_e_r//4+1:N_e_r*2*(i+4)+N_e_r//1+2]=1
+#for i in range(8):
+#    U[N_e_r*2*(i+4)+N_e_r//4+1:N_e_r*2*(i+4)+N_e_r//1+2]=1
+U[5:11] = 1
 
 #======================== Boundary elements in y-dir ==========================
-    boundary_element_ydir=[]
-n=0
-while n< total_element:
-    boundary_element_ydir.append(n)
-    n=n+N_e_r
+#    boundary_element_ydir=[]
+#n=0
+#while n< total_element:
+#    boundary_element_ydir.append(n)
+#    n=n+N_e_r
     
 #==============================================================================
 # global node coordinates
@@ -207,7 +208,7 @@ for n in range(nt):
                 # cal det_jac
                 L_det_jac =0
                 
-                for g in range(ng):
+                for g in range(2):
                     eta=s_ng[suf][g][1]
                     xi = s_ng[suf][g][0]
                     L_det_jac = {0: np.sqrt(dx_dxi(eta)**2 + dy_dxi(eta)**2),
@@ -217,7 +218,7 @@ for n in range(nt):
                         
                     flux= flux + L_weights[g] * L_det_jac[suf] * dt *(c.dot(n_hat[suf]) 
                                                             * shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
-                    print(suf, shape_func[siloc](s_ng[suf][g][0],s_ng[suf][g][1]))
+                    
                 if suf==0:
                     Un_hat = Un[(globi-N_e_r*4)+3]
                 elif suf==2:
@@ -225,7 +226,7 @@ for n in range(nt):
                 else:
                     Un_hat = Un[globi]
                 times = times +flux*Un_hat
-                        
+            print(suf, flux)            
             flux_n_hat.append(times)
     flux_n_hat_M_inv = M_inv.dot(flux_n_hat)
     

@@ -4,16 +4,16 @@ program wave_equation
   implicit none
 
   integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, tot_n, totele, ngi, e, s_node(4,2)
-  integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc
+  integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
   integer, dimension(4):: sdot, glob_no
   real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac
   real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
-  real :: vol_ngi(9,2), vol_ngw(9), s_ngi(8,2), s_ngw(8), K2
-  real,allocatable,dimension(:,:) :: M, K
-  real,allocatable,dimension(:) :: U, x, y, x_coo, y_coo, x_dummy, y_dummy
+  real :: vol_ngi(9,2), vol_ngw(9), s_ngi(8,2), s_ngw(8)
+  real,allocatable,dimension(:,:) :: M, K, inv_M
+  real,allocatable,dimension(:) :: U, F, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy
 
   ! Costants
   ! volume quadrature points
@@ -33,7 +33,7 @@ program wave_equation
   ! weights of surface quadrature points
   s_ngw = (/1,1,1,1,1,1,1,1/)
   nloc = 4  ! no of nodes in each element
-  snloc = 4 ! no of nodes on each surface
+  snloc = 4 ! index of i in phi_i
   nface = 4  ! no of faces of each elemenet
   sngi = 8  ! no of surface quadrature points of the faces - this is set to the max no of all faces
   CFL = 0.05
@@ -45,8 +45,8 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 10
-  N_e_c= 1
+  N_e_r = 4
+  N_e_c= 3
   nt = 1  ! number of timesteps
 
   ! normal to the domain
@@ -95,7 +95,6 @@ program wave_equation
   y = y_dummy(2:size(y_dummy)-1)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   dt = CFL/((c(1)/dx)+(c(2)/dy))
-  snloc= 4  ! number of local nodes
   totele = N_e_r * N_e_c    ! total element
   tot_n = totele * nloc    ! total nodes
   ngi = size(vol_ngi)/2      ! total volume quadrature points
@@ -104,7 +103,11 @@ program wave_equation
   sdot=0
   n_hat=0 ! normal to an edge
 
-  allocate(M(tot_n, tot_n), K(tot_n, tot_n))
+  allocate(M(tot_n, tot_n))
+  allocate(K(tot_n, tot_n))
+  allocate(inv_M(tot_n, tot_n))
+  allocate(vec_K(tot_n))
+  allocate(F(tot_n))
   do i=1,tot_n
     do j=1,tot_n
        M(i,j) = 0
@@ -147,13 +150,14 @@ program wave_equation
       end do
     end do
   end do
-          open(unit=10, file='quad_points.txt')
+  call FindInv(M, inv_M, tot_n, ErrorFlag)
+open(unit=10, file='quad_points.txt')
  ! surface integration
   do e=1,totele
+    call global_no(e, N_e_r, glob_no)
     do iface = 1,nface
-      flux = 0
-      K2 = 0
       do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
+        sinod = glob_no(siloc)
         do g=1,sngi
           call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
                            det_jac, s_det_jac, tangent)
@@ -174,24 +178,28 @@ program wave_equation
             snormal = snormal * (-1)
           end if
 
+          ! unit normal to the face
           n_hat = sign(1.0,snormal)
 
-          flux = flux + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
+          ! calculating flux at each quadrature point
+          F(sinod) = F(sinod) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
                                                                    * sh_func(siloc)
 
           ddx_sh_func = det_jac**(-1) *(jac(2,2)*ddxi_sh(siloc) - jac(1,2)*ddeta_sh(siloc))
           ddy_sh_func = det_jac**(-1) *(jac(1,1)*ddeta_sh(siloc) - jac(2,1)*ddxi_sh(siloc))
 
-          K2 = K2 + s_ngw(g)*dt*s_det_jac(iface)* (c(1)*ddx_sh_func + c(2)*ddy_sh_func)
-
-          write(10,*) iface, sh_func(siloc)
-
+          ! vec_K is the same as K but in explicit mode. K is in Implicit mode, which is not used here
+          ! calculating vec_K at each quadrture point
+          vec_K(sinod) = vec_K(sinod) + s_ngw(g)*dt*s_det_jac(iface)* (c(1)*ddx_sh_func + c(2)*ddy_sh_func)
+          write(10,*) e,sinod, F(sinod)
         end do
       end do
     end do   ! do iface = 1, nface !  Between_Elements_And_Boundary
   end do   ! do ele = 1, totele ! Surface integral
-
-          close(10)
+do i=1,tot_n
+  write(10,*) i, F(i)
+end do
+close(10)
 
   ! open(unit=10, file='quad_points.txt')
   ! ! print in matrix form
@@ -222,7 +230,7 @@ program wave_equation
   ! write(10,*)  'done'
   ! close(10)
 
-  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K)
+  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K, vec_K, F)
 end program wave_equation
 
 
@@ -370,3 +378,105 @@ FUNCTION cross(a, b)
 END FUNCTION cross
 
 end module cross_product
+
+
+
+subroutine FINDInv(matrix, inverse, n, errorflag)
+  ! Returns the inverse of a matrix calculated by finding the LU
+  ! decomposition.  Depends on LAPACK.
+  !Subroutine to find the inverse of a square matrix
+  !Author : Louisda16th a.k.a Ashwith J. Rego
+  !Reference : Algorithm has been well explained in:
+  !http://math.uww.edu/~mcfarlat/inverse.htm
+  !http://www.tutor.ms.unimelb.edu.au/matrix/matrix_inverse.html
+  !https://www.dreamincode.net/forums/topic/366231-FORTRAN-90%3A-Matrix-Inversion/
+
+  IMPLICIT NONE
+  !Declarations
+  INTEGER, INTENT(IN) :: n
+  INTEGER, INTENT(OUT) :: errorflag  !Return error status. -1 for error, 0 for normal
+  REAL, INTENT(IN), DIMENSION(n,n) :: matrix  !Input matrix
+  REAL, INTENT(OUT), DIMENSION(n,n) :: inverse !Inverted matrix
+
+  LOGICAL :: FLAG = .TRUE.
+  INTEGER :: i, j, k, l
+  REAL :: m
+  REAL, DIMENSION(n,2*n) :: augmatrix !augmented matrix
+
+  !Augment input matrix with an identity matrix
+  DO i = 1, n
+      DO j = 1, 2*n
+          IF (j <= n ) THEN
+              augmatrix(i,j) = matrix(i,j)
+          ELSE IF ((i+n) == j) THEN
+              augmatrix(i,j) = 1
+          Else
+              augmatrix(i,j) = 0
+          ENDIF
+      END DO
+  END DO
+
+  !Reduce augmented matrix to upper traingular form
+  DO k =1, n-1
+      IF (augmatrix(k,k) == 0) THEN
+          FLAG = .FALSE.
+          DO i = k+1, n
+              IF (augmatrix(i,k) /= 0) THEN
+                  DO j = 1,2*n
+                      augmatrix(k,j) = augmatrix(k,j)+augmatrix(i,j)
+                  END DO
+                  FLAG = .TRUE.
+                  EXIT
+              ENDIF
+              IF (FLAG .EQV. .FALSE.) THEN
+                  PRINT*, "Matrix is non - invertible"
+                  inverse = 0
+                  errorflag = -1
+                  return
+              ENDIF
+          END DO
+      ENDIF
+      DO j = k+1, n
+          m = augmatrix(j,k)/augmatrix(k,k)
+          DO i = k, 2*n
+              augmatrix(j,i) = augmatrix(j,i) - m*augmatrix(k,i)
+          END DO
+      END DO
+  END DO
+
+  !Test for invertibility
+  DO i = 1, n
+      IF (augmatrix(i,i) == 0) THEN
+          PRINT*, "Matrix is non - invertible"
+          inverse = 0
+          errorflag = -1
+          return
+      ENDIF
+  END DO
+
+  !Make diagonal elements as 1
+  DO i = 1 , n
+      m = augmatrix(i,i)
+      DO j = i , (2 * n)
+             augmatrix(i,j) = (augmatrix(i,j) / m)
+      END DO
+  END DO
+
+  !Reduced right side half of augmented matrix to identity matrix
+  DO k = n-1, 1, -1
+      DO i =1, k
+      m = augmatrix(i,k+1)
+          DO j = k, (2*n)
+              augmatrix(i,j) = augmatrix(i,j) -augmatrix(k+1,j) * m
+          END DO
+      END DO
+  END DO
+
+  !store answer
+  DO i =1, n
+      DO j = 1, n
+          inverse(i,j) = augmatrix(i,j+n)
+      END DO
+  END DO
+  errorflag = 0
+end subroutine FINDinv
