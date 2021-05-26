@@ -1418,17 +1418,51 @@
 !   print *, a
 ! end program arraycons
 
-program test
-  implicit none
-  real :: A(3,3), B(3,3)
-  integer::i,j,n=3
-  A = reshape((/1,2,3,4,5,6,7,8,9/),(/3,3/))
-  do i=1,3
-    do j=1,3
-      print*, i,j,A(i,j)
-    end do
-    print*, i,j
-  end do
-  print*, 'now',i,j
+! program test
+!   implicit none
+!   real :: A(3,3), B(3,3)
+!   integer::i,j,n=3
+!   A = reshape((/1,2,3,4,5,6,7,8,9/),(/3,3/))
+!   do i=1,3
+!     do j=1,3
+!       print*, i,j,A(i,j)
+!     end do
+!     print*, i,j
+!   end do
+!   print*, 'now',i,j
+!
+! end program test
+!!!!!!!!!!!!!!!!!!!!!!!!!!! plot !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!
+! program plotting
+!   implicit none
+!   integer:: i
+!   real :: dt, dx
+!   real :: x(100), y(100), z(100)
+!
+!   open (unit=48, file='3ddata.dat')
+!   do i=-40,40
+!     x(i) =i*1.0/16
+!     y(i) =i*1.0/16
+!     z(i) = cos(x(i))+cos(y(i))
+!     write(48,*) x(i), y(i), z(i)
+!   end do
+!   close(48)
+!   call system('gunplot -p 3ddata.plt')
+! end program plotting
+ !! save this in a separate file as the plot setting, with the name of 3ddata.plt
+!!  set xlabel "x"
+!! set ylabel "y"
+!! set dgrid3d 29,19
+!! set hidden3d
+!! set terminal x11 0
+!! set nokey
+!! set grid
+!! set mouse
+!! set title "My 3D"
+!! splot "3ddata.dat" u 1:2:3 with lines;pause mouse
+!! keypress
 
-end program test
+!! thein the terminal cd to the file the use
+!! gfortran 3dplot.f90 -o 33dplot
+!! ./3dplot
+!! https://www.youtube.com/watch?v=tScjpDeCy1s

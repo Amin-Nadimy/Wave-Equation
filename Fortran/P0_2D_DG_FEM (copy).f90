@@ -1,4 +1,4 @@
-subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center)
+subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center,row)
   ! this subroutine gets no of elements in a row and ele .no
   ! and gives coordinates of 4 nodes of the ele
   implicit none
@@ -98,23 +98,23 @@ subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinate
   ddeta_sh(3) = 0! 0.25*(1-xi)
   ddeta_sh(4) = 0! 0.25*(1+xi)
 
-  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center)
+  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row)
   ! dx_dxi
-  jac(1,1) = dx/2!0.25*((eta-1)*co_ordinates(1,1) + (1-eta)*co_ordinates(2,1) - (1+eta)*co_ordinates(3,1) + (1+eta)*co_ordinates(4,1))
+  jac(1,1) = 0.25*((eta-1)*co_ordinates(1,1) + (1-eta)*co_ordinates(2,1) - (1+eta)*co_ordinates(3,1) + (1+eta)*co_ordinates(4,1))
   ! dy_dxi
-  jac(1,2) = 0!0.25*((eta-1)*co_ordinates(1,2) + (1-eta)*co_ordinates(2,2) - (1+eta)*co_ordinates(3,2) + (1+eta)*co_ordinates(4,2))
+  jac(1,2) = 0.25*((eta-1)*co_ordinates(1,2) + (1-eta)*co_ordinates(2,2) - (1+eta)*co_ordinates(3,2) + (1+eta)*co_ordinates(4,2))
   ! dx_deta
-  jac(2,1) = 0!0.25*((xi-1)*co_ordinates(1,1) - (1+xi)*co_ordinates(2,1) + (1-xi)*co_ordinates(3,1) + (1+xi)*co_ordinates(4,1))
+  jac(2,1) = 0.25*((xi-1)*co_ordinates(1,1) - (1+xi)*co_ordinates(2,1) + (1-xi)*co_ordinates(3,1) + (1+xi)*co_ordinates(4,1))
   ! dy_deta
-  jac(2,2) = dy/2!0.25*((xi-1)*co_ordinates(1,2) - (1+xi)*co_ordinates(2,2) + (1-xi)*co_ordinates(3,2) + (1+xi)*co_ordinates(4,2))
+  jac(2,2) = 0.25*((xi-1)*co_ordinates(1,2) - (1+xi)*co_ordinates(2,2) + (1-xi)*co_ordinates(3,2) + (1+xi)*co_ordinates(4,2))
 
   ! |J| of the element
   det_jac = jac(1,1)*jac(2,2) - jac(1,2)*jac(2,1)
   ! |J| of the surface
-  s_det_jac(1) = dx/2!sqrt(jac(1,1)**2 + jac(1,2)**2)
-  s_det_jac(2) = dy/2!sqrt(jac(2,1)**2 + jac(2,2)**2)
-  s_det_jac(3) = dy/2!sqrt(jac(2,1)**2 + jac(2,2)**2)
-  s_det_jac(4) = dx/2!sqrt(jac(1,1)**2 + jac(1,2)**2)
+  s_det_jac(1) = sqrt(jac(1,1)**2 + jac(1,2)**2)
+  s_det_jac(2) = sqrt(jac(2,1)**2 + jac(2,2)**2)
+  s_det_jac(3) = sqrt(jac(2,1)**2 + jac(2,2)**2)
+  s_det_jac(4) = sqrt(jac(1,1)**2 + jac(1,2)**2)
 
   ! tangent to a face
   tangent(1,1) = jac(1,1)
@@ -131,6 +131,7 @@ subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinate
   tangent(4,3) = 0
 
 end subroutine derivatives
+
 
 module cross_product
 implicit none
@@ -175,7 +176,7 @@ subroutine FINDInv(matrix, inverse, n, errorflag)
 
   IMPLICIT NONE
   !Declarations
-  INTEGER, INTENT(IN) :: n
+  INTEGER, INTENT(IN) :: n !size of the squre ,matrix
   INTEGER, INTENT(OUT) :: errorflag  !Return error status. -1 for error, 0 for normal
   REAL, INTENT(IN), DIMENSION(n,n) :: matrix  !Input matrix
   REAL, INTENT(OUT), DIMENSION(n,n) :: inverse !Inverted matrix
@@ -270,17 +271,18 @@ program wave_equation
   use cross_product
   implicit none
 
-  integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, tot_n, totele, ngi, e, s_node(4,2)
+  integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, n, tot_n, totele, ngi, e, s_node(4,2)
   integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
+  integer :: row, tot_unknowns
   integer, dimension(4):: sdot, glob_no
   real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4),  F
   real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
   real :: vol_ngi(9,2), vol_ngw(size(vol_ngi)/2), s_ngi(4,2), s_ngw(size(s_ngi)/2)
   real,allocatable,dimension(:,:) :: M, K, inv_M
-  real,allocatable,dimension(:) :: U, F, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy
+  real,allocatable,dimension(:) :: U, Un, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy
 
   ! Costants
   ! volume quadrature points
@@ -300,7 +302,7 @@ program wave_equation
 
   ! weights of surface quadrature points
   s_ngw = (/2,2,2,2/)
-  nloc = 4  ! no of nodes in each element
+  nloc = 1  ! no of nodes in each element
   snloc = 1 ! index of i in phi_i
   nface = 4  ! no of faces of each elemenet
   sngi = size(s_ngi)/2  ! no of surface quadrature points of the faces - this is set to the max no of all faces
@@ -313,9 +315,9 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 4
-  N_e_c= 3
-  nt = 1  ! number of timesteps
+  N_e_r = 10
+  N_e_c= 1
+  nt = 1 ! number of timesteps
 
   ! normal to the domain
   domain_norm(1) = 0.0
@@ -371,83 +373,100 @@ program wave_equation
   sdot=0
   n_hat=0 ! normal to an edge
 
-  allocate(M(tot_n, tot_n))
-  allocate(K(tot_n, tot_n))
-  allocate(inv_M(tot_n, tot_n))
-  allocate(vec_K(tot_n))
-  allocate(F(totele))
-  do i=1,tot_n
-    do j=1,tot_n
+  tot_unknowns = totele
+  allocate(M(tot_unknowns, tot_unknowns))
+  allocate(K(tot_unknowns, tot_unknowns))
+  allocate(inv_M(tot_unknowns, tot_unknowns))
+  allocate(vec_K(tot_unknowns))
+  ! allocate(F(totele))
+  do i=1,tot_unknowns
+    do j=1,tot_unknowns
        M(i,j) = 0
        K(i,j) = 0
     end do
   end do
-  ! forall (i=1:tot_n) U(i)=0
 
   ! initial condition
-  allocate(U(tot_n))
+  allocate(U(tot_unknowns))
   ! do i=1,2
   !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
   ! end do
-  U(5:11) = 1
+  forall (i=1:size(U)) U(i) =0
+  U(totele/5:totele/2) = 1
 
   call sl_global_node(e, s_node, N_e_r)
 
 
 
-  ! do e=1,totele
-  !   ! volume integration
-  !   call global_no(e, N_e_r, glob_no)
-  !   call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center)
-  !   do iloc=1,nloc
-  !     inod = glob_no(iloc)
-  !     do jloc=1,nloc
-  !       jnod = glob_no(jloc)
-  !       do g=1,ngi
-  !         call shape_func(vol_ngi(g,1),vol_ngi(g,2), sh_func)
-  !         call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
-  !                          det_jac,s_det_jac, tangent)
-  !         M(inod,jnod) = M(inod,jnod) + vol_ngw(g)*sh_func(iloc)*sh_func(jloc)*dx*dy
-  !       end do
-  !     end do
-  !   end do
-  ! end do
-  ! call FindInv(M, inv_M, tot_n, ErrorFlag)
-open(unit=10, file='quad_points.txt')
- ! surface integration
   do e=1,totele
+    ! volume integration
     call global_no(e, N_e_r, glob_no)
-    do iface = 1,nface
-      do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
-        sinod = e
-        do g=1,sngi
-          call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
-                           det_jac, s_det_jac, tangent)
-          call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center)
-          call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
-
-          ! normal to the iface
-          snormal = cross(tangent(iface,:),domain_norm)
-          ! vector from the centre of the element to a node on a boundary line
-          r(1) = co_ordinates(iface,1) - e_center(1)
-          r(2) = co_ordinates(iface,2) - e_center(2)
-          r(3) = 0
-          ! dot product of snormal and the vector joining e_center and a gaussian point
-          s_dot = dot_product(snormal,r)
-          if (s_dot <= 0 ) then
-            snormal = snormal * (-1)
-          end if
-          ! unit normal to the face
-          call n_sign(snormal, n_hat)
-          ! calculating flux at each quadrature point
-          F(sinod) = F(sinod) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
-                                                                   * sh_func(siloc)
-          write(10,*) iface, g, F(sinod)
+    call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row)
+    do iloc=1,nloc
+      inod = e !glob_no for the solution (iloc)
+      do jloc=1,nloc
+        jnod = e !glob_no for the soolution (jloc)
+        do g=1,ngi
+          call shape_func(vol_ngi(g,1),vol_ngi(g,2), sh_func)
+          call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
+                           det_jac,s_det_jac, tangent)
+          M(inod,jnod) = M(inod,jnod) + vol_ngw(g)*sh_func(iloc)*sh_func(jloc)*det_jac
         end do
       end do
-    end do   ! do iface = 1, nface !  Between_Elements_And_Boundary
-  end do   ! do ele = 1, totele ! Surface integral
+    end do
+  end do
+  call FindInv(M, inv_M, tot_unknowns, ErrorFlag)
+open(unit=10, file='quad_points.txt')
+do i=1,1
+  do j=1,tot_unknowns
+    write(10,'(f10.5)', advance='no') inv_M(i,j)
+  end do
+end do
+ ! surface integration
+ do n=1,nt
+    Un = U
+    do e=1,totele
+      call global_no(e, N_e_r, glob_no)
+      do iface = 1,nface
+        do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
+          sinod = e
+          do g=1,sngi
+            call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
+                             det_jac, s_det_jac, tangent)
+            call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row)
+            call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
+
+            ! normal to the iface
+            snormal = cross(tangent(iface,:),domain_norm)
+            ! vector from the centre of the element to a node on a boundary line
+            r(1) = co_ordinates(iface,1) - e_center(1)
+            r(2) = co_ordinates(iface,2) - e_center(2)
+            r(3) = 0
+            ! dot product of snormal and the vector joining e_center and a gaussian point
+            s_dot = dot_product(snormal,r)
+            if (s_dot <= 0 ) then
+              snormal = snormal * (-1)
+            end if
+            ! unit normal to the face
+            call n_sign(snormal, n_hat)
+            ! calculating flux at each quadrature point
+            flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
+                                                                                  * sh_func(siloc)
+          end do
+        end do
+      end do   ! end do iface = 1, nface !  Between_Elements_And_Boundary
+      ! Upwind values foreach surface
+      ! F = flux(1)*U(?) + flux(2)*U(e) + flux(3)*U(e-1?) + flux(4)*U(e)
+    end do   ! end do ele = 1, totele ! Surface integral
+    ! U(?) = Un(?) - inv_M(?) * F
+  end do ! end do time loop
+  ! write(10,*) U
 close(10)
+
+
+
+
+
 
   ! open(unit=10, file='quad_points.txt')
   ! ! print in matrix form
@@ -478,5 +497,5 @@ close(10)
   ! write(10,*)  'done'
   ! close(10)
 
-  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K, vec_K, F)
+  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K, vec_K, inv_M)
 end program wave_equation
