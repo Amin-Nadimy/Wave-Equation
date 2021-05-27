@@ -310,7 +310,7 @@ program wave_equation
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
   real :: vol_ngi(9,2), vol_ngw(size(vol_ngi)/2), s_ngi(4,2), s_ngw(size(s_ngi)/2)
-  real,allocatable,dimension(:,:) :: M, K, inv_M
+  real,allocatable,dimension(:,:) :: M, K, inv_M, U_plot
   real,allocatable,dimension(:) :: U, Un, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy, BC
 
   ! Costants
@@ -346,7 +346,7 @@ program wave_equation
   ! number of elements in each row (r) and column (c)
   N_e_r = 50
   N_e_c= 1
-  nt = 100 ! number of timesteps
+  nt = 500 ! number of timesteps
 
   ! normal to the domain
   domain_norm(1) = 0.0
@@ -364,7 +364,7 @@ program wave_equation
 
   allocate(x_coo((N_e_r+1)*2), y_coo((N_e_c+1)*2))
   allocate(x_dummy((N_e_r+1)*2), y_dummy((N_e_c+1)*2))
-  allocate(x(N_e_r), y(N_e_c))
+  allocate(x(totele), y(totele))
   allocate(U_coo(tot_unknowns,2))
   allocate(BC(2*(N_e_r+N_e_c)))
   allocate(M(tot_unknowns, tot_unknowns))
@@ -372,6 +372,7 @@ program wave_equation
   allocate(inv_M(tot_unknowns, tot_unknowns))
   allocate(vec_K(tot_unknowns))
   allocate(U(tot_unknowns))
+  allocate(U_plot(3,tot_unknowns))
   ! allocate(F(totele))
   do i=1,tot_unknowns
     do j=1,tot_unknowns
@@ -387,20 +388,6 @@ program wave_equation
   U = 0
   BC = 0
   U(totele/5:totele/2) = 1
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! in this block DG x and y coordinates are calculated
-  ! initialisig x-coordinates
-x(1)=dx
-  do i=2,N_e_r
-    x(i)=x(i-1)+dx
-  end do
-
-  y(1)=dy
-  do i=2,N_e_c
-    y(i)=y(i-1)+dy
-  end do
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   ! array to store dot product of normal and r (vector from center of an element &
   ! to a point on its edge
@@ -485,17 +472,38 @@ open(unit=10, file='quad_points.txt')
       F = flux(1)*U_hat(1) + flux(2)*U_hat(2) + flux(3)*U_hat(3) + flux(4)*U_hat(4)   ! calculating total flux of element e
       U(e) = Un(e) - 1/(dx*dy) * F
     end do   ! element loop
+    if (n.eq.1) then
+      U_plot(1,:) = U
+    elseif (n.eq.nt/2) then
+      U_plot(2,:) = U
+    elseif (n.eq.nt) then
+      U_plot(3,:) = U
+    end if
   end do ! time loop
-  print*, U
 close(10)
-
 !!!!!!!!!!!!!!!!!!!!!!!!1 plot !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-! open (unit=48, file='P0_3ddata.dat')
-! do i=1,tot_unknowns
-!   write(48,*) U_coo(i,1:2), 1
-! end do
-! close(48)
-! call system('gnuplot -p P0_3ddata.plt')
+! in this block DG x and y coordinates are calculated
+do e=1,totele
+call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
+x(e) = e_center(1)
+y(e) = e_center(2)
+end do
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+open (unit=40, file='n1.dat')
+do i=1,tot_unknowns
+  write(40,*) x(i), y(i), U_plot(1,i)
+end do
+close(40)
+open (unit=41, file='n2.dat')
+do i=1,tot_unknowns
+  write(41,*) x(i), y(i), U_plot(2,i)
+end do
+close(41)
+open (unit=42, file='n3.dat')
+do i=1,tot_unknowns
+  write(42,*) x(i), y(i), U_plot(3,i)
+end do
+close(42)
 
 
 
