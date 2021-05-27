@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import sympy as sy
 import time
 
-nx = 20                   # total number of nodes(degree of freedom)
+nx = 100                   # total number of nodes(degree of freedom)
 nt = 200                   # total number of time steps
 N_i = 2                     # number of interpolation functions
 L =  0.5                    # Totla length

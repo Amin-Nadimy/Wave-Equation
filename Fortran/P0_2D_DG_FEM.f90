@@ -311,7 +311,7 @@ program wave_equation
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
   real :: vol_ngi(9,2), vol_ngw(size(vol_ngi)/2), s_ngi(4,2), s_ngw(size(s_ngi)/2)
   real,allocatable,dimension(:,:) :: M, K, inv_M, U_plot
-  real,allocatable,dimension(:) :: U, Un, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy, BC
+  real,allocatable,dimension(:) :: U, Un, x, y, BC
 
   ! Costants
   ! volume quadrature points
@@ -339,13 +339,13 @@ program wave_equation
 
   !velocity in x-dir(1) and y-dir(2)
   c(1) = 0.1
-  c(2) = 0
+  c(2) = 0.1
 
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
   N_e_r = 50
-  N_e_c= 1
+  N_e_c= 50
   nt = 500 ! number of timesteps
 
   ! normal to the domain
@@ -362,32 +362,22 @@ program wave_equation
   ngi = size(vol_ngi)/2      ! total volume quadrature points
   tot_unknowns = totele
 
-  allocate(x_coo((N_e_r+1)*2), y_coo((N_e_c+1)*2))
-  allocate(x_dummy((N_e_r+1)*2), y_dummy((N_e_c+1)*2))
   allocate(x(totele), y(totele))
   allocate(U_coo(tot_unknowns,2))
   allocate(BC(2*(N_e_r+N_e_c)))
-  allocate(M(tot_unknowns, tot_unknowns))
-  allocate(K(tot_unknowns, tot_unknowns))
-  allocate(inv_M(tot_unknowns, tot_unknowns))
-  allocate(vec_K(tot_unknowns))
   allocate(U(tot_unknowns))
   allocate(U_plot(3,tot_unknowns))
-  ! allocate(F(totele))
-  do i=1,tot_unknowns
-    do j=1,tot_unknowns
-       M(i,j) = 0
-       K(i,j) = 0
-    end do
-  end do
 
   ! initial condition
+  U = 0
+  BC = 0
   ! do i=1,2
   !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
   ! end do
-  U = 0
-  BC = 0
-  U(totele/5:totele/2) = 1
+do i=1,20
+  ! U(N_e_r/5:N_e_r/4) = 1
+  U(N_e_r/5+i*N_e_r:N_e_r/2+i*N_e_r) = 1
+end do
 
   ! array to store dot product of normal and r (vector from center of an element &
   ! to a point on its edge
@@ -396,25 +386,6 @@ program wave_equation
 
   call sl_global_node(e, s_node, N_e_r)
 
-  ! do e=1,totele
-  !   ! volume integration
-  !   call global_no(e, N_e_r, glob_no)
-  !   call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
-  !   do iloc=1,nloc
-  !     inod = e !glob_no for the solution (iloc)
-  !     do jloc=1,nloc
-  !       jnod = e !glob_no for the soolution (jloc)
-  !       do g=1,ngi
-  !         call shape_func(vol_ngi(g,1),vol_ngi(g,2), sh_func)
-  !         call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
-  !                          det_jac,s_det_jac, tangent)
-  !         M(inod,jnod) = M(inod,jnod) + vol_ngw(g)*sh_func(iloc)*sh_func(jloc)*det_jac
-  !       end do
-  !     end do
-  !   end do
-  ! end do
-  ! call FindInv(M, inv_M, tot_unknowns, ErrorFlag)
-open(unit=10, file='quad_points.txt')
  ! surface integration
  do n=1,nt
     Un = U
@@ -480,15 +451,14 @@ open(unit=10, file='quad_points.txt')
       U_plot(3,:) = U
     end if
   end do ! time loop
-close(10)
-!!!!!!!!!!!!!!!!!!!!!!!!1 plot !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+!!!!!!!!!!!!!!!!!!!!!!!! axis info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! in this block DG x and y coordinates are calculated
 do e=1,totele
 call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
 x(e) = e_center(1)
 y(e) = e_center(2)
 end do
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!save plot info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 open (unit=40, file='n1.dat')
 do i=1,tot_unknowns
   write(40,*) x(i), y(i), U_plot(1,i)
@@ -504,39 +474,13 @@ do i=1,tot_unknowns
   write(42,*) x(i), y(i), U_plot(3,i)
 end do
 close(42)
+!!!!!!!!!!!!!!!!!!!!!!!!! plotting commands !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! gnuplot
+! splot "n1.dat" title "first timestep" w l, "n2.dat" title "mid-timestep" w l, "n3.dat" title "last timestep" w l
+! set xlabel "x"
+! set ylabel "y"
+! set zlabel "U"
+! set zrange[0:1]
 
-
-
-
-
-  ! open(unit=10, file='quad_points.txt')
-  ! ! print in matrix form
-  ! ! do i=1,1
-  ! !   do j=1,10
-  ! !     write(10,'(f8.5)', advance='no') M(i,j)
-  ! !   end do
-  ! ! end do
-  ! ! do g=1,4
-  ! !   write(10,*) co_ordinates(g,1), co_ordinates(g,2)
-  ! ! end do
-  !
-  ! ! write(10,*) ' x'
-  ! ! do i=1,N_e_r*2
-  ! ! write(10,*) x(i)
-  ! ! end do
-  !
-  ! ! write(10,*) ' y'
-  ! ! do i=1,N_e_c*2
-  ! ! write(10,*) y(i)
-  ! ! end do
-  !
-  ! write(10,*) 'element coordinates'
-  ! ! do i=1,8
-  ! !   write(10,*) s_ngi(i,1), s_ngi(i,2)
-  ! ! end do
-  ! write(10,*) 'U=', s_det_jac
-  ! write(10,*)  'done'
-  ! close(10)
-
-  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K, vec_K, inv_M)
+  deallocate(U, U_plot, BC, x, y)
 end program wave_equation

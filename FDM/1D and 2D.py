@@ -4,11 +4,11 @@ from mpl_toolkits.mplot3d import Axes3D
 #import seaborn as sb
 
 #------------------------------- 2-D FDM------------------------------------------
-C= .01                           # CLF number
-nt = 2000                        # Number of time steps
+C= .05                           # CLF number
+nt = 200                        # Number of time steps
 nx = 100                         # Number of steps in x-direction
-ny = 200                        # Number of steps in y-direction
-L = 2                            # Lengths of the domain in x and y directions
+ny = 100                        # Number of steps in y-direction
+L = .5                            # Lengths of the domain in x and y directions
 dx = L/(nx-1)                    # dispacement legth at each time-step in x-direction
 dy = L/(ny-1)                    # dispacement legth at each time-step in y-direction
 d_displacement = (dx**2+dy**2)**0.5 # overall displacement of the wave in both directions
@@ -42,22 +42,27 @@ for n in range(nt+1):             # marching in time steps
         U3 = Un
 
 #------------------------------ Plotting the results ----------------------------        
+#fetch = open("2D_FDM.txt", 'w')
+#fetch.write(2)
+#fetch.close()
+
 plt.figure(1)        
 ax = plt.gca(projection='3d')
-ax.plot_surface(X, Y, U1 , label='t=0')
-ax.plot_surface(X, Y, U2, label='t=nt/2')
-ax.plot_surface(X, Y, U3, label='t=final')
+ax.plot_surface(X, Y, U1 , label='first timestep')
+ax.plot_surface(X, Y, U2, label='second timestep')
+ax.plot_surface(X, Y, U3, label='final timestep')
+plt.legend()
 ax.set_ylabel('$y$')
 ax.set_xlabel('$x$')
 ax.set_zlabel('$U$')
-plt.legend()
+
 plt.show()
 
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
-#ax.plot(x, y, U, label='Square Wave')
-plt.show()
+#fig = plt.figure()
+#ax = fig.gca(projection='3d')
+#surf = ax.plot_surface(X, Y, U[:], cmap=plt.cm.viridis)
+##ax.plot(x, y, U, label='Square Wave')
+#plt.show()
 # import pygmsh
 # def test():
 #     with pygmsh.geo.Geometry() as geom:
