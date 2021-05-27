@@ -1447,7 +1447,7 @@
 !     write(48,*) x(i), y(i), z(i)
 !   end do
 !   close(48)
-!   call system('gunplot -p 3ddata.plt')
+!   call system('gnuplot -p 3ddata.plt')
 ! end program plotting
  !! save this in a separate file as the plot setting, with the name of 3ddata.plt
 !!  set xlabel "x"
@@ -1463,6 +1463,6 @@
 !! keypress
 
 !! thein the terminal cd to the file the use
-!! gfortran 3dplot.f90 -o 33dplot
+!! gfortran 3dplot.f90 -o 3dplot
 !! ./3dplot
 !! https://www.youtube.com/watch?v=tScjpDeCy1s

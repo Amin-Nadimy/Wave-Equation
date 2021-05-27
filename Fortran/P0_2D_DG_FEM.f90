@@ -1,4 +1,4 @@
-subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center,row)
+subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center,row, col)
   ! this subroutine gets no of elements in a row and ele .no
   ! and gives coordinates of 4 nodes of the ele
   implicit none
@@ -25,7 +25,21 @@ subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center,row)
 
 end subroutine coordinates
 
+module solution_coordinates
+  implicit none
+  contains
 
+  function U_coordinates(e, N_e_r, N_e_c) result(info)
+    ! this function gives row and column number of U or any element
+    implicit none
+    integer, intent(in) :: e, N_e_r, N_e_c
+    integer :: col, row, info(2)
+    row = int(ceiling(real(e)/N_e_r))
+    col = e-(N_e_r*(row-1))
+    info(1) = row
+    info(2) = col
+  end function U_coordinates
+end module solution_coordinates
 
 subroutine global_no(e, N_e_r, glob_no)
   ! this subroutine gives global node numbers of an element
@@ -69,12 +83,24 @@ subroutine shape_func(xi,eta, sh_func)
   real, intent(in) :: xi, eta
   real :: sh_func(4)
 
-  sh_func(1) = 1!*(1-xi)*(1-eta)
-  sh_func(2) = 1!*(1+xi)*(1-eta)
-  sh_func(3) = 1!*(1-xi)*(1+eta)
-  sh_func(4) = 1!*(1+xi)*(1+eta)
+  sh_func(1) = 1!1/4*(1-xi)*(1-eta)
+  sh_func(2) = 1!1/4*(1+xi)*(1-eta)
+  sh_func(3) = 1!1/4*(1-xi)*(1+eta)
+  sh_func(4) = 1!1/4*(1+xi)*(1+eta)
 
 end subroutine shape_func
+
+subroutine s_shape_func(iface, s_sh_func)
+  ! this subroutine contains shape functions
+  implicit none
+  integer :: i,j
+  integer, intent(in) :: iface
+  real, intent(inout):: s_sh_func(4,4)
+
+  s_sh_func=0
+  s_sh_func(iface, iface) = 1
+
+end subroutine s_shape_func
 
 
 
@@ -98,7 +124,7 @@ subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinate
   ddeta_sh(3) = 0! 0.25*(1-xi)
   ddeta_sh(4) = 0! 0.25*(1+xi)
 
-  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row)
+  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
   ! dx_dxi
   jac(1,1) = 0.25*((eta-1)*co_ordinates(1,1) + (1-eta)*co_ordinates(2,1) - (1+eta)*co_ordinates(3,1) + (1+eta)*co_ordinates(4,1))
   ! dy_dxi
@@ -269,20 +295,23 @@ end subroutine FINDinv
 ! 2D DG-FEM wave equation
 program wave_equation
   use cross_product
+  use solution_coordinates
   implicit none
 
   integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, n, tot_n, totele, ngi, e, s_node(4,2)
   integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
-  integer :: row, tot_unknowns
+  integer :: row, col, tot_unknowns
+  integer, allocatable, dimension(:,:) :: U_coo
   integer, dimension(4):: sdot, glob_no
   real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4),  F
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4), U_hat(4), F
   real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
+  real :: s_sh_func(4,4)
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
   real :: vol_ngi(9,2), vol_ngw(size(vol_ngi)/2), s_ngi(4,2), s_ngw(size(s_ngi)/2)
   real,allocatable,dimension(:,:) :: M, K, inv_M
-  real,allocatable,dimension(:) :: U, Un, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy
+  real,allocatable,dimension(:) :: U, Un, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy, BC
 
   ! Costants
   ! volume quadrature points
@@ -315,69 +344,34 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 10
+  N_e_r = 50
   N_e_c= 1
-  nt = 1 ! number of timesteps
+  nt = 100 ! number of timesteps
 
   ! normal to the domain
   domain_norm(1) = 0.0
   domain_norm(2) = 0.0
   domain_norm(3) = 1.0
 
-  allocate(x_coo((N_e_r+1)*2), y_coo((N_e_c+1)*2))
-  allocate(x_dummy((N_e_r+1)*2), y_dummy((N_e_c+1)*2))
-  allocate(x(N_e_r*2), y(N_e_c*2))
-
   dx = L/(N_e_r)
   dy = L/(N_e_c)
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! in this block DG x and y coordinates are calculated
-  ! initialisig x-coordinates
-  x_coo(1)=0
-  do i=2,(N_e_r+1)
-    x_coo(i) = x_coo(i-1)+dx
-  end do
-
-  ! initialising y-coordinates
-  y_coo(1)=0
-  do i=2,(N_e_c+1)
-    y_coo(i) = y_coo(i-1)+dy
-  end do
-
-  ! DG x & y-coordinates which have 2 extra entities. they will be deleted in x & y arrays
-  j=1
-  do i=1,N_e_r+1
-    x_dummy(j) = x_coo(i)
-    x_dummy(j+1) = x_coo(i)
-    j=j+2
-  end do
-
-  j=1
-  do i=1,N_e_c+1
-    y_dummy(j) = y_coo(i)
-    y_dummy(j+1) = y_coo(i)
-    j=j+2
-  end do
-
-  ! final DG x & y coordinates
-  x = x_dummy(2:size(x_dummy)-1)
-  y = y_dummy(2:size(y_dummy)-1)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   dt = CFL/((c(1)/dx)+(c(2)/dy))
   totele = N_e_r * N_e_c    ! total element
   tot_n = totele * nloc    ! total nodes
   ngi = size(vol_ngi)/2      ! total volume quadrature points
-  ! array to store dot product of normal and r (vector from center of an element &
-  ! to a point on its edge
-  sdot=0
-  n_hat=0 ! normal to an edge
-
   tot_unknowns = totele
+
+  allocate(x_coo((N_e_r+1)*2), y_coo((N_e_c+1)*2))
+  allocate(x_dummy((N_e_r+1)*2), y_dummy((N_e_c+1)*2))
+  allocate(x(N_e_r), y(N_e_c))
+  allocate(U_coo(tot_unknowns,2))
+  allocate(BC(2*(N_e_r+N_e_c)))
   allocate(M(tot_unknowns, tot_unknowns))
   allocate(K(tot_unknowns, tot_unknowns))
   allocate(inv_M(tot_unknowns, tot_unknowns))
   allocate(vec_K(tot_unknowns))
+  allocate(U(tot_unknowns))
   ! allocate(F(totele))
   do i=1,tot_unknowns
     do j=1,tot_unknowns
@@ -387,55 +381,68 @@ program wave_equation
   end do
 
   ! initial condition
-  allocate(U(tot_unknowns))
   ! do i=1,2
   !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
   ! end do
-  forall (i=1:size(U)) U(i) =0
+  U = 0
+  BC = 0
   U(totele/5:totele/2) = 1
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! in this block DG x and y coordinates are calculated
+  ! initialisig x-coordinates
+x(1)=dx
+  do i=2,N_e_r
+    x(i)=x(i-1)+dx
+  end do
+
+  y(1)=dy
+  do i=2,N_e_c
+    y(i)=y(i-1)+dy
+  end do
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! array to store dot product of normal and r (vector from center of an element &
+  ! to a point on its edge
+  sdot=0
+  n_hat=0 ! normal to an edge
 
   call sl_global_node(e, s_node, N_e_r)
 
-
-
-  do e=1,totele
-    ! volume integration
-    call global_no(e, N_e_r, glob_no)
-    call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row)
-    do iloc=1,nloc
-      inod = e !glob_no for the solution (iloc)
-      do jloc=1,nloc
-        jnod = e !glob_no for the soolution (jloc)
-        do g=1,ngi
-          call shape_func(vol_ngi(g,1),vol_ngi(g,2), sh_func)
-          call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
-                           det_jac,s_det_jac, tangent)
-          M(inod,jnod) = M(inod,jnod) + vol_ngw(g)*sh_func(iloc)*sh_func(jloc)*det_jac
-        end do
-      end do
-    end do
-  end do
-  call FindInv(M, inv_M, tot_unknowns, ErrorFlag)
+  ! do e=1,totele
+  !   ! volume integration
+  !   call global_no(e, N_e_r, glob_no)
+  !   call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
+  !   do iloc=1,nloc
+  !     inod = e !glob_no for the solution (iloc)
+  !     do jloc=1,nloc
+  !       jnod = e !glob_no for the soolution (jloc)
+  !       do g=1,ngi
+  !         call shape_func(vol_ngi(g,1),vol_ngi(g,2), sh_func)
+  !         call derivatives(vol_ngi(g,1),vol_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
+  !                          det_jac,s_det_jac, tangent)
+  !         M(inod,jnod) = M(inod,jnod) + vol_ngw(g)*sh_func(iloc)*sh_func(jloc)*det_jac
+  !       end do
+  !     end do
+  !   end do
+  ! end do
+  ! call FindInv(M, inv_M, tot_unknowns, ErrorFlag)
 open(unit=10, file='quad_points.txt')
-do i=1,1
-  do j=1,tot_unknowns
-    write(10,'(f10.5)', advance='no') inv_M(i,j)
-  end do
-end do
  ! surface integration
  do n=1,nt
     Un = U
     do e=1,totele
       call global_no(e, N_e_r, glob_no)
       do iface = 1,nface
+        flux(iface)=0
         do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
           sinod = e
           do g=1,sngi
             call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
                              det_jac, s_det_jac, tangent)
-            call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row)
-            call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
-
+            call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
+            ! call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
+            call s_shape_func(iface, s_sh_func)
             ! normal to the iface
             snormal = cross(tangent(iface,:),domain_norm)
             ! vector from the centre of the element to a node on a boundary line
@@ -451,18 +458,44 @@ end do
             call n_sign(snormal, n_hat)
             ! calculating flux at each quadrature point
             flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
-                                                                                  * sh_func(siloc)
+                                                                                  * s_sh_func(iface,g)
+
           end do
         end do
-      end do   ! end do iface = 1, nface !  Between_Elements_And_Boundary
-      ! Upwind values foreach surface
-      ! F = flux(1)*U(?) + flux(2)*U(e) + flux(3)*U(e-1?) + flux(4)*U(e)
-    end do   ! end do ele = 1, totele ! Surface integral
-    ! U(?) = Un(?) - inv_M(?) * F
-  end do ! end do time loop
-  ! write(10,*) U
+      end do   ! face loop  Between_Elements_And_Boundary
+      ! Upwind values for each surface =========================================
+      U_coo(e,:) = U_coordinates(e, N_e_r, N_e_c)
+
+      if (U_coo(e,1).eq.1) then
+        U_hat(1) = BC(e)
+      else
+        U_hat(1) = Un(e-N_e_r)
+      end if
+
+      U_hat(2) = Un(e)
+
+      if (U_coo(e,2).eq.1) then
+        U_hat(3) = BC(2*N_e_r+U_coo(e,1))
+      else
+        U_hat(3) = Un(e-1)
+      end if
+
+      U_hat(4) = Un(e)
+      ! ========================================================================
+      F = flux(1)*U_hat(1) + flux(2)*U_hat(2) + flux(3)*U_hat(3) + flux(4)*U_hat(4)   ! calculating total flux of element e
+      U(e) = Un(e) - 1/(dx*dy) * F
+    end do   ! element loop
+  end do ! time loop
+  print*, U
 close(10)
 
+!!!!!!!!!!!!!!!!!!!!!!!!1 plot !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+! open (unit=48, file='P0_3ddata.dat')
+! do i=1,tot_unknowns
+!   write(48,*) U_coo(i,1:2), 1
+! end do
+! close(48)
+! call system('gnuplot -p P0_3ddata.plt')
 
 
 

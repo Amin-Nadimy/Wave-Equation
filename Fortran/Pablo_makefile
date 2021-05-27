@@ -1,0 +1,20 @@
+#Definition of the compiler
+CC=mpif90
+#Specific flags
+FLAGS= -funderscoring -O0 -g -w -fmessage-length=0 -ffree-line-length-none
+#Sources
+SOURCES= UDTriangles/EvaluateTri.f90 AidLibraries/precision.f90 AidLibraries/strings.f90 AidLibraries/evaluate.f90 AidLibraries/Generic.f90 AidLibraries/Structures.f90 UDMesh/poly_io.f90 UDMesh/Geo2poly.f90 UDTriangles/TriangleOps.f90 UDTriangles/Tri2Tec.f90 UDTriangles/LIB_VTK_IO.f90 UDMesh/MeshOps.f90 UDTriangles/Tri2VTK.f90 UDTriangles/Tri2Octave.f90 UDMesh/Msh2Tri.f90 Solvers/LinearSolvers.f90 Solvers/SmoothersCC.f90 Solvers/SmoothersSD.f90 Solvers/SmoothersMix.f90 Solvers/SmoothersCO2.f90 Solvers/SmoothersSys.f90 Solvers/SmoothersCC_Par.f90 Solvers/Smoothers.f90 Solvers/MultigridOps.f90 Solvers/MGmethods.f90 Solvers/CG_Methods.f90 AidLibraries/Config.f90 Main.f90
+Triangles:
+#Name of the executable
+EXECUTABLE=Whatever
+
+all: $(SOURCES) $(EXECUTABLE)
+	
+$(EXECUTABLE): $(SOURCES) 
+	@echo 'Building target: $@'
+	@echo 'Invoking: Fortran Linker'
+	$(CC) $(FLAGS) $(SOURCES) -o $@
+	@echo 'Finished building target: $@'
+	@echo 'Removing .mod files'
+	rm ./*.mod
+	@echo ' '
