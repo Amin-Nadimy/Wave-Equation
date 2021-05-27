@@ -298,7 +298,7 @@ program wave_equation
   use solution_coordinates
   implicit none
 
-  integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, n, tot_n, totele, ngi, e, s_node(4,2)
+  integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, n, totele, e, s_node(4,2)
   integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
   integer :: row, col, tot_unknowns
   integer, allocatable, dimension(:,:) :: U_coo
@@ -309,24 +309,12 @@ program wave_equation
   real :: s_sh_func(4,4)
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
-  real :: vol_ngi(9,2), vol_ngw(size(vol_ngi)/2), s_ngi(4,2), s_ngw(size(s_ngi)/2)
+  real :: s_ngi(4,2), s_ngw(size(s_ngi)/2)
   real,allocatable,dimension(:,:) :: M, K, inv_M, U_plot
   real,allocatable,dimension(:) :: U, Un, x, y, BC
 
   ! Costants
-  ! volume quadrature points
-  vol_ngi = transpose(reshape((/-sqrt(0.6), -sqrt(0.6), 0.0, -sqrt(0.6), sqrt(0.6), -sqrt(0.6), -sqrt(0.6),&
-                               0.0, 0.0, 0.0, sqrt(0.6), 0.0, -sqrt(0.6),&
-                               sqrt(0.6), 0.0, sqrt(0.6), sqrt(0.6), sqrt(0.6)/),(/2,9/)))
-
-  ! weights of volume quadrature points
-  vol_ngw = (/(real(25)/81), real(40)/81, real(25)/81, real(40)/81, real(64)/81, &
-                          real(40)/81, real(25)/81, real(40)/81, real(25)/81/)
-
   ! surface quadrature points
-  ! s_ngi = transpose(reshape((/-3**(-0.5), -1.0, 3**(-0.5), -1.0, 1.0, -3**(-0.5),&
-  !                              1.0, 3**(-0.5), -1.0, -3**(-0.5), -1.0, 3**(-0.5),&
-  !                               -3**(-0.5), 1.0, 3**(-0.5), 1.0/),(/2,8/)))
   s_ngi = transpose(reshape((/0.0, -1.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0/),(/2,4/)))
 
   ! weights of surface quadrature points
@@ -358,8 +346,6 @@ program wave_equation
 
   dt = CFL/((c(1)/dx)+(c(2)/dy))
   totele = N_e_r * N_e_c    ! total element
-  tot_n = totele * nloc    ! total nodes
-  ngi = size(vol_ngi)/2      ! total volume quadrature points
   tot_unknowns = totele
 
   allocate(x(totele), y(totele))
@@ -371,13 +357,9 @@ program wave_equation
   ! initial condition
   U = 0
   BC = 0
-  ! do i=1,2
-  !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
-  ! end do
-do i=1,20
-  ! U(N_e_r/5:N_e_r/4) = 1
-  U(N_e_r/5+i*N_e_r:N_e_r/2+i*N_e_r) = 1
-end do
+  do i=1,20
+    U(N_e_r/5+i*N_e_r:N_e_r/2+i*N_e_r) = 1
+  end do
 
   ! array to store dot product of normal and r (vector from center of an element &
   ! to a point on its edge
@@ -386,8 +368,8 @@ end do
 
   call sl_global_node(e, s_node, N_e_r)
 
- ! surface integration
- do n=1,nt
+  ! surface integration
+  do n=1,nt
     Un = U
     do e=1,totele
       call global_no(e, N_e_r, glob_no)
@@ -399,7 +381,6 @@ end do
             call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
                              det_jac, s_det_jac, tangent)
             call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
-            ! call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
             call s_shape_func(iface, s_sh_func)
             ! normal to the iface
             snormal = cross(tangent(iface,:),domain_norm)
@@ -452,35 +433,41 @@ end do
     end if
   end do ! time loop
 !!!!!!!!!!!!!!!!!!!!!!!! axis info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! in this block DG x and y coordinates are calculated
-do e=1,totele
-call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
-x(e) = e_center(1)
-y(e) = e_center(2)
-end do
-!!!!!!!!!!!!!!!!!!!!!!!!save plot info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-open (unit=40, file='n1.dat')
-do i=1,tot_unknowns
-  write(40,*) x(i), y(i), U_plot(1,i)
-end do
-close(40)
-open (unit=41, file='n2.dat')
-do i=1,tot_unknowns
-  write(41,*) x(i), y(i), U_plot(2,i)
-end do
-close(41)
-open (unit=42, file='n3.dat')
-do i=1,tot_unknowns
-  write(42,*) x(i), y(i), U_plot(3,i)
-end do
-close(42)
+  ! in this block DG x and y coordinates are calculated
+  do e=1,totele
+  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
+  x(e) = e_center(1)
+  y(e) = e_center(2)
+  end do
+  !!!!!!!!!!!!!!!!!!!!!!!!save plot info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! save the 1st timestep info
+  open (unit=40, file='n1.dat')
+  do i=1,tot_unknowns
+    write(40,*) x(i), y(i), U_plot(1,i)
+  end do
+  close(40)
+
+  ! save the mid-timestep info
+  open (unit=41, file='n2.dat')
+  do i=1,tot_unknowns
+    write(41,*) x(i), y(i), U_plot(2,i)
+  end do
+  close(41)
+
+  ! save the last timestep info
+  open (unit=42, file='n3.dat')
+  do i=1,tot_unknowns
+    write(42,*) x(i), y(i), U_plot(3,i)
+  end do
+  close(42)
+
 !!!!!!!!!!!!!!!!!!!!!!!!! plotting commands !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! gnuplot
-! splot "n1.dat" title "first timestep" w l, "n2.dat" title "mid-timestep" w l, "n3.dat" title "last timestep" w l
-! set xlabel "x"
-! set ylabel "y"
-! set zlabel "U"
-! set zrange[0:1]
+  ! gnuplot
+  ! splot "n1.dat" title "first timestep" w l, "n2.dat" title "mid-timestep" w l, "n3.dat" title "last timestep" w l
+  ! set xlabel "x"
+  ! set ylabel "y"
+  ! set zlabel "U"
+  ! set zrange[0:1]
 
   deallocate(U, U_plot, BC, x, y)
 end program wave_equation
