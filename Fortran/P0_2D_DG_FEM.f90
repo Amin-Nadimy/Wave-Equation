@@ -319,8 +319,8 @@ program wave_equation
 
   ! weights of surface quadrature points
   s_ngw = (/2,2,2,2/)
-  nloc = 1  ! no of nodes in each element
-  snloc = 1 ! index of i in phi_i
+  nloc = 1  ! no of solution nodes in each element
+  snloc = 1 ! index of i in phi_i / no of solution in each surface
   nface = 4  ! no of faces of each elemenet
   sngi = size(s_ngi)/2  ! no of surface quadrature points of the faces - this is set to the max no of all faces
   CFL = 0.05
@@ -332,8 +332,8 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 50
-  N_e_c= 50
+  N_e_r = 20
+  N_e_c= 21
   nt = 500 ! number of timesteps
 
   ! normal to the domain
@@ -367,7 +367,7 @@ program wave_equation
   n_hat=0 ! normal to an edge
 
   call sl_global_node(e, s_node, N_e_r)
-
+BC
   ! surface integration
   do n=1,nt
     Un = U
@@ -376,7 +376,7 @@ program wave_equation
       do iface = 1,nface
         flux(iface)=0
         do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
-          sinod = e
+          ! sinod = e
           do g=1,sngi
             call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
                              det_jac, s_det_jac, tangent)

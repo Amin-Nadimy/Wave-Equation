@@ -71,16 +71,16 @@ import matplotlib.pyplot as plt
 
 #-------------------------------------------
 # This is the Python code for Finite Difference Mehtod in 1D
-C= 0.01                         # Courant number
-nt = 1000                       # total number of time-steps 
-nx = 100                        # total number of displacement 
-L = 2                           # length of thedomain in 1D
+C= 0.05                         # Courant number
+nt = 250                       # total number of time-steps 
+nx = 60                        # total number of displacement 
+L = 0.5                           # length of thedomain in 1D
 dx = L/(nx-1)                   # dispacement legth each time-step                   
-c = .5                          # velocity of the wave
+c = 0.1                          # velocity of the wave
 dt = C*dx/c                     # length of each time-step
 
 U = np.zeros(nx)                # initialising U matrix
-U[25:100]=1                     # defining square wave
+U[nx//5:nx//2]=1                     # defining square wave
 selected_elements=np.ones((3,nx)) # dummy vbl used for saving solutions in particular time-step
 
 for n in range(nt):             # marchig time
@@ -89,19 +89,19 @@ for n in range(nt):             # marchig time
         U[i] = Un[i]-c*(dt/dx)*(Un[i]-Un[i-1])
     if n==1:                    # savin the solution at the begining of the simulation
         selected_elements[0,:] = U.copy()
-    if n==15:                    # savin the solution at the middle of the simulation
+    if n==nt//2:                    # savin the solution at the middle of the simulation
         selected_elements[1,:] = U.copy()
-    if n==30:                    # savin the solution at the end of the simulation
+    if n==nt-1:                    # savin the solution at the end of the simulation
         selected_elements[2,:] = U.copy()
 
 # ----------------------- Plotting the results ------------------------------------
 plt.figure(1)
-plt.plot(np.linspace(0,L,nx), selected_elements[0,:])
-plt.plot(np.linspace(0,L,nx), selected_elements[1,:])
-plt.plot(np.linspace(0,L,nx), selected_elements[2,:])
+plt.plot(np.linspace(0,L,nx), selected_elements[0,:], label='first timestep')
+plt.plot(np.linspace(0,L,nx), selected_elements[1,:], label='mid-timestep')
+plt.plot(np.linspace(0,L,nx), selected_elements[2,:], label='last timestep')
 plt.xlabel('Distrance')
 plt.ylabel('u')
-
+plt.legend()
 #----------------------------------------------------------
 #
 #C= .1

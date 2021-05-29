@@ -7,13 +7,13 @@ program wave_equation
   integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
   integer, dimension(4):: sdot, glob_no
   real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4), K(4)
   real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
   real :: vol_ngi(9,2), vol_ngw(9), s_ngi(8,2), s_ngw(8)
-  real,allocatable,dimension(:,:) :: M, K, inv_M
-  real,allocatable,dimension(:) :: U, F, vec_K, x, y, x_coo, y_coo, x_dummy, y_dummy
+  real,allocatable,dimension(:,:) :: M, inv_M
+  real,allocatable,dimension(:) :: U, BC, x, y, x_coo, y_coo, x_dummy, y_dummy
 
   ! Costants
   ! volume quadrature points
@@ -28,12 +28,12 @@ program wave_equation
   ! surface quadrature points
   s_ngi = transpose(reshape((/-3**(-0.5), -1.0, 3**(-0.5), -1.0, 1.0, -3**(-0.5),&
                                1.0, 3**(-0.5), -1.0, -3**(-0.5), -1.0, 3**(-0.5),&
-                                -3**(-0.5), 1.0, 3**(-0.5), 1.0/),(/2,8/)))
+                                        -3**(-0.5), 1.0, 3**(-0.5), 1.0/),(/2,8/)))
 
   ! weights of surface quadrature points
   s_ngw = (/1,1,1,1,1,1,1,1/)
   nloc = 4  ! no of nodes in each element
-  snloc = 4 ! index of i in phi_i
+  snloc = 2 ! index of i in phi_i
   nface = 4  ! no of faces of each elemenet
   sngi = 8  ! no of surface quadrature points of the faces - this is set to the max no of all faces
   CFL = 0.05
@@ -104,20 +104,19 @@ program wave_equation
   n_hat=0 ! normal to an edge
 
   allocate(M(tot_n, tot_n))
-  allocate(K(tot_n, tot_n))
   allocate(inv_M(tot_n, tot_n))
-  allocate(vec_K(tot_n))
-  allocate(F(tot_n))
+  allocate(BC(4*(N_e_r+N_e_c)))
   do i=1,tot_n
     do j=1,tot_n
        M(i,j) = 0
-       K(i,j) = 0
     end do
   end do
   ! forall (i=1:tot_n) U(i)=0
 
   ! initial condition
   allocate(U(tot_n))
+  U = 0
+  BC = 0
   ! do i=1,2
   !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
   ! end do
@@ -144,18 +143,22 @@ program wave_equation
 
           ! ddx_sh_func = det_jac**(-1) *(jac(2,2)*ddxi_sh(iloc) - jac(1,2)*ddeta_sh(iloc))
           ! ddy_sh_func = det_jac**(-1) *(jac(1,1)*ddeta_sh(iloc) - jac(2,1)*ddxi_sh(iloc))
-          !
+
           ! K(inod,jnod) = K(inod,jnod) + vol_ngw(g)*dt*det_jac* (c(1)*sh_func(jloc)*ddx_sh_func + c(2)*sh_func(jloc)*ddy_sh_func)
         end do
       end do
     end do
   end do
   call FindInv(M, inv_M, tot_n, ErrorFlag)
+
+
 open(unit=10, file='quad_points.txt')
  ! surface integration
   do e=1,totele
     call global_no(e, N_e_r, glob_no)
     do iface = 1,nface
+      flux(iface) = 0
+      K(iface) = 0
       do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
         sinod = glob_no(siloc)
         do g=1,sngi
@@ -182,23 +185,23 @@ open(unit=10, file='quad_points.txt')
           n_hat = sign(1.0,snormal)
 
           ! calculating flux at each quadrature point
-          F(sinod) = F(sinod) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
+          flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
                                                                    * sh_func(siloc)
 
           ddx_sh_func = det_jac**(-1) *(jac(2,2)*ddxi_sh(siloc) - jac(1,2)*ddeta_sh(siloc))
           ddy_sh_func = det_jac**(-1) *(jac(1,1)*ddeta_sh(siloc) - jac(2,1)*ddxi_sh(siloc))
+          write(10,*) e, iface, siloc, g, s_ngw(g), s_det_jac(iface),dot_product(c,n_hat(1:2)),sh_func(siloc)
 
-          ! vec_K is the same as K but in explicit mode. K is in Implicit mode, which is not used here
-          ! calculating vec_K at each quadrture point
-          vec_K(sinod) = vec_K(sinod) + s_ngw(g)*dt*s_det_jac(iface)* (c(1)*ddx_sh_func + c(2)*ddy_sh_func)
-          write(10,*) e,sinod, F(sinod)
+          ! calculating K for each corner node (siloc) using all quadrture points
+          K(iface) = K(iface) + s_ngw(g)*dt*s_det_jac(iface)* (c(1)*ddx_sh_func + c(2)*ddy_sh_func)
+
         end do
       end do
     end do   ! do iface = 1, nface !  Between_Elements_And_Boundary
   end do   ! do ele = 1, totele ! Surface integral
-do i=1,tot_n
-  write(10,*) i, F(i)
-end do
+! do i=1,tot_n
+!   write(10,*) i, vec_K(i)
+! end do
 close(10)
 
   ! open(unit=10, file='quad_points.txt')
@@ -230,7 +233,7 @@ close(10)
   ! write(10,*)  'done'
   ! close(10)
 
-  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, K, vec_K, F)
+  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, BC)
 end program wave_equation
 
 
