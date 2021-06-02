@@ -130,4 +130,13 @@ sudo gedit /etc/group    # which opens a txt file, then add the username whereve
 # one can use vim or cat instead of gedit too. after tht the computer should be rebooted, the command is:
 # sudo reboot
 
-
+# Gnuplot
+1- type gnuplot in terminal to run the program
+2- plot (2D) splot for 3D : splot "<file name 1>" using(u) 1:2 with(w) lines(l) title "anything", "<file name 2>" using(u) 1:2 with(w) lines(l) title "anything" ,...
+3- set xlabel "x"
+4- set ylabel "y"
+5- replot
+6- save "name.gp"
+7- load "name.gp" # or chmod a+x "name.gp" then ./name.gp
+8- test ~ shows all styles of plotting
+9- exit
