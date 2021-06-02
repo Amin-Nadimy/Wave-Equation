@@ -1,15 +1,15 @@
-subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center,row, col)
+subroutine coordinates(ele, no_ele_per_row, dx, dy, co_ordinates, ele_center,row, col)
   ! this subroutine gets no of elements in a row and ele .no
   ! and gives coordinates of 4 nodes of the ele
   implicit none
-  integer, intent(in):: N_e_r, e
+  integer, intent(in):: no_ele_per_row, ele
   integer :: col, row
   real, intent(in):: dx, dy
-  real :: e_center(3)
+  real :: ele_center(3)
   real, dimension(4,2):: co_ordinates
 
-  row = ceiling(real(e)/N_e_r)
-  col = e-(N_e_r*((ceiling(real(e)/N_e_r))-1))
+  row = ceiling(real(ele)/no_ele_per_row)
+  col = ele-(no_ele_per_row*((ceiling(real(ele)/no_ele_per_row))-1))
   co_ordinates(1,1) = (col-1)*dx
   co_ordinates(1,2) = dy*(row-1)
   co_ordinates(2,1) = dx*col
@@ -19,9 +19,9 @@ subroutine coordinates(e, N_e_r, dx, dy, co_ordinates, e_center,row, col)
   co_ordinates(4,1) = dx*col
   co_ordinates(4,2) = dy*row
 
-  e_center(1) = 0.25* (co_ordinates(1,1) + co_ordinates(2,1) + co_ordinates(3,1) + co_ordinates(4,1))
-  e_center(2) = 0.25* (co_ordinates(1,2) + co_ordinates(2,2) + co_ordinates(3,2) + co_ordinates(4,2))
-  e_center(3) = 0
+  ele_center(1) = 0.25* (co_ordinates(1,1) + co_ordinates(2,1) + co_ordinates(3,1) + co_ordinates(4,1))
+  ele_center(2) = 0.25* (co_ordinates(1,2) + co_ordinates(2,2) + co_ordinates(3,2) + co_ordinates(4,2))
+  ele_center(3) = 0
 
 end subroutine coordinates
 
@@ -29,47 +29,47 @@ module solution_coordinates
   implicit none
   contains
 
-  function U_position(e, N_e_r, N_e_c) result(info)
+  function U_position(ele, no_ele_per_row, no_ele_per_col) result(info)
     ! this function gives row and column number of U or any element
     implicit none
-    integer, intent(in) :: e, N_e_r, N_e_c
+    integer, intent(in) :: ele, no_ele_per_row, no_ele_per_col
     integer :: col, row, info(2)
-    row = int(ceiling(real(e)/N_e_r))
-    col = e-(N_e_r*(row-1))
+    row = int(ceiling(real(ele)/no_ele_per_row))
+    col = ele-(no_ele_per_row*(row-1))
     info(1) = row
     info(2) = col
   end function U_position
 end module solution_coordinates
 
-subroutine global_no(e, N_e_r, glob_no)
+subroutine global_no(ele, no_ele_per_row, glob_no)
   ! this subroutine gives global node numbers of an element
   implicit none
-  integer, intent(in) :: e, N_e_r
+  integer, intent(in) :: ele, no_ele_per_row
   integer :: row, glob_no(4)
 
-  row = ceiling(real(e)/N_e_r)
-  glob_no(1) = (row-1)*2*N_e_r + 2*(e-1)+1
-  glob_no(2) = (row-1)*2*N_e_r + 2*(e-1)+2
-  glob_no(3) = (row-1)*2*N_e_r+2*N_e_r+2*(e-1)+1
-  glob_no(4) = (row-1)*2*N_e_r+2*N_e_r+2*(e-1)+2
+  row = ceiling(real(ele)/no_ele_per_row)
+  glob_no(1) = (row-1)*2*no_ele_per_row + 2*(ele-1)+1
+  glob_no(2) = (row-1)*2*no_ele_per_row + 2*(ele-1)+2
+  glob_no(3) = (row-1)*2*no_ele_per_row+2*no_ele_per_row+2*(ele-1)+1
+  glob_no(4) = (row-1)*2*no_ele_per_row+2*no_ele_per_row+2*(ele-1)+2
 
 end subroutine global_no
 
 
 
-subroutine sl_global_node(e, s_node, N_e_r)
+subroutine sl_global_node(ele, s_node, no_ele_per_row)
   ! this subroutine give global node numbers of each edge of an element
   implicit none
-  integer, intent(in) :: e , N_e_r
+  integer, intent(in) :: ele , no_ele_per_row
   integer :: s_node(4,2), row
 
-  row = ceiling(real(e)/N_e_r)
-  s_node(1,1) = (row-1)*2*N_e_r + 2*(e-1)+1
-  s_node(1,2) = (row-1)*2*N_e_r + 2*(e-1)+2
+  row = ceiling(real(ele)/no_ele_per_row)
+  s_node(1,1) = (row-1)*2*no_ele_per_row + 2*(ele-1)+1
+  s_node(1,2) = (row-1)*2*no_ele_per_row + 2*(ele-1)+2
   s_node(2,1) = s_node(1,2)
-  s_node(2,2) = (row-1)*2*N_e_r+2*N_e_r+2*(e-1)+2
+  s_node(2,2) = (row-1)*2*no_ele_per_row+2*no_ele_per_row+2*(ele-1)+2
   s_node(3,1) = s_node(1,1)
-  s_node(3,2) = (row-1)*2*N_e_r+2*N_e_r+2*(e-1)+1
+  s_node(3,2) = (row-1)*2*no_ele_per_row+2*no_ele_per_row+2*(ele-1)+1
   s_node(4,1) = s_node(3,2)
   s_node(4,2) = s_node(2,2)
 
@@ -105,13 +105,13 @@ end subroutine s_shape_func
 
 
 
-subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac, det_jac,s_det_jac, tangent)
+subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, ele, no_ele_per_row, dx, dy, co_ordinates, jac, det_jac,surf_det_jac, tangent)
   ! this module give derivatives of shape functions, x and y with respect to xi and eta
   implicit none
   real, intent(in) :: xi, eta, dx, dy
   real :: det_jac
-  real :: s_det_jac(4), jac(2,2), ddxi_sh(4), ddeta_sh(4), e_center(3),tangent(4,3), co_ordinates(4,2)
-  integer, intent(in) :: e, N_e_r
+  real :: surf_det_jac(4), jac(2,2), ddxi_sh(4), ddeta_sh(4), ele_center(3),tangent(4,3), co_ordinates(4,2)
+  integer, intent(in) :: ele, no_ele_per_row
   integer :: col, row
 
   ddxi_sh(1) = 0!-0.25*(1-eta)
@@ -124,7 +124,7 @@ subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinate
   ddeta_sh(3) = 0! 0.25*(1-xi)
   ddeta_sh(4) = 0! 0.25*(1+xi)
 
-  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
+  call coordinates(ele, no_ele_per_row, dx, dy, co_ordinates, ele_center, row, col)
   ! dx_dxi
   jac(1,1) = 0.25*((eta-1)*co_ordinates(1,1) + (1-eta)*co_ordinates(2,1) - (1+eta)*co_ordinates(3,1) + (1+eta)*co_ordinates(4,1))
   ! dy_dxi
@@ -137,10 +137,10 @@ subroutine derivatives(xi, eta, ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinate
   ! |J| of the element
   det_jac = jac(1,1)*jac(2,2) - jac(1,2)*jac(2,1)
   ! |J| of the surface
-  s_det_jac(1) = sqrt(jac(1,1)**2 + jac(1,2)**2)
-  s_det_jac(2) = sqrt(jac(2,1)**2 + jac(2,2)**2)
-  s_det_jac(3) = sqrt(jac(2,1)**2 + jac(2,2)**2)
-  s_det_jac(4) = sqrt(jac(1,1)**2 + jac(1,2)**2)
+  surf_det_jac(1) = sqrt(jac(1,1)**2 + jac(1,2)**2)
+  surf_det_jac(2) = sqrt(jac(2,1)**2 + jac(2,2)**2)
+  surf_det_jac(3) = sqrt(jac(2,1)**2 + jac(2,2)**2)
+  surf_det_jac(4) = sqrt(jac(1,1)**2 + jac(1,2)**2)
 
   ! tangent to a face
   tangent(1,1) = jac(1,1)
@@ -174,17 +174,17 @@ END FUNCTION cross
 
 end module cross_product
 
-subroutine n_sign(snormal, n_hat)
+subroutine n_sign(surf_normal, unit_norm)
   implicit none
   integer :: i
-  real, DIMENSION(3) :: n_hat
-  real, DIMENSION(3), INTENT(IN) :: snormal
+  real, DIMENSION(3) :: unit_norm
+  real, DIMENSION(3), INTENT(IN) :: surf_normal
 
   do i=1,3
-    if (snormal(i).eq.0.0) then
-      n_hat(i) = 0.0
+    if (surf_normal(i).eq.0.0) then
+      unit_norm(i) = 0.0
     else
-      n_hat(i) = abs(snormal(i)) / snormal(i)
+      unit_norm(i) = abs(surf_normal(i)) / surf_normal(i)
     end if
   end do
 END subroutine n_sign
@@ -298,145 +298,145 @@ program wave_equation
   use solution_coordinates
   implicit none
 
-  integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, n, totele, e, s_node(4,2)
-  integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
+  integer:: nface, sngi, no_timesteps, no_ele_per_row, no_ele_per_col, i, j, n, totele, ele, s_node(4,2)
+  integer :: inod, jnod, no_sol_per_ele, no_surf_point, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
   integer :: row, col, tot_unknowns
   integer, allocatable, dimension(:,:) :: U_pos
-  integer, dimension(4):: sdot, glob_no
-  real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4), U_hat(4), F
-  real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
+  integer, dimension(4):: glob_no
+  real, dimension(3):: domain_norm, unit_norm
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, loc_flux(4), U_hat(4), tot_flux
+  real :: sh_func(4),jac(2,2),surf_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real :: s_sh_func(4,4)
   real, dimension(4,2) :: co_ordinates
-  real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot
-  real :: s_ngi(4,2), s_ngw(size(s_ngi)/2)
+  real :: velocity(2), tangent(4,3), surf_normal(3), ele_center(3), r(3), surf_dot
+  real :: surf_gaus_point(4,2), surf_gaus_weight(size(surf_gaus_point)/2)
   real,allocatable,dimension(:,:) :: M, K, inv_M, U_plot
   real,allocatable,dimension(:) :: U, Un, x, y, BC
 
   ! Costants
   ! surface quadrature points
-  s_ngi = transpose(reshape((/0.0, -1.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0/),(/2,4/)))
+  surf_gaus_point = transpose(reshape((/0.0, -1.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0/),(/2,4/)))
 
   ! weights of surface quadrature points
-  s_ngw = (/2,2,2,2/)
-  nloc = 1  ! no of solution nodes in each element
-  snloc = 1 ! index of i in phi_i / no of solution in each surface
+  surf_gaus_weight = (/2,2,2,2/)
+  no_sol_per_ele = 1  ! no of solution nodes in each element
+  no_surf_point = 1 ! index of i in phi_i / no of solution in each surface
   nface = 4  ! no of faces of each elemenet
-  sngi = size(s_ngi)/2  ! no of surface quadrature points of the faces - this is set to the max no of all faces
+  sngi = size(surf_gaus_point)/2  ! no of surface quadrature points of the faces - this is set to the max no of all faces
   CFL = 0.05
 
   !velocity in x-dir(1) and y-dir(2)
-  c(1) = 0.1
-  c(2) = 0.1
+  velocity(1) = 0.1
+  velocity(2) = 0
 
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 10
-  N_e_c= 21
-  nt = 100 ! number of timesteps
+  no_ele_per_row = 15
+  no_ele_per_col= 1
+  no_timesteps = 10 ! number of timesteps
 
   ! normal to the domain
   domain_norm(1) = 0.0
   domain_norm(2) = 0.0
   domain_norm(3) = 1.0
 
-  dx = L/(N_e_r)
-  dy = L/(N_e_c)
+  dx = L/(no_ele_per_row)
+  dy = L/(no_ele_per_col)
 
-  dt = CFL/((c(1)/dx)+(c(2)/dy))
-  totele = N_e_r * N_e_c    ! total element
+  dt = CFL/((velocity(1)/dx)+(velocity(2)/dy))
+  totele = no_ele_per_row * no_ele_per_col    ! total elemeno_timesteps
   tot_unknowns = totele
 
   allocate(x(totele), y(totele))
   allocate(U_pos(tot_unknowns,2))
-  allocate(BC(2*(N_e_r+N_e_c)))
+  allocate(BC(2*(no_ele_per_row+no_ele_per_col)))
   allocate(U(tot_unknowns))
   allocate(U_plot(3,tot_unknowns))
 
   ! initial condition
   U = 0
   BC = 0
-  do i=1,20
-    U(N_e_r/5+i*N_e_r:N_e_r/2+i*N_e_r) = 1
-  end do
+  ! do i=1,1
+  !   U(no_ele_per_row/5+i*no_ele_per_row:no_ele_per_row/2+i*no_ele_per_row) = 1
+  ! end do
+  U(5:10)=1
 
-  ! array to store dot product of normal and r (vector from center of an element &
-  ! to a point on its edge
-  sdot=0
-  n_hat=0 ! normal to an edge
+  unit_norm=0 ! normal to an edge
 
-  call sl_global_node(e, s_node, N_e_r)
+  call sl_global_node(ele, s_node, no_ele_per_row)
 
   ! surface integration
-  do n=1,nt
+  do n=1,no_timesteps
     Un = U
-    do e=1,totele
-      call global_no(e, N_e_r, glob_no)
+    do ele=1,totele
+      call global_no(ele, no_ele_per_row, glob_no)
       do iface = 1,nface
-        flux(iface)=0
-        do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
+        loc_flux(iface)=0
+        do siloc=1,no_surf_point   ! use all of the nodes not just the surface nodes.
           ! sinod = e
           do g=1,sngi
-            call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
-                             det_jac, s_det_jac, tangent)
-            call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
+            call derivatives(surf_gaus_point(g,1),surf_gaus_point(g,2), ddxi_sh, ddeta_sh, &
+                             ele, no_ele_per_row, dx, dy, co_ordinates, jac,&
+                             det_jac, surf_det_jac, tangent)
+            call coordinates(ele, no_ele_per_row, dx, dy, co_ordinates, ele_center, row, col)
             call s_shape_func(iface, s_sh_func)
             ! normal to the iface
-            snormal = cross(tangent(iface,:),domain_norm)
+            surf_normal = cross(tangent(iface,:),domain_norm)
             ! vector from the centre of the element to a node on a boundary line
-            r(1) = co_ordinates(iface,1) - e_center(1)
-            r(2) = co_ordinates(iface,2) - e_center(2)
+            r(1) = co_ordinates(iface,1) - ele_center(1)
+            r(2) = co_ordinates(iface,2) - ele_center(2)
             r(3) = 0
-            ! dot product of snormal and the vector joining e_center and a gaussian point
-            s_dot = dot_product(snormal,r)
-            if (s_dot <= 0 ) then
-              snormal = snormal * (-1)
+            ! dot product of surf_normal and the vector joining e_center and a gaussian point
+            surf_dot = dot_product(surf_normal,r)
+            if (surf_dot <= 0 ) then
+              surf_normal = surf_normal * (-1)
             end if
             ! unit normal to the face
-            call n_sign(snormal, n_hat)
+            call n_sign(surf_normal, unit_norm)
             ! calculating flux at each quadrature point
-            flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
-                                                                                  * s_sh_func(iface,g)
+            loc_flux(iface) = loc_flux(iface) + surf_gaus_weight(g) * surf_det_jac(iface) &
+                                                * dt *dot_product(velocity,unit_norm(1:2))&
+                                                                         * s_sh_func(iface,g)
           end do
         end do
       end do   ! face loop  Between_Elements_And_Boundary
       ! Upwind values for each surface =========================================
-      U_pos(e,:) = U_position(e, N_e_r, N_e_c)
+      U_pos(ele,:) = U_position(ele, no_ele_per_row, no_ele_per_col)
 
-      if (U_pos(e,1).eq.1) then
-        U_hat(1) = BC(e)
+      if (U_pos(ele,1).eq.1) then
+        U_hat(1) = BC(ele)
       else
-        U_hat(1) = Un(e-N_e_r)
+        U_hat(1) = Un(ele-no_ele_per_row)
       end if
 
-      U_hat(2) = Un(e)
+      U_hat(2) = Un(ele)
 
-      if (U_pos(e,2).eq.1) then
-        U_hat(3) = BC(2*N_e_r+U_pos(e,1))
+      if (U_pos(ele,2).eq.1) then
+        U_hat(3) = BC(2*no_ele_per_row+U_pos(ele,1))
       else
-        U_hat(3) = Un(e-1)
+        U_hat(3) = Un(ele-1)
       end if
 
-      U_hat(4) = Un(e)
+      U_hat(4) = Un(ele)
       ! ========================================================================
-      F = flux(1)*U_hat(1) + flux(2)*U_hat(2) + flux(3)*U_hat(3) + flux(4)*U_hat(4)   ! calculating total flux of element e
-      U(e) = Un(e) - 1/(dx*dy) * F
+      tot_flux = loc_flux(1)*U_hat(1) + loc_flux(2)*U_hat(2) + loc_flux(3)*U_hat(3) + loc_flux(4)*U_hat(4)   ! calculating total flux of element e
+      U(ele) = Un(ele) - 1/(dx*dy) * tot_flux
     end do   ! element loop
     if (n.eq.1) then
       U_plot(1,:) = U
-    elseif (n.eq.nt/2) then
+    elseif (n.eq.no_timesteps/2) then
       U_plot(2,:) = U
-    elseif (n.eq.nt) then
+    elseif (n.eq.no_timesteps) then
       U_plot(3,:) = U
     end if
   end do ! time loop
 !!!!!!!!!!!!!!!!!!!!!!!! axis info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! in this block DG x and y coordinates are calculated
-  do e=1,totele
-  call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
-  x(e) = e_center(1)
-  y(e) = e_center(2)
+  do ele=1,totele
+  call coordinates(ele, no_ele_per_row, dx, dy, co_ordinates, ele_center, row, col)
+  x(ele) = ele_center(1)
+  y(ele) = ele_center(2)
   end do
   !!!!!!!!!!!!!!!!!!!!!!!!save plot info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! save the 1st timestep info
