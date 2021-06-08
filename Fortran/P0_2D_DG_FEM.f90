@@ -83,10 +83,10 @@ subroutine shape_func(xi,eta, sh_func)
   real, intent(in) :: xi, eta
   real :: sh_func(4)
 
-  sh_func(1) = 1!1/4*(1-xi)*(1-eta)
-  sh_func(2) = 1!1/4*(1+xi)*(1-eta)
-  sh_func(3) = 1!1/4*(1-xi)*(1+eta)
-  sh_func(4) = 1!1/4*(1+xi)*(1+eta)
+  sh_func(1) = 1/4*(1-xi)*(1-eta)
+  sh_func(2) = 1/4*(1+xi)*(1-eta)
+  sh_func(3) = 1/4*(1-xi)*(1+eta)
+  sh_func(4) = 1/4*(1+xi)*(1+eta)
 
 end subroutine shape_func
 
@@ -304,7 +304,7 @@ program wave_equation
   integer, allocatable, dimension(:,:) :: U_pos
   integer, dimension(4):: sdot, glob_no
   real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4), U_hat(4), F
+  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4), U_hat(4), F, s_vel
   real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real :: s_sh_func(4,4)
   real, dimension(4,2) :: co_ordinates
@@ -327,7 +327,7 @@ program wave_equation
 
   !velocity in x-dir(1) and y-dir(2)
   c(1) = 0.1
-  c(2) = 0.1
+  c(2) = 0
 
   L = 0.5   ! length of the domain in each direction
 
@@ -375,7 +375,7 @@ program wave_equation
       call global_no(e, N_e_r, glob_no)
       do iface = 1,nface
         flux(iface)=0
-        do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
+        do siloc=1,snloc   ! mid-points of the edges
           ! sinod = e
           do g=1,sngi
             call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
@@ -393,12 +393,22 @@ program wave_equation
             if (s_dot <= 0 ) then
               snormal = snormal * (-1)
             end if
+
             ! unit normal to the face
             call n_sign(snormal, n_hat)
+
+            ! cal velocity*unit_normal at the adges
+            s_vel = dot_product(c,n_hat(1:2))
+
             ! calculating flux at each quadrature point
-            flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface) * dt *dot_product(c,n_hat(1:2))&
-                                                                                  * s_sh_func(iface,g)
+            flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface)* s_vel * s_sh_func(iface,g)
           end do
+
+          ! if (iface.eq.1) then
+          !   call shape_func(s_ngi(1,1), s_ngi(1,2), sh_func)
+          !   print*, e, s_ngi(1,1), s_ngi(1,2), sh_func(1), sh_func(2)
+          ! end if
+
         end do
       end do   ! face loop  Between_Elements_And_Boundary
       ! Upwind values for each surface =========================================
@@ -421,7 +431,7 @@ program wave_equation
       U_hat(4) = Un(e)
       ! ========================================================================
       F = flux(1)*U_hat(1) + flux(2)*U_hat(2) + flux(3)*U_hat(3) + flux(4)*U_hat(4)   ! calculating total flux of element e
-      U(e) = Un(e) - 1/(dx*dy) * F
+      U(e) = Un(e) - 1/(dx*dy) * dt*F
     end do   ! element loop
     if (n.eq.1) then
       U_plot(1,:) = U

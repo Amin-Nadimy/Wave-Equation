@@ -868,9 +868,10 @@
 !                                    end forall
 ! or no need end forall if: forall (<vabls and conditions>) <operations>
 !------------------------------------------------------------------------------
-!
+
 ! subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
-!                   got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx, face_sweigh, npoly,ele_type, & ! shape functions
+!                   got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx,&
+!                   face_sweigh, npoly,ele_type, ! shape functions
 !                   face_ele, face_list_no,  & ! face info
 !                   got_xc, xc, & ! element centres
 !                   den,s, u,mu,muvol,x_all, p, & ! fields
@@ -1348,68 +1349,67 @@
 !
 !       end subroutine dg_advection_general
 
-! ================================================================================
-!       call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
+!================================================================================
 ! SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
 ! !       inv_jac )
-!     IMPLICIT NONE
+!   IMPLICIT NONE
 !
-!     INTEGER, intent( in ) :: SNLOC, SNGI, SNDIM, ndim
-!     REAL, DIMENSION( NDIM, SNLOC ), intent( in ) :: XSL_ALL
-!     REAL, DIMENSION( SNGI, SNLOC ), intent( in ) :: SN
-!     REAL, DIMENSION( SNGI, SNDIM, SNLOC ), intent( in ) :: SNLX
-!     REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
-!     REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
-!     REAL, intent( inout ) ::  SAREA
-!     REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
-!     REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
-! !    REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
-!     ! Local variables
-!     INTEGER :: GI, SL, IGLX
-!     REAL :: DXDLX, DXDLY, DYDLX, DYDLY, DZDLX, DZDLY
-!     REAL :: A, B, C, DETJ, RUB3, RUB4
+!   INTEGER, intent( in ) :: SNLOC, SNGI, SNDIM, ndim
+!   REAL, DIMENSION( NDIM, SNLOC ), intent( in ) :: XSL_ALL
+!   REAL, DIMENSION( SNGI, SNLOC ), intent( in ) :: SN
+!   REAL, DIMENSION( SNGI, SNDIM, SNLOC ), intent( in ) :: SNLX
+!   REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
+!   REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
+!   REAL, intent( inout ) ::  SAREA
+!   REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
+!   REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
+!   !REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
+!   ! Local variables
+!   INTEGER :: GI, SL, IGLX
+!   REAL :: DXDLX, DXDLY, DYDLX, DYDLY, DZDLX, DZDLY
+!   REAL :: A, B, C, DETJ, RUB3, RUB4
 !
-!     SAREA=0.
+!   SAREA=0.
 !
-!        DO GI=1,SNGI
+!   DO GI=1,SNGI
 !
-!           DXDLX=0.
-!           DXDLY=0.
-!           DYDLX=0.
-!           DYDLY=0.
-!           DZDLX=0.
-!           DZDLY=0.
+!     DXDLX=0.
+!     DXDLY=0.
+!     DYDLX=0.
+!     DYDLY=0.
+!     DZDLX=0.
+!     DZDLY=0.
 !
-!           DO SL=1,SNLOC
-!              DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
-!              DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
-!              DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
-!              DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
-!              DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
-!              DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
-!           END DO
-!           A = DYDLX*DZDLY - DYDLY*DZDLX
-!           B = DXDLX*DZDLY - DXDLY*DZDLX
-!           C = DXDLX*DYDLY - DXDLY*DYDLX
+!     DO SL=1,SNLOC
+!       DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
+!       DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
+!       DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
+!       DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
+!       DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
+!       DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+!     END DO
+!     A = DYDLX*DZDLY - DYDLY*DZDLX
+!     B = DXDLX*DZDLY - DXDLY*DZDLX
+!     C = DXDLX*DYDLY - DXDLY*DYDLX
 !
-!           DETJ=SQRT( A**2 + B**2 + C**2)
-! !          inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
-! !          inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
-! !          inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
-! !          inv_jac=inv_jac/detj
-!           SDETWE(GI)=DETJ*SWEIGH(GI)
-!           SAREA=SAREA+SDETWE(GI)
+!     DETJ=SQRT( A**2 + B**2 + C**2)
+!     !inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
+!     !inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
+!     !inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
+!     !inv_jac=inv_jac/detj
+!     SDETWE(GI)=DETJ*SWEIGH(GI)
+!     SAREA=SAREA+SDETWE(GI)
 !
-!           ! Calculate the normal at the Gauss pts...
-!           ! Perform x-product. N=T1 x T2
-!             CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+!     ! Calculate the normal at the Gauss pts...
+!     ! Perform x-product. N=T1 x T2
+!     CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
 !                DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
 !                NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
-!        END DO
+!   END DO
 !
-!     RETURN
+!   RETURN
 !
-!   END SUBROUTINE det_snlx_all
+! END SUBROUTINE det_snlx_all
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! program arraycons
 !   implicit none
@@ -1466,3 +1466,28 @@
 !! gfortran 3dplot.f90 -o 3dplot
 !! ./3dplot
 !! https://www.youtube.com/watch?v=tScjpDeCy1s
+
+program test_2
+  implicit NONE
+  integer :: tot_ele, nloc, nonodes, ndim
+  real, allocatable, dimension(:,:) :: x_loc
+  real, allocatable, dimension(:,:,:) :: x_all
+  tot_ele = 3
+  nloc = 4
+  ndim = 2
+  nonodes = tot_ele * nloc
+  allocate(x_all(tot_ele,nonodes,ndim),x_loc(nloc,ndim))
+  x_all(1,:,1:ndim) = 15
+  x_all(2,:,1:ndim) = 6
+  x_all(3,:,1:ndim) = 7
+  x_loc =3
+  x_loc(:,:) = x_all(1,:,:)
+  ! x_loc(:,:) = x_all(2,1:nloc,:)
+  ! x_loc(:,:) = x_all(3,1:nloc,:)
+  print*, x_loc(:,:)
+  ! print*, x_loc(:,:)
+
+  deallocate(x_all, x_loc)
+
+
+end program test_2

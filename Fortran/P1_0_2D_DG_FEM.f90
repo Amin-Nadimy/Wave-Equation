@@ -5,7 +5,7 @@ program wave_equation
 
   integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, tot_n, totele, ngi, e, s_node(4,2)
   integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod, ErrorFlag
-  integer :: n, row, col, U_hat(4,2)
+  integer :: n, row, col, U_hat(4)
   integer, dimension(4):: sdot, glob_no
   integer, allocatable, dimension(:,:) :: U_pos
   real, dimension(3):: domain_norm, n_hat
@@ -13,7 +13,7 @@ program wave_equation
   real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real, dimension(4,2) :: co_ordinates
   real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot, F, K
-  real :: vol_ngi(9,2), vol_ngw(9), s_ngi(8,2), s_ngw(8), s_sh_func(4,2)
+  real :: vol_ngi(9,2), vol_ngw(9), s_ngi(4,2), s_ngw(size(s_ngi)/2), s_sh_func(4,2)
   real,allocatable,dimension(:,:) :: M, inv_M
   real,allocatable,dimension(:) :: U, Un, BC, x, y, x_coo, y_coo, x_dummy, y_dummy
 
@@ -28,16 +28,14 @@ program wave_equation
                           real(40)/81, real(25)/81, real(40)/81, real(25)/81/)
 
   ! surface quadrature points
-  s_ngi = transpose(reshape((/-3**(-0.5), -1.0, 3**(-0.5), -1.0, 1.0, -3**(-0.5),&
-                               1.0, 3**(-0.5), -1.0, -3**(-0.5), -1.0, 3**(-0.5),&
-                                        -3**(-0.5), 1.0, 3**(-0.5), 1.0/),(/2,8/)))
+  s_ngi = transpose(reshape((/0.0, -1.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0/),(/2,4/)))
 
   ! weights of surface quadrature points
-  s_ngw = (/1,1,1,1,1,1,1,1/)
+  s_ngw = (/2,2,2,2/)
   nloc = 4  ! no of nodes in each element
-  snloc = 2 ! index of i in phi_i
+  snloc = 4 ! index of i in phi_i
   nface = 4  ! no of faces of each elemenet
-  sngi = 8  ! no of surface quadrature points of the faces - this is set to the max no of all faces
+  sngi = 4 ! no of surface quadrature points of the faces - this is set to the max no of all faces
   CFL = 0.05
 
   !velocity in x-dir(1) and y-dir(2)
@@ -47,9 +45,9 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  N_e_r = 30
+  N_e_r = 20
   N_e_c= 1
-  nt = 1  ! number of timesteps
+  nt = 10  ! number of timesteps
 
   ! normal to the domain
   domain_norm(1) = 0.0
@@ -161,17 +159,18 @@ open(unit=10, file='quad_points.txt')
   do n=1,nt
     Un = U
     do e=1,totele
+      U_hat = 0
       call global_no(e, N_e_r, glob_no)
       do iface = 1,nface
         flux(iface) = 0
         K_loc(iface) = 0
-        do siloc=1,snloc   ! use all of the nodes not just the surface nodes.
+        do siloc=1,snloc   ! mid-point of the edges
           sinod = glob_no(siloc)
           do g=1,sngi
-            call derivatives(s_ngi(g,1),s_ngi(g,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
+            call derivatives(s_ngi(iface,1),s_ngi(iface,2), ddxi_sh, ddeta_sh, e, N_e_r, dx, dy, co_ordinates, jac,&
                              det_jac, s_det_jac, tangent)
             call coordinates(e, N_e_r, dx, dy, co_ordinates, e_center, row, col)
-            call shape_func(s_ngi(g,1),s_ngi(g,2), sh_func)
+            call shape_func(s_ngi(iface,1),s_ngi(iface,2), sh_func)
 
             ! normal to the iface
             snormal = cross(tangent(iface,:),domain_norm)
@@ -191,52 +190,46 @@ open(unit=10, file='quad_points.txt')
             call n_sign(snormal, n_hat)
 
             ! calculating flux at each quadrature point
-            flux(iface) = flux(iface) + s_ngw(g) * s_det_jac(iface) *dot_product(c,n_hat(1:2))&
+            flux(iface) = flux(iface) + s_ngw(iface) * s_det_jac(iface) *dot_product(c,n_hat(1:2))&
                                                                               * sh_func(siloc) ! siloc = mid-points of the edges
-! print*, iface, flux(iface)
-            if(e.eq.1) then
-            end if
-            ddx_sh_func = det_jac**(-1) *(jac(2,2)*ddxi_sh(siloc) - jac(1,2)*ddeta_sh(siloc))
-            ddy_sh_func = det_jac**(-1) *(jac(1,1)*ddeta_sh(siloc) - jac(2,1)*ddxi_sh(siloc))
+
+            ddx_sh_func = ddx_sh_func + det_jac**(-1) *(jac(2,2)*ddxi_sh(siloc) - jac(1,2)*ddeta_sh(siloc))
+            ddy_sh_func = ddy_sh_func + det_jac**(-1) *(jac(1,1)*ddeta_sh(siloc) - jac(2,1)*ddxi_sh(siloc))
 
             ! calculating K for each corner node (siloc) using all quadrture points
             K_loc(iface) = K_loc(iface) + s_ngw(g)*s_det_jac(iface)* (c(1)*ddx_sh_func + c(2)*ddy_sh_func)
-          end do
+            ! print*, iface, 'jac2,2',jac(2,2), 'jac1,2',jac(1,2), ddx_sh_func, ddy_sh_func, K_loc(iface)
+          end do ! end quadrature loop
         end do
+        if ( iface.eq.1 .and. row/=1 ) then
+          call shape_func( s_ngi(4,1), s_ngi(4,2), sh_func )
+          do i=1,4
+            U_hat(1) = U_hat(1) + sh_func(i)*Un(glob_no(i)-N_e_r*4)
+          end do
+
+
+        elseif ( iface.eq.2) then
+          call shape_func( s_ngi(2,1), s_ngi(2,2), sh_func )
+          U_hat(2) = sh_func(1)*Un(glob_no(1)) + sh_func(2)*Un(glob_no(2))+&
+                    sh_func(3)*Un(glob_no(3)) + sh_func(4)*Un(glob_no(4))
+
+        elseif ( iface.eq.3 .and. col /=1 ) then
+          call shape_func( s_ngi(2,1), s_ngi(2,2), sh_func )
+          U_hat(3) = sh_func(1)*Un(glob_no(1)-2) + sh_func(2)*Un(glob_no(2)-2)+&
+                    sh_func(3)*Un(glob_no(3)-2) + sh_func(4)*Un(glob_no(4)-2)
+
+        elseif (iface.eq.4) then
+          call shape_func( s_ngi(4,1), s_ngi(4,2), sh_func )
+          do i=1,4
+            U_hat(4) = U_hat(4) + sh_func(i)*Un(glob_no(i))
+          end do
+        end if
+
       end do   ! do iface = 1, nface !  Between_Elements_And_Boundary
-      ! BC, 1st integer is point no and 2nd integer in _hat is the dimension
-      ! x-dir
-      if (col.eq.1) then
-        U_hat(1,1) = 0 !BC()
-        U_hat(3,1) = 0 !BC
-      else
-        U_hat(1,1) = Un(glob_no(1)-1)
-        U_hat(3,1) = Un(glob_no(3)-1)
-      end if
+      F = flux(1)*U_hat(1) + flux(2)*U_hat(2) + flux(3)*U_hat(3) + flux(4)*U_hat(4)
 
-      U_hat(2,1) = Un(glob_no(2))
-      U_hat(4,1) = Un(glob_no(4))
-      ! y-dir
-      if (row.eq.1) then
-        U_hat(1,2) = 0 !BC(e*2-1)
-        U_hat(2,2) = 0 !BC(e*2-1)
-      else
-        U_hat(1,2) = Un(glob_no(1)-2*N_e_r)
-        U_hat(2,2) = Un(glob_no(2)-2*N_e_r)
-      end if
-
-      U_hat(3,2) = Un(glob_no(3))
-      U_hat(4,2) = Un(glob_no(4))
-
-      F = flux(1)*(U_hat(1,2) + U_hat(2,2)) + &
-          flux(2)*(U_hat(2,1) + U_hat(4,1)) + &
-          flux(3)*(U_hat(1,1) + U_hat(3,1)) + &
-          flux(4)*(U_hat(3,2) + U_hat(4,2))
-
-      K = K_loc(1)*(U_hat(1,2) + U_hat(1,2)) + &
-          K_loc(2)*(U_hat(2,1) + U_hat(4,1)) + &
-          K_loc(3)*(U_hat(1,1) + U_hat(3,1)) + &
-          K_loc(4)*(U_hat(3,2) + U_hat(4,2))
+      K = K_loc(1)*U_hat(1) + K_loc(2)*U_hat(2) + K_loc(3)*U_hat(3) + K_loc(4) * U_hat(4)
+print*, K, F
       ! M^(-1) row sum
       M_sum = 0
       do i=1,4
@@ -247,7 +240,6 @@ open(unit=10, file='quad_points.txt')
       do i=1,4
         U(glob_no(i)) = Un(glob_no(i)) + M_sum(i)*dt*(K-F)
       end do
-
     end do   ! do ele = 1, totele ! Surface integral
   end do    ! do n=1,nt
 

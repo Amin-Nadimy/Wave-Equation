@@ -308,7 +308,7 @@ program wave_equation
   real :: sh_func(4),jac(2,2),surf_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
   real :: s_sh_func(4,4)
   real, dimension(4,2) :: co_ordinates
-  real :: velocity(2), tangent(4,3), surf_normal(3), ele_center(3), r(3), surf_dot
+  real :: vel(2), tangent(4,3), surf_normal(3), ele_center(3), r(3), surf_dot
   real :: surf_gaus_point(4,2), surf_gaus_weight(size(surf_gaus_point)/2)
   real,allocatable,dimension(:,:) :: M, K, inv_M, U_plot
   real,allocatable,dimension(:) :: U, Un, x, y, BC
@@ -326,13 +326,13 @@ program wave_equation
   CFL = 0.05
 
   !velocity in x-dir(1) and y-dir(2)
-  velocity(1) = 0.1
-  velocity(2) = 0
+  vel(1) = 0.1
+  vel(2) = 0
 
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  no_ele_per_row = 15
+  no_ele_per_row = 30
   no_ele_per_col= 1
   no_timesteps = 10 ! number of timesteps
 
@@ -344,7 +344,7 @@ program wave_equation
   dx = L/(no_ele_per_row)
   dy = L/(no_ele_per_col)
 
-  dt = CFL/((velocity(1)/dx)+(velocity(2)/dy))
+  dt = CFL/((vel(1)/dx)+(vel(2)/dy))
   totele = no_ele_per_row * no_ele_per_col    ! total elemeno_timesteps
   tot_unknowns = totele
 
@@ -360,7 +360,7 @@ program wave_equation
   ! do i=1,1
   !   U(no_ele_per_row/5+i*no_ele_per_row:no_ele_per_row/2+i*no_ele_per_row) = 1
   ! end do
-  U(5:10)=1
+  U(tot_unknowns/5:tot_unknowns/2)=1
 
   unit_norm=0 ! normal to an edge
 
@@ -396,8 +396,8 @@ program wave_equation
             call n_sign(surf_normal, unit_norm)
             ! calculating flux at each quadrature point
             loc_flux(iface) = loc_flux(iface) + surf_gaus_weight(g) * surf_det_jac(iface) &
-                                                * dt *dot_product(velocity,unit_norm(1:2))&
-                                                                         * s_sh_func(iface,g)
+                                                          *dot_product(vel,unit_norm(1:2))&
+                                                                      * s_sh_func(iface,g)
           end do
         end do
       end do   ! face loop  Between_Elements_And_Boundary
@@ -421,7 +421,7 @@ program wave_equation
       U_hat(4) = Un(ele)
       ! ========================================================================
       tot_flux = loc_flux(1)*U_hat(1) + loc_flux(2)*U_hat(2) + loc_flux(3)*U_hat(3) + loc_flux(4)*U_hat(4)   ! calculating total flux of element e
-      U(ele) = Un(ele) - 1/(dx*dy) * tot_flux
+      U(ele) = Un(ele) - 1/(dx*dy) * dt*tot_flux
     end do   ! element loop
     if (n.eq.1) then
       U_plot(1,:) = U
