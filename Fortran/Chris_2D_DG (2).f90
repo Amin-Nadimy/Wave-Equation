@@ -146,8 +146,15 @@ program wave_equation
 
   allocate(x_loc(ndim,nloc), x_all(1,ndim,nloc))
 !AMIN what does it do?
-  call SHATRInew(L1, L2, L3, L4, weight, &
-                 nloc,ngi,ndim,  n,nlx)
+!  call SHATRInew(L1, L2, L3, L4, weight, &
+!                 nloc,ngi,ndim,  n,nlx)
+!
+   mloc=1
+   allocate(rdum(10))
+   mdum(1:10)=0.0
+   LOWQUA=.false.
+   allocate(WEIGHT(ngi))
+   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,   M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
 
   do itime=1,ntime
     t_old =t_new
@@ -210,16 +217,22 @@ program wave_equation
         sn = face_sn(:,:,iface); snlx(:,:,:) = face_snlx(:,:,:,iface)
         sn2 =face_sn2(:,:,s_list_no)
 
+        usgi=0.0; usgi2=0.0; xsgi=0.0; tsgi=0.0; tsgi2=0.0 
         do iloc=1,nloc ! use all of the nodes not just the surface nodes.
           do idim=1,ndim
 !AMIN
             ! xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
             usgi(:,idim)  = usgi(:,idim)  + sn(:,iloc)*u_loc(idim,iloc)
             usgi2(:,idim) = usgi2(:,idim) + sn2(:,iloc)*u_loc2(idim,iloc)
+            xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
 
           end do
           tsgi(:)  = tsgi(:)  + sn(:,iloc)*t_loc(iloc)
           tsgi2(:) = tsgi2(:) + sn2(:,iloc)*t_loc2(iloc)
+        end do
+! this is the approximate normal direction...
+        do idim=1,ndim
+           norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(:,idim)/real(nloc))
         end do
         ! start to do the integration
 ! AMIN I can usit only once an dsave 4 values and use in later on
@@ -233,7 +246,7 @@ program wave_equation
           do idim=1,ndim
             s_cont(:) = snorm(:,idim)*sdetwei(:) &
 !AMIN got rid of (:)
-                      *( (1.-income(:))* usgi(:,idim)*tsgi + income(:)*usgi2(:,idim)*tsgi2 )
+                      *( (1.-income(:))* usgi(:,idim)*tsgi(:) + income(:)*usgi2(:,idim)*tsgi2(:) )
 !AMIN- rhs_loc(iloc) not (ic,iloc)
             rhs_loc(iloc)  = rhs_loc(ic,iloc)  + sum( sn(:,iloc)*s_cont(:) )
             !sloc_vec2(ic,iloc) = sloc_vec2(ic,iloc) + sum( sn2(:,iloc)*s_cont(:) )
@@ -537,3 +550,310 @@ subroutine det_nlx( x_all, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
 
   end do ! GI Was loop 331
 end subroutine det_nlx
+
+
+
+!
+       SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,&
+     &      M,WEIGHT,N,NLX,NLY, &
+     &      SNGI,SNLOC,SWEIGH,SN,SNLX)
+!       use FLDebug
+       IMPLICIT NONE
+! NB might have to define surface elements for p and (u,v,w) 
+! in here as well. 
+!      This subroutine defines the shape functions M and N and their
+!      derivatives at the Gauss points
+!       REAL M(1,NGI),WEIGHT(NGI),N(4,NGI),NLX(4,NGI),NLY(4,NGI)
+       INTEGER NGI,NLOC,MLOC
+       REAL M(MLOC,NGI),WEIGHT(NGI)
+       REAL N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
+       REAL POSI,TLY
+       REAL LX(16),LY(16),LXP(4),LYP(4)
+       REAL WEIT(16)
+       INTEGER SNGI,SNLOC
+       REAL SWEIGH(SNGI)
+       REAL SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
+       INTEGER P,Q,CORN,GPOI,ILOC,JLOC,NDGI
+       LOGICAL LOWQUA,GETNDP
+       INTEGER I
+! NB LXP(I) AND LYP(I) ARE THE LOCAL X AND Y COORDS OF NODAL POINT I
+       
+!       ewrite(3,*)'inside re2dn4, nloc,mloc,ngi',&
+!     &               nloc,mloc,ngi
+!
+       LXP(1)=-1
+       LYP(1)=-1
+!
+       LXP(2)=1
+       LYP(2)=-1
+!
+!       LXP(3)=1
+!       LYP(3)=1
+!
+!       LXP(4)=-1
+!       LYP(4)=1
+!
+       LXP(3)=-1
+       LYP(3)=1
+!
+       LXP(4)=1
+       LYP(4)=1
+!
+       IF(NGI.EQ.4) THEN
+          POSI=1.0/SQRT(3.0)
+          LX(1)=-POSI
+          LY(1)=-POSI
+          LX(2)= POSI
+          LY(2)= POSI
+!
+      do  Q=1,2! Was loop 23
+      do  P=1,2! Was loop 24
+      do  CORN=1,4! Was loop 25
+                   GPOI=(Q-1)*2 + P
+!
+                   IF(MLOC.EQ.1)  M(1,GPOI)=1.
+                   WEIGHT(GPOI)=1.
+!
+                   N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
+     &                   *(1.+LYP(CORN)*LY(Q))
+                   NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
+                   NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
+      end do ! Was loop 25
+!
+      end do ! Was loop 24
+      end do ! Was loop 23
+!       ewrite(3,*) 'here 1'
+!       ewrite(3,*) 'N:',N
+!       ewrite(3,*) 'NLX:',NLX
+!       ewrite(3,*) 'NLY:',NLY
+! Surface shape functions
+          IF((SNGI.GT.1).AND.(SNLOC.GT.1)) THEN
+!       ewrite(3,*) '***************** SNGI=',SNGI
+      do  P=1,2! Was loop 27
+      do  CORN=1,2! Was loop 27
+                   GPOI=P
+                   SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
+                   SNLX(CORN,GPOI)=0.5*LXP(CORN)
+                   SWEIGH(GPOI)=1.
+      end do ! Was loop 27
+      end do ! Was loop 27
+          ENDIF
+! IF(NGI.EQ.4) THEN ...
+       ELSE
+          NDGI =INT(SQRT(NGI+0.1) +0.1)
+!          ewrite(3,*) 'ndgi,ngi,sngi:',ndgi,ngi,sngi
+!
+          GETNDP=.FALSE.
+          CALL LAGROT(WEIT,LX,NDGI,GETNDP)
+          LY(1:NDGI) = LX(1:NDGI)
+!          ewrite(3,*) 'weit:',weit
+!          ewrite(3,*) 'lx:',lx
+!
+      do  Q=1,NDGI! Was loop 323
+      do  P=1,NDGI! Was loop 324
+      do  CORN=1,4! Was loop 325
+!            ewrite(3,*) 'q,p,corn:',q,p,corn
+                   GPOI=(Q-1)*NDGI + P
+!
+                   IF(MLOC.EQ.1)  M(1,GPOI)=1.
+                   WEIGHT(GPOI)=WEIT(P)*WEIT(Q)
+!             ewrite(3,*) 'here1'
+!
+                   N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
+     &                   *(1.+LYP(CORN)*LY(Q))
+!             ewrite(3,*) 'here2'
+                   NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
+                   NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
+!             ewrite(3,*) 'here3'
+      end do ! Was loop 325
+!
+      end do ! Was loop 324
+      end do ! Was loop 323
+!       ewrite(3,*) 'here 1'
+!       ewrite(3,*) 'N:',N
+!       ewrite(3,*) 'NLX:',NLX
+!       ewrite(3,*) 'NLY:',NLY
+! Surface shape functions
+!       ewrite(3,*) '***************** SNGI=',SNGI
+          IF(SNGI.GT.0) THEN
+             GETNDP=.FALSE.
+             CALL LAGROT(WEIT,LX,SNGI,GETNDP)
+      do  P=1,SNGI! Was loop 327
+      do  CORN=1,2! Was loop 327
+                   GPOI=P
+                   SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
+                   SNLX(CORN,GPOI)=0.5*LXP(CORN)
+                   SWEIGH(GPOI)=WEIT(P)
+      end do ! Was loop 327
+      end do ! Was loop 327
+! ENDOF IF(SNGI.GT.0) THEN...
+          ENDIF
+!
+! END OF IF(NGI.EQ.4) THEN ELSE ...
+       ENDIF
+!
+       IF(MLOC.EQ.NLOC) THEN
+      do  I=1,4! Was loop 2545
+      do  CORN=1,4! Was loop 2545
+                M(CORN,I)=N(CORN,I)
+      end do ! Was loop 2545
+      end do ! Was loop 2545
+       ENDIF
+!       ewrite(3,*) 'in re2dn4.f here 2 ngi,sngi',ngi,sngi
+!       ewrite(3,*) 'N:',N
+!       ewrite(3,*) 'NLX:',NLX
+!       ewrite(3,*) 'NLY:',NLY
+       END
+
+
+
+
+
+      SUBROUTINE LAGROT(WEIT,QUAPOS,NDGI,GETNDP)
+!        use RGPTWE_module
+      IMPLICIT NONE
+!     This computes the weight and points for standard Gaussian quadrature.
+!     IF(GETNDP) then get the POSITION OF THE NODES 
+!     AND DONT BOTHER WITH THE WEITS.
+      INTEGER NDGI
+      REAL WEIT(NDGI),QUAPOS(NDGI)
+      LOGICAL GETNDP
+      LOGICAL WEIGHT
+      INTEGER IG
+! real function...
+      real RGPTWE
+!     
+      IF(.NOT.GETNDP) THEN
+         WEIGHT=.TRUE.
+         do IG=1,NDGI
+            WEIT(IG)=RGPTWE(IG,NDGI,WEIGHT)
+         END DO
+!     
+         WEIGHT=.FALSE.
+         do IG=1,NDGI
+            QUAPOS(IG)=RGPTWE(IG,NDGI,WEIGHT)
+         END DO
+      ELSE
+         IF(NDGI.EQ.1) THEN
+            QUAPOS(1)=0.
+         ELSE
+            do IG=1,NDGI
+               QUAPOS(IG)= -1+2.*REAL(IG-1)/REAL(NDGI-1)
+            END DO
+         ENDIF
+      ENDIF
+      END SUBROUTINE LAGROT
+
+
+
+
+
+  SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
+!       inv_jac )
+    IMPLICIT NONE
+
+    INTEGER, intent( in ) :: SNLOC, SNGI, SNDIM, ndim
+    REAL, DIMENSION( NDIM, SNLOC ), intent( in ) :: XSL_ALL
+    REAL, DIMENSION( SNGI, SNLOC ), intent( in ) :: SN
+    REAL, DIMENSION( SNGI, SNDIM, SNLOC ), intent( in ) :: SNLX
+    REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
+    REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
+    REAL, intent( inout ) ::  SAREA
+    REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
+    REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
+!    REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
+    ! Local variables
+    INTEGER :: GI, SL, IGLX
+    REAL :: DXDLX, DXDLY, DYDLX, DYDLY, DZDLX, DZDLY
+    REAL :: A, B, C, DETJ, RUB3, RUB4
+
+    SAREA=0.
+
+       DO GI=1,SNGI
+
+          DXDLX=0.
+          DXDLY=0.
+          DYDLX=0.
+          DYDLY=0.
+          DZDLX=0.
+          DZDLY=0.
+
+          DO SL=1,SNLOC
+             DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
+             DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
+             DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
+             DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
+             DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
+             DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+          END DO
+          A = DYDLX*DZDLY - DYDLY*DZDLX
+          B = DXDLX*DZDLY - DXDLY*DZDLX
+          C = DXDLX*DYDLY - DXDLY*DYDLX
+
+          DETJ=SQRT( A**2 + B**2 + C**2)
+!          inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
+!          inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
+!          inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
+!          inv_jac=inv_jac/detj 
+          SDETWE(GI)=DETJ*SWEIGH(GI)
+          SAREA=SAREA+SDETWE(GI)
+
+          ! Calculate the normal at the Gauss pts...
+          ! Perform x-product. N=T1 x T2
+          CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+               DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
+               NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
+       END DO
+
+    RETURN
+
+  END SUBROUTINE det_snlx_all
+
+
+
+  SUBROUTINE NORMGI( NORMXN, NORMYN, NORMZN, &
+       DXDLX, DYDLX, DZDLX, DXDLY, DYDLY, DZDLY, &
+       NORMX, NORMY, NORMZ)
+    ! Calculate the normal at the Gauss pts
+    ! Perform x-product. N=T1 x T2
+    implicit none
+    REAL, intent( inout ) :: NORMXN, NORMYN, NORMZN
+    REAL, intent( in )    :: DXDLX, DYDLX, DZDLX, DXDLY, DYDLY, DZDLY
+    REAL, intent( in )    :: NORMX, NORMY, NORMZ
+    ! Local variables
+    REAL :: RN, SIRN
+
+    CALL XPROD1( NORMXN, NORMYN, NORMZN, &
+         DXDLX, DYDLX, DZDLX, &
+         DXDLY, DYDLY, DZDLY )
+
+    RN = SQRT( NORMXN**2 + NORMYN**2 + NORMZN**2 )
+
+    SIRN = SIGN( 1.0 / RN, NORMXN * NORMX + NORMYN * NORMY + NORMZN * NORMZ )
+
+    NORMXN = SIRN * NORMXN
+    NORMYN = SIRN * NORMYN
+    NORMZN = SIRN * NORMZN
+
+    RETURN
+
+  END SUBROUTINE NORMGI
+
+
+
+  SUBROUTINE XPROD1( AX, AY, AZ, &
+       BX, BY, BZ, &
+       CX, CY, CZ )
+    implicit none
+    REAL, intent( inout ) :: AX, AY, AZ
+    REAL, intent( in )    :: BX, BY, BZ, CX, CY, CZ
+
+    ! Perform x-product. a=b x c
+    AX =    BY * CZ - BZ * CY
+    AY = -( BX * CZ - BZ * CX )
+    AZ =    BX * CY - BY * CX
+
+    RETURN
+  END subroutine XPROD1
+
+
