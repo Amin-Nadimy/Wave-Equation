@@ -3,151 +3,67 @@ program wave_equation
   use cross_product
   implicit none
 
-  integer:: nface, sngi, nt, N_e_r, N_e_c, i, j, tot_n, totele, ngi, e, s_node(4,2)
-  integer :: inod, jnod, nloc, snloc, g, iloc, jloc, iface, siloc, sinod
-  integer :: n, row, col, U_hat(4), ndim, nonods
-  integer, dimension(4):: sdot, glob_no
-  integer, allocatable, dimension(:,:) :: U_pos
-  real, dimension(3):: domain_norm, n_hat
-  real:: CFL, L, dx, dy, dt, xi, eta, det_jac, flux(4), K_loc(4), M_sum(4)
-  real :: sh_func(4),jac(2,2),s_det_jac(4), ddxi_sh(4), ddeta_sh(4), ddx_sh_func, ddy_sh_func
-  real, dimension(:,:), allocatable :: loc_coordinate
-  real :: c(2), tangent(4,3), snormal(3), e_center(3), r(3), s_dot, F, K
-  real :: ngi_3p(9,2), ngi_3p_wei(9), ngi_2p_wei(4), s_ngi(4,2), ngi_2p(4,2)
-  real :: s_ngw(size(s_ngi)/2), s_sh_func(4,2)
-  real,allocatable,dimension(:,:) :: M, inv_M, x_loc, x_all
-  real,allocatable,dimension(:) :: U, Un, BC, x, y, x_coo, y_coo, x_dummy, y_dummy
+  logical :: LOWQUA
+  integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
+  integer:: itime, ntime, nonods, idim, ndim, nonodes, snloc, mloc
+  integer :: no_ele_col, no_ele_row, errorflag
 
-  ! weights of surface quadrature points
-  s_ngw = (/2,2,2,2/)
-  ndim = 2 ! no of spatial dimensions e.g. 2
-  nloc = 4  ! no of nodes in each element
-  snloc = 2 ! no of nodes on each boundary line
-  nface = 4  ! no of faces of each elemenet
-  sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
+  integer, allocatable :: face_ele(:,:), face_list_no(:,:)
+
+  real :: sarea, volume, dt, CFL, L, dx, dy
+
+  real :: n(:,:), nlx(:,:,:), nx(:,:,:)
+  real :: weight(:), detwei(:), sdetwei(:)
+  real :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:)
+  real :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), tgi(:), tsgi(:), tsgi2(:)
+  real :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
+  real :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:), u_new(:),u_old(:)
+  real :: x_all(:,:,:)
+  real :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:)
+  real :: mass_ele(:,:), mass_ele_inv(:,:), rhs_loc(:)
+  ! real :: rdum(:)
+
   CFL = 0.05
-
-  !velocity in x-dir(1) and y-dir(2)
-  c(1) = 0.1
-  c(2) = 0
-
   L = 0.5   ! length of the domain in each direction
+  no_ele_row = 10
+  no_ele_col = 1
+  totele = no_ele_row * no_ele_col
+  nface = totele * 4
+  dx = L/(no_ele_row)
+  dy = L/(no_ele_col)
+  ndim = 2
+  snloc = 2 ! no of nodes on each boundary line
+  ngi = 4
+  sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
+  nloc = 4
+  ntime = 10
 
-  ! number of elements in each row (r) and column (c)
-  N_e_r = 20
-  N_e_c= 1
-  nt = 10  ! number of timesteps
 
-  ! normal to the domain
-  domain_norm(1) = 0.0
-  domain_norm(2) = 0.0
-  domain_norm(3) = 1.0
-
-  allocate(x_coo((N_e_r+1)*2), y_coo((N_e_c+1)*2))
-  allocate(x_dummy((N_e_r+1)*2), y_dummy((N_e_c+1)*2))
-  allocate(x(N_e_r*2), y(N_e_c*2))
-
-  dx = L/(N_e_r)
-  dy = L/(N_e_c)
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! in this block DG x and y coordinates are calculated
-  ! initialisig x-coordinates
-  x_coo(1)=0
-  do i=2,(N_e_r+1)
-    x_coo(i) = x_coo(i-1)+dx
-  end do
-
-  ! initialising y-coordinates
-  y_coo(1)=0
-  do i=2,(N_e_c+1)
-    y_coo(i) = y_coo(i-1)+dy
-  end do
-
-  ! DG x & y-coordinates which have 2 extra entities. they will be deleted in x & y arrays
-  j=1
-  do i=1,N_e_r+1
-    x_dummy(j) = x_coo(i)
-    x_dummy(j+1) = x_coo(i)
-    j=j+2
-  end do
-
-  j=1
-  do i=1,N_e_c+1
-    y_dummy(j) = y_coo(i)
-    y_dummy(j+1) = y_coo(i)
-    j=j+2
-  end do
-
-  ! final DG x & y coordinates
-  x = x_dummy(2:size(x_dummy)-1)
-  y = y_dummy(2:size(y_dummy)-1)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  dt = CFL/((c(1)/dx)+(c(2)/dy))
-  totele = N_e_r * N_e_c    ! total element
-  tot_n = totele * nloc    ! total nodes
-  ngi = size(ngi_3p)/2      ! total volume quadrature points
-  ! array to store dot product of normal and r (vector from center of an element &
-  ! to a point on its edge
-  sdot=0
-  n_hat=0 ! normal to an edge
-
-  allocate(M(tot_n, tot_n))
-  allocate(inv_M(tot_n, tot_n))
-  allocate(BC(4*(N_e_r+N_e_c)))
-
+  ! x_all() =
   nonods=nloc*totele ! no of dg nodes...
 
-!AMIN it isn't consistant with x_loc(1:ndim,:) in line 152
-!AMIN also not consistant with line 152 x_all(ele, ,1:ndim,:)
-allocate(loc_coordinate(ndim,nloc))
-
-  ! forall (i=1:tot_n) U(i)=0
-
-  ! initial condition
-  allocate(U(tot_n))
-! initialize t_new
-  U = 0
-  BC = 0
-  ! do i=1,2
-  !   U(N_e_r*4*i+3:N_e_r*4*i+6)=1
-  ! end do
-  U(N_e_r*2/5:N_e_r) = 1
-  U(N_e_r*2+N_e_r*2/5:N_e_r*2+N_e_r) = 1
-
- ! n is shape funcs, nx and nls is derivative of shape funx with respect to x and local coor, detwei is det*weight
- !
-  integer :: nloc, gi, ngi, elegi, iface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
-  integer: itime, ntime, nonods, idim, ndim
-  integer :: face_ele( nface, totele), face_list_no( nface, totele)
-  real :: sarea, volume, rhs_loc, mass_ele
-
-  REAL :: x_all( ndim,nloc )
-  REAL :: N( ngi, nloc ), nlx( ngi, ndim, nloc )
-  REAL :: WEIGHT( ngi ), DETWEI( ngi )
-  REAL :: nx( ngi, ndim, nloc )
-
-  real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:)
-  real, allocatable ::  u_loc(:,:), u_ele(:,:,:), x_loc(:,:), ugi(:,:), tgi(:)
-  real, allocatable :: nx(:,:,:), detwei(:) ! shape functions
-  real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:), sdetwei(:)
-
-  ngi=4
-  allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
-  allocate(x_loc(ndim,nloc), x_all(totele,ndim,nloc))
+  allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ))
+  allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
+  allocate(face_ele( nface, totele), face_list_no( nface, totele))
+  ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi))
-  allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele), x_loc(ndim,nloc))
-  allocate(nx(ngi,ndim,nloc),detwei(ngi)) ! shape functions
-  allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim), sdetwei(sngi))
-  allocate(t_loc(nloc), t_old(totele,nloc), t_new(totele, nloc), tgi(ngi))
-  allocate(x_all(nonods,ndim))
-  allocate(u_new(nonods),u_old(nonods))
+  allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
+  allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
+  allocate(t_loc(nloc), t_loc2(nloc), t_old(totele,nloc), t_new(totele, nloc), tgi(ngi), tsgi(sngi), tsgi2(sngi))
+  allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,max_face_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface))
+  allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
+  allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc))
+  ! allocate(rdum(10))
+
 
   mloc=1
-  allocate(rdum(10))
-  mdum(1:10)=0.0
+  ! mdum(1:10)=0.0
   LOWQUA=.false.
-  allocate(WEIGHT(ngi))
+  ! initial conditions
+  t_new(2:5,:) = 1
+  U_ele(:,:,:) = 0.1
+  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
+
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,   M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
 
   do itime=1,ntime
@@ -155,11 +71,11 @@ allocate(loc_coordinate(ndim,nloc))
 
     do ele=1,totele
       ! volume integration
-      x_loc(1:ndim,:)=x_all(ele,1:ndim,:) ! x_all contains the coordinates of the corner nodes
+      !x_loc(1:ndim,:)=x_all(ele,1:ndim,:) ! x_all contains the coordinates of the corner nodes
+      x_loc(1:ndim,:)=x_all(1:ndim,:,ele) ! x_all contains the coordinates of the corner nodes
       call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
-      volume=sum(detwei)
+      !volume=sum(detwei)
 
-!AMIN what is U_ele?(initial condition)
       u_loc(:,:) = u_ele(:,:,ele) ! this is the
 !AMIN changed to t_old
       t_loc(:) =  t_old(ele,:) ! this is the FEM element - 2nd index is the local node number
@@ -195,71 +111,85 @@ allocate(loc_coordinate(ndim,nloc))
         end do ! ijloc
       end do ! iloc
 
-!       ! Include the surface integral here:
-!       do iface = 1,nface
-!         ele2 = face_ele( iface, ele)
-! !AMIN dimension isn't consistant with line 235 t_new(ele,iloc)
-!         t_loc2(:)=t_new(ele2,:)
-!         u_loc2(:,:)=u_new(:,:,ele2)
-!
-!         !Surface integral along an element
-!         !if(ele>ele2) then ! perform integration along both sides...
-!
-!         s_list_no = face_list_no( iface, ele)
-!         sn = face_sn(:,:,iface); snlx(:,:,:) = face_snlx(:,:,:,iface)
-!         sn2 =face_sn2(:,:,s_list_no)
-!
-!         usgi=0.0; usgi2=0.0; xsgi=0.0; tsgi=0.0; tsgi2=0.0
-!         do iloc=1,nloc ! use all of the nodes not just the surface nodes.
-!           do idim=1,ndim
-!
-!             xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
-!             usgi(:,idim)  = usgi(:,idim)  + sn(:,iloc)*u_loc(idim,iloc)
-!             usgi2(:,idim) = usgi2(:,idim) + sn2(:,iloc)*u_loc2(idim,iloc)
-!             xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
-!
-!           end do
-!           tsgi(:)  = tsgi(:)  + sn(:,iloc)*t_loc(iloc)
-!           tsgi2(:) = tsgi2(:) + sn2(:,iloc)*t_loc2(iloc)
-!         end do
-! ! this is the approximate normal direction...
-!         do idim=1,ndim
-!            norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(:,idim)/real(nloc))
-!         end do
-!         ! start to do the integration
-! ! AMIN I can usit only once an dsave 4 values and use in later on
-!         call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
-!
-!         do s_gi=1,sngi
-!           income(s_gi)=0.5 + 0.5*sign(1.0, sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
-!         end do
-!         ! sloc_vec=0.0; sloc_vec2=0.0
-!         do iloc=1,nloc
-!           do idim=1,ndim
-!             s_cont(:) = snorm(:,idim)*sdetwei(:) &
-! !AMIN got rid of (:)
-!                       *( (1.-income(:))* usgi(:,idim)*tsgi(:) + income(:)*usgi2(:,idim)*tsgi2(:) )
-! !AMIN- rhs_loc(iloc) not (ic,iloc)
-!             rhs_loc(iloc)  = rhs_loc(ic,iloc)  + sum( sn(:,iloc)*s_cont(:) )
-!             !sloc_vec2(ic,iloc) = sloc_vec2(ic,iloc) + sum( sn2(:,iloc)*s_cont(:) )
-!           end do
-!         end do
-!       end do ! iface
-!
-!       mass_ele_inv=invert(mass_ele) ! inverse of the mass matric (nloc,nloc)
-!       do iloc=1,nloc
-!          t_new(ele,iloc)=t_old(ele,iloc) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
-!       end do
+      ! Include the surface integral here:
+      do iface = 1,nface
+        ele2 = face_ele( iface, ele)
+        t_loc2(:)=t_new(ele2,:)
+        u_loc2(:,:)=u_new(:,:,ele2)
 
+        !Surface integral along an element
+        !if(ele>ele2) then ! perform integration along both sides...
+
+        s_list_no = face_list_no( iface, ele)
+        sn = face_sn(:,:,iface); snlx(:,:,:) = face_snlx(:,:,:,iface)
+        sn2 =face_sn2(:,:,s_list_no)
+
+        usgi=0.0; usgi2=0.0; xsgi=0.0; tsgi=0.0; tsgi2=0.0
+        do iloc=1,nloc ! use all of the nodes not just the surface nodes.
+          do idim=1,ndim
+
+            xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
+            usgi(:,idim)  = usgi(:,idim)  + sn(:,iloc)*u_loc(idim,iloc)
+            usgi2(:,idim) = usgi2(:,idim) + sn2(:,iloc)*u_loc2(idim,iloc)
+            xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
+
+          end do
+          tsgi(:)  = tsgi(:)  + sn(:,iloc)*t_loc(iloc)
+          tsgi2(:) = tsgi2(:) + sn2(:,iloc)*t_loc2(iloc)
+        end do
+! this is the approximate normal direction...
+        do idim=1,ndim
+           norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(:,idim)/real(nloc))
+        end do
+        ! start to do the integration
+        call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
+
+        do s_gi=1,sngi
+          income(s_gi)=0.5 + 0.5*sign(1.0, sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
+        end do
+        ! sloc_vec=0.0; sloc_vec2=0.0
+        do iloc=1,nloc
+          do idim=1,ndim
+            s_cont(:) = snorm(:,idim)*sdetwei(:) &
+!AMIN got rid of (:)
+                      *( (1.-income(:))* usgi(:,idim)*tsgi(:) + income(:)*usgi2(:,idim)*tsgi2(:) )
+            rhs_loc(iloc)  = rhs_loc(iloc)  + sum( sn(:,iloc)*s_cont(:) )
+            !sloc_vec2(ic,iloc) = sloc_vec2(ic,iloc) + sum( sn2(:,iloc)*s_cont(:) )
+          end do
+        end do
+      end do ! iface
+
+      call FINDInv(mass_ele, mass_ele_inv, size(mass_ele(1,:)), errorflag)
+      !mass_ele_inv=invert(mass_ele) ! inverse of the mass matric (nloc,nloc)
+      do iloc=1,nloc
+         t_new(ele,iloc)=t_old(ele,iloc) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
+      end do
     end do ! do ele=1,totele
   end do ! do itime=1,ntime
 
-  deallocate(U, x, y, x_coo, y_coo, x_dummy, y_dummy, M, BC, inv_M, U_pos&
-              x_loc, x_all, loc_coordinate)
+  deallocate(x_loc, x_all, n, nx, nlx, weight, detwei, sdetwei, face_ele, face_list_no,&
+              sn, sn2, snlx, sweigh, u_loc, u_loc2, ugi,u_ele, xsgi, usgi,usgi2,income,&
+              snorm,norm,t_loc,t_old,t_new,tgi,u_new, u_old,mass_ele,rhs_loc)
 end program wave_equation
 
 
+subroutine coordinates(ndim, totele, x_all, no_ele_row, no_ele_col, row, col, nloc, dx, dy)
+  implicit none
+  integer :: ele, row, col
+  integer, intent(in) :: totele,no_ele_row, no_ele_col, nloc, ndim
+  real, intent(in) :: dx, dy
+  real :: x_all(ndim,nloc,totele)
 
+  do ele = 1,totele
+    row = ceiling(real(ele)/no_ele_row)
+    col = ele-(no_ele_row*(row-1))
+
+    x_all(1,1,ele) = dx*(col-1); x_all(2,1,ele) = dy*(row-1)
+    x_all(1,2,ele) = dx*col    ; x_all(2,2,ele) = dy*(row-1)
+    x_all(1,3,ele) = dx*(col-1); x_all(2,3,ele) = dy*row
+    x_all(1,4,ele) = dx*col    ; x_all(2,4,ele) = dy*row
+  end do
+end subroutine coordinates
 
 
 subroutine det_nlx( x_all, n, nlx, nx, detwei, weight, ndim,nloc,ngi )

@@ -868,121 +868,121 @@
 !                                    end forall
 ! or no need end forall if: forall (<vabls and conditions>) <operations>
 !------------------------------------------------------------------------------
-
-subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
-                  got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx,&
-                  face_sweigh, npoly,ele_type, ! shape functions
-                  face_ele, face_list_no,  & ! face info
-                  got_xc, xc, & ! element centres
-                  den,s, u,mu,muvol,x_all, p, & ! fields
-                  den_bc,c_bc,u_bc,mu_bc,mu_bc_on,p_bc,p_bc_on, & ! bcs
-                  n_col_c, coln_c, fin_c, cent_c, h, suf_h, suf_s, & !
-                  k_6h_p_gi, k_4h_p_gi, k_2h_p_gi ) ! pressure stabilization terms
-! ******************************************************************************
-! this sub form rhs = A*c -integration of s.**********************************
-! ******************************************************************************
-  implicit none
-  integer nits_multi_pass
-  real toler, two_thirds
-  parameter(nits_multi_pass=1,toler=1.0e-10,two_thirds=2./3.)
-  ! integers representing the length of arrays...
-  ! totele=no of elements,nloc=no of nodes per element, totele_nloc=totele*nloc
-  ! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
-  ! ngi=no of surface quadrature points of the faces.
-  ! ndim=no of dimensions - including time possibly, nface=no of faces of each elemenet, nc no of fields to solve for.
-  integer, intent(in) :: totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc
-  ! this sub form rhs = A*vec -integration of s.
-  real, intent(in) :: c(nc,totele_nloc), rhs(nc,totele_nloc)
-  real, intent(inout) :: vec(nc,totele_nloc)
-  ! shape functions....
-  ! if .not.got_shape_funs then get the shape functions else assume we have them already
-  ! n, nlx are the volume shape functions and their derivatives in local coordinates.
-  ! weight are the weights of the quadrature points.
-  ! nlx_nod are the derivatives of the local coordinates at the nods.
-  ! nlx_lxx = the 3rd order local derivatives at the nodes.
-  ! face info:
-  ! face_ele(iface, ele) = given the face no iface and element no return the element next to
-  ! the surface or if negative return the negative of the surface element number between element ele and face iface.
-  ! face_list_no(iface, ele) returns the possible origantation number which defines the numbering
-  ! of the non-zeros of the nabouting element.
-  logical, intent(inout) :: got_shape_funs
-  real, intent(inout) :: n(ngi,nloc), nlx(ngi,ndim,nloc), nlxx(ngi,nloc), nlx_lxx(ngi,ndim,nloc), weight(ngi)
-  real, intent(inout) :: nlx_nod(nloc,ndim,nloc)
-  real, intent(inout) :: face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,max_face_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface)
-  ! npoly=order of polynomial in Cartesian space; ele_type=type of element including order of poly.
-  integer, intent(in) :: npoly,ele_type
-  integer, intent(in) :: face_ele( nface, totele), face_list_no( nface, totele) ! face info.
-  ! centre of each element infor: got_xc=got the centres else calculate them here, xc(:,ele) is the
-  ! centre of the element ele.
-  logical, intent(inout) :: got_xc
-  real, intent(inout) :: xc(ndim,totele)
-  ! nodal variables...
-  ! den=density used for each field ic; c=solution value for field ic; s=source of field ic.
-  ! u=advection velocity; mu=diffusivity at the nodes; x_all=coordinates of the nodes; p=pressure
-  real, intent(in) :: den(nc,totele_nloc),s(nc,totele_nloc)
-  real, intent(in) :: u(ndim,totele_nloc),mu(nc,totele_nloc),muvol(totele_nloc),x_all(ndim,totele_nloc), p(totele_nloc)
-  real, intent(in) :: den_bc(nc,totele_nloc),c_bc(nc,totele_nloc),u_bc(ndim,totele_nloc),mu_bc(nc,totele_nloc),mu_bc_on(nc,totele_nloc)
-  real, intent(in) :: p_bc(totele_nloc),p_bc_on(totele_nloc)
-  ! h absorption and surface source surf_s also surface absorption suf_h:
-  ! pointers representing the sparse structure of h: n_col_c=no of potentially nonz-zeros in the nc*nc coupling,
-  ! coln_c(n_col_c)=colns of this coupling, fin_c(ic) start of the ic row of h matrix, cent_c(ic)=points to the diagonal of row ic.
-  integer, intent(in) :: n_col_c, coln_c(n_col_c), fin_c(nc+1), cent_c(nc)
-  real, intent(in) :: h(n_col_c,totele_nloc), suf_h(nc,totele_nloc), suf_s(nc,totele_nloc)
-  ! pressure stabilization terms(6th,4th, and 2nd order stabilization)...
-  real, intent(inout) :: k_6h_p_gi(ngi,ndim_navier,totele), k_4h_p_gi(ngi,ndim_navier,totele), k_2h_p_gi(ngi,ndim_navier,totele)
-  ! local variables...
-  integer ele,iloc,jloc,ic,idim,jdim,count_c,jc,gi, iface,ele2,s_list_no, s_gi
-  logical navier_stokes
-  real sarea, norm_toler
-  ! allocatable...
-  real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:)
-  real, allocatable :: den_loc(:,:), c_loc(:,:), s_loc(:,:), u_loc(:,:)
-  real, allocatable :: mu_loc(:,:), x_loc(:,:)
-  real, allocatable :: nx(:,:,:),nx_lxx(:,:,:),detwei(:),inv_jac(:,:,:),nx_nod(:,:,:)  ! shape functions
-  real, allocatable :: dengi(:,:), cgi(:,:), sgi(:,:), mugi(:,:), dx_cgi(:,:,:), dx_dengi(:,:,:)
-  real, allocatable :: x_lxx_c(:,:,:), dx_mugi(:,:,:)
-  real, allocatable :: hgi(:,:), ugi(:,:), dx_ugi(:,:), dx_cnod(:,:,:), residual(:,:), dx_pgi(:,:)
-  real, allocatable :: pgi(:), dxx_cgi(:,:,:), divu(:)
-
-  real, allocatable :: a_star(:,:,:), j_inv_a_star(:,:), k_6h(:,:)
-  real, allocatable :: max_k_6h_pres(:), k_6h_pres(:,:)
-  real, allocatable :: vec_loc(:,:), p_loc(:)
-  real, allocatable :: den_loc2(:,:), c_loc2(:,:), u_loc2(:,:)
-  real, allocatable :: mu_loc2(:,:), mu_on_loc(:,:), p_loc2(:), p_bc_on_loc(:)
-
-  real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:), sdetwei(:)
-  real, allocatable :: densgi(:,:), densgi2(:,:), csgi(:,:), csgi2(:,:), musgi12(:,:), s_cont(:)
-  real, allocatable :: psgi(:), psgi2(:), x_suf(:)
-  real, allocatable :: suf_h_loc(:,:), suf_s_loc(:,:), suf_hsgi(:,:), suf_ssgi(:,:)
-
-  real, allocatable :: dx_c_nod(:,:), divu_nod(:), visc_calc_nx_nod(:,:,:)
-  real, allocatable :: ident_dim(:,:), visc_calc_nx_nod_gi(:,:)
-  real, allocatable :: muvol_loc(:), muvolgi(:), loc_vec(:,:), x_lxx_c_norm22(:,:)
-  ! for integration...
-  allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi) )
-  allocate(den_loc(nc,nloc), c_loc(nc,nloc), s_loc(nc,nloc), u_loc(ndim,nloc) )
-  allocate(mu_loc(nc,nloc), x_loc(ndim,nloc) )
-  allocate(nx(ngi,ndim,nloc),nx_lxx(ngi,ndim,nloc),detwei(ngi),inv_jac(ngi,ndim,ndim),nx_nod(nloc,ndim,nloc) ) ! shape functions
-  allocate(dengi(ngi,nc), cgi(ngi,nc), sgi(ngi,nc), mugi(ngi,nc), dx_cgi(ngi,ndim,nc), dx_dengi(ngi,ndim,nc) )
-  allocate(x_lxx_c(ngi,ndim,nc), dx_mugi(ngi,ndim,nc) )
-  allocate(hgi(ngi,n_col_c), ugi(ngi,ndim), dx_ugi(ngi,ndim), dx_cnod(ngi,ndim,nc ), residual(ngi,nc), dx_pgi(ngi,ndim) )
-  allocate(pgi(ngi), dxx_cgi(ngi,ndim,nc), divu(ngi) )
-
-  allocate(a_star(ngi,ndim,nc), j_inv_a_star(ngi,ndim), k_6h(ngi,nc) )
-  allocate(max_k_6h_pres(ngi), k_6h_pres(ngi,ndim_navier) )
-  allocate(vec_loc(nc,nloc), p_loc(nloc) )
-  allocate(den_loc2(nc,nloc), c_loc2(nc,nloc), u_loc2(ndim,nloc) )
-  allocate(mu_loc2(nc,nloc), mu_on_loc(nc,nloc), p_loc2(nloc), p_bc_on_loc(nloc) )
-
-  allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim), sdetwei(sngi) )
-  allocate(densgi(sngi,nc), densgi2(sngi,nc), csgi(sngi,nc), csgi2(sngi,nc), musgi12(sngi,nc), s_cont(nc) )
-  allocate(psgi(sngi), psgi2(sngi), x_suf(ndim) )
-  allocate(suf_h_loc(nc,totele_nloc), suf_s_loc(nc,totele_nloc), suf_hsgi(sngi,nc), suf_ssgi(sngi,nc) )
-
-  allocate(dx_c_nod(nloc,nloc), divu_nod(nloc), visc_calc_nx_nod(ndim,ndim,nloc), ident_dim(ndim,ndim), visc_calc_nx_nod_gi(nloc,ndim) )
-  allocate(muvol_loc(nloc), muvolgi(ngi), loc_vec(nc,nloc), x_lxx_c_norm22(ngi,nc) )
-
-
+!
+! subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc, &
+!                   got_shape_funs, n, nlx, nlxx, nlx_lxx, weight, nlx_nod,  face_sn, face_sn2, face_snlx,&
+!                   face_sweigh, npoly,ele_type, ! shape functions
+!                   face_ele, face_list_no,  & ! face info
+!                   got_xc, xc, & ! element centres
+!                   den,s, u,mu,muvol,x_all, p, & ! fields
+!                   den_bc,c_bc,u_bc,mu_bc,mu_bc_on,p_bc,p_bc_on, & ! bcs
+!                   n_col_c, coln_c, fin_c, cent_c, h, suf_h, suf_s, & !
+!                   k_6h_p_gi, k_4h_p_gi, k_2h_p_gi ) ! pressure stabilization terms
+! ! ******************************************************************************
+! ! this sub form rhs = A*c -integration of s.**********************************
+! ! ******************************************************************************
+!   implicit none
+!   integer nits_multi_pass
+!   real toler, two_thirds
+!   parameter(nits_multi_pass=1,toler=1.0e-10,two_thirds=2./3.)
+!   ! integers representing the length of arrays...
+!   ! totele=no of elements,nloc=no of nodes per element, totele_nloc=totele*nloc
+!   ! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
+!   ! ngi=no of surface quadrature points of the faces.
+!   ! ndim=no of dimensions - including time possibly, nface=no of faces of each elemenet, nc no of fields to solve for.
+!   integer, intent(in) :: totele,nloc,totele_nloc, sngi, ngi, ndim, ndim_navier, nface, max_face_list_no, nc
+!   ! this sub form rhs = A*vec -integration of s.
+!   real, intent(in) :: c(nc,totele_nloc), rhs(nc,totele_nloc)
+!   real, intent(inout) :: vec(nc,totele_nloc)
+!   ! shape functions....
+!   ! if .not.got_shape_funs then get the shape functions else assume we have them already
+!   ! n, nlx are the volume shape functions and their derivatives in local coordinates.
+!   ! weight are the weights of the quadrature points.
+!   ! nlx_nod are the derivatives of the local coordinates at the nods.
+!   ! nlx_lxx = the 3rd order local derivatives at the nodes.
+!   ! face info:
+!   ! face_ele(iface, ele) = given the face no iface and element no return the element next to
+!   ! the surface or if negative return the negative of the surface element number between element ele and face iface.
+!   ! face_list_no(iface, ele) returns the possible origantation number which defines the numbering
+!   ! of the non-zeros of the nabouting element.
+!   logical, intent(inout) :: got_shape_funs
+!   real, intent(inout) :: n(ngi,nloc), nlx(ngi,ndim,nloc), nlxx(ngi,nloc), nlx_lxx(ngi,ndim,nloc), weight(ngi)
+!   real, intent(inout) :: nlx_nod(nloc,ndim,nloc)
+!   real, intent(inout) :: face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,max_face_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface)
+!   ! npoly=order of polynomial in Cartesian space; ele_type=type of element including order of poly.
+!   integer, intent(in) :: npoly,ele_type
+!   integer, intent(in) :: face_ele( nface, totele), face_list_no( nface, totele) ! face info.
+!   ! centre of each element infor: got_xc=got the centres else calculate them here, xc(:,ele) is the
+!   ! centre of the element ele.
+!   logical, intent(inout) :: got_xc
+!   real, intent(inout) :: xc(ndim,totele)
+!   ! nodal variables...
+!   ! den=density used for each field ic; c=solution value for field ic; s=source of field ic.
+!   ! u=advection velocity; mu=diffusivity at the nodes; x_all=coordinates of the nodes; p=pressure
+!   real, intent(in) :: den(nc,totele_nloc),s(nc,totele_nloc)
+!   real, intent(in) :: u(ndim,totele_nloc),mu(nc,totele_nloc),muvol(totele_nloc),x_all(ndim,totele_nloc), p(totele_nloc)
+!   real, intent(in) :: den_bc(nc,totele_nloc),c_bc(nc,totele_nloc),u_bc(ndim,totele_nloc),mu_bc(nc,totele_nloc),mu_bc_on(nc,totele_nloc)
+!   real, intent(in) :: p_bc(totele_nloc),p_bc_on(totele_nloc)
+!   ! h absorption and surface source surf_s also surface absorption suf_h:
+!   ! pointers representing the sparse structure of h: n_col_c=no of potentially nonz-zeros in the nc*nc coupling,
+!   ! coln_c(n_col_c)=colns of this coupling, fin_c(ic) start of the ic row of h matrix, cent_c(ic)=points to the diagonal of row ic.
+!   integer, intent(in) :: n_col_c, coln_c(n_col_c), fin_c(nc+1), cent_c(nc)
+!   real, intent(in) :: h(n_col_c,totele_nloc), suf_h(nc,totele_nloc), suf_s(nc,totele_nloc)
+!   ! pressure stabilization terms(6th,4th, and 2nd order stabilization)...
+!   real, intent(inout) :: k_6h_p_gi(ngi,ndim_navier,totele), k_4h_p_gi(ngi,ndim_navier,totele), k_2h_p_gi(ngi,ndim_navier,totele)
+!   ! local variables...
+!   integer ele,iloc,jloc,ic,idim,jdim,count_c,jc,gi, iface,ele2,s_list_no, s_gi
+!   logical navier_stokes
+!   real sarea, norm_toler
+!   ! allocatable...
+!   real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:)
+!   real, allocatable :: den_loc(:,:), c_loc(:,:), s_loc(:,:), u_loc(:,:)
+!   real, allocatable :: mu_loc(:,:), x_loc(:,:)
+!   real, allocatable :: nx(:,:,:),nx_lxx(:,:,:),detwei(:),inv_jac(:,:,:),nx_nod(:,:,:)  ! shape functions
+!   real, allocatable :: dengi(:,:), cgi(:,:), sgi(:,:), mugi(:,:), dx_cgi(:,:,:), dx_dengi(:,:,:)
+!   real, allocatable :: x_lxx_c(:,:,:), dx_mugi(:,:,:)
+!   real, allocatable :: hgi(:,:), ugi(:,:), dx_ugi(:,:), dx_cnod(:,:,:), residual(:,:), dx_pgi(:,:)
+!   real, allocatable :: pgi(:), dxx_cgi(:,:,:), divu(:)
+!
+!   real, allocatable :: a_star(:,:,:), j_inv_a_star(:,:), k_6h(:,:)
+!   real, allocatable :: max_k_6h_pres(:), k_6h_pres(:,:)
+!   real, allocatable :: vec_loc(:,:), p_loc(:)
+!   real, allocatable :: den_loc2(:,:), c_loc2(:,:), u_loc2(:,:)
+!   real, allocatable :: mu_loc2(:,:), mu_on_loc(:,:), p_loc2(:), p_bc_on_loc(:)
+!
+!   real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:), sdetwei(:)
+!   real, allocatable :: densgi(:,:), densgi2(:,:), csgi(:,:), csgi2(:,:), musgi12(:,:), s_cont(:)
+!   real, allocatable :: psgi(:), psgi2(:), x_suf(:)
+!   real, allocatable :: suf_h_loc(:,:), suf_s_loc(:,:), suf_hsgi(:,:), suf_ssgi(:,:)
+!
+!   real, allocatable :: dx_c_nod(:,:), divu_nod(:), visc_calc_nx_nod(:,:,:)
+!   real, allocatable :: ident_dim(:,:), visc_calc_nx_nod_gi(:,:)
+!   real, allocatable :: muvol_loc(:), muvolgi(:), loc_vec(:,:), x_lxx_c_norm22(:,:)
+!   ! for integration...
+!   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi) )
+!   allocate(den_loc(nc,nloc), c_loc(nc,nloc), s_loc(nc,nloc), u_loc(ndim,nloc) )
+!   allocate(mu_loc(nc,nloc), x_loc(ndim,nloc) )
+!   allocate(nx(ngi,ndim,nloc),nx_lxx(ngi,ndim,nloc),detwei(ngi),inv_jac(ngi,ndim,ndim),nx_nod(nloc,ndim,nloc) ) ! shape functions
+!   allocate(dengi(ngi,nc), cgi(ngi,nc), sgi(ngi,nc), mugi(ngi,nc), dx_cgi(ngi,ndim,nc), dx_dengi(ngi,ndim,nc) )
+!   allocate(x_lxx_c(ngi,ndim,nc), dx_mugi(ngi,ndim,nc) )
+!   allocate(hgi(ngi,n_col_c), ugi(ngi,ndim), dx_ugi(ngi,ndim), dx_cnod(ngi,ndim,nc ), residual(ngi,nc), dx_pgi(ngi,ndim) )
+!   allocate(pgi(ngi), dxx_cgi(ngi,ndim,nc), divu(ngi) )
+!
+!   allocate(a_star(ngi,ndim,nc), j_inv_a_star(ngi,ndim), k_6h(ngi,nc) )
+!   allocate(max_k_6h_pres(ngi), k_6h_pres(ngi,ndim_navier) )
+!   allocate(vec_loc(nc,nloc), p_loc(nloc) )
+!   allocate(den_loc2(nc,nloc), c_loc2(nc,nloc), u_loc2(ndim,nloc) )
+!   allocate(mu_loc2(nc,nloc), mu_on_loc(nc,nloc), p_loc2(nloc), p_bc_on_loc(nloc) )
+!
+!   allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim), sdetwei(sngi) )
+!   allocate(densgi(sngi,nc), densgi2(sngi,nc), csgi(sngi,nc), csgi2(sngi,nc), musgi12(sngi,nc), s_cont(nc) )
+!   allocate(psgi(sngi), psgi2(sngi), x_suf(ndim) )
+!   allocate(suf_h_loc(nc,totele_nloc), suf_s_loc(nc,totele_nloc), suf_hsgi(sngi,nc), suf_ssgi(sngi,nc) )
+!
+!   allocate(dx_c_nod(nloc,nloc), divu_nod(nloc), visc_calc_nx_nod(ndim,ndim,nloc), ident_dim(ndim,ndim), visc_calc_nx_nod_gi(nloc,ndim) )
+!   allocate(muvol_loc(nloc), muvolgi(ngi), loc_vec(nc,nloc), x_lxx_c_norm22(ngi,nc) )
+!
+!
 !       if(.not.got_shape_funs) then
 !          call get_shape_funs_spec(n, nlx, nlx_lxx, nlxx, weight, nlx_nod, &
 !              nloc, sngi, ngi, ndim, nface,max_face_list_no, face_sn, face_sn2, face_snlx, face_sweigh, &
@@ -1350,66 +1350,66 @@ subroutine dg_advection_general(vec,c,rhs, totele,nloc,totele_nloc, sngi, ngi, n
 !       end subroutine dg_advection_general
 
 !================================================================================
-SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
-!       inv_jac )
-  IMPLICIT NONE
-
-  INTEGER, intent( in ) :: SNLOC, SNGI, SNDIM, ndim
-  REAL, DIMENSION( NDIM, SNLOC ), intent( in ) :: XSL_ALL
-  REAL, DIMENSION( SNGI, SNLOC ), intent( in ) :: SN
-  REAL, DIMENSION( SNGI, SNDIM, SNLOC ), intent( in ) :: SNLX
-  REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
-  REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
-  REAL, intent( inout ) ::  SAREA
-  REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
-  REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
-  !REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
-  ! Local variables
-  INTEGER :: GI, SL, IGLX
-  REAL :: DXDLX, DXDLY, DYDLX, DYDLY, DZDLX, DZDLY
-  REAL :: A, B, C, DETJ, RUB3, RUB4
-
-  SAREA=0.
-
-  DO GI=1,SNGI
-
-    DXDLX=0.
-    DXDLY=0.
-    DYDLX=0.
-    DYDLY=0.
-    DZDLX=0.
-    DZDLY=0.
-
-    DO SL=1,SNLOC
-      DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
-      DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
-      DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
-      DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
-      DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
-      DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
-    END DO
-    A = DYDLX*DZDLY - DYDLY*DZDLX
-    B = DXDLX*DZDLY - DXDLY*DZDLX
-    C = DXDLX*DYDLY - DXDLY*DYDLX
-
-    DETJ=SQRT( A**2 + B**2 + C**2)
-    !inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
-    !inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
-    !inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
-    !inv_jac=inv_jac/detj
-    SDETWE(GI)=DETJ*SWEIGH(GI)
-    SAREA=SAREA+SDETWE(GI)
-
-    ! Calculate the normal at the Gauss pts...
-    ! Perform x-product. N=T1 x T2
-    CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
-               DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
-               NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
-  END DO
-
-  RETURN
-
-END SUBROUTINE det_snlx_all
+! SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
+! !       inv_jac )
+!   IMPLICIT NONE
+!
+!   INTEGER, intent( in ) :: SNLOC, SNGI, SNDIM, ndim
+!   REAL, DIMENSION( NDIM, SNLOC ), intent( in ) :: XSL_ALL
+!   REAL, DIMENSION( SNGI, SNLOC ), intent( in ) :: SN
+!   REAL, DIMENSION( SNGI, SNDIM, SNLOC ), intent( in ) :: SNLX
+!   REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
+!   REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
+!   REAL, intent( inout ) ::  SAREA
+!   REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
+!   REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
+!   !REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
+!   ! Local variables
+!   INTEGER :: GI, SL, IGLX
+!   REAL :: DXDLX, DXDLY, DYDLX, DYDLY, DZDLX, DZDLY
+!   REAL :: A, B, C, DETJ, RUB3, RUB4
+!
+!   SAREA=0.
+!
+!   DO GI=1,SNGI
+!
+!     DXDLX=0.
+!     DXDLY=0.
+!     DYDLX=0.
+!     DYDLY=0.
+!     DZDLX=0.
+!     DZDLY=0.
+!
+!     DO SL=1,SNLOC
+!       DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
+!       DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
+!       DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
+!       DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
+!       DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
+!       DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+!     END DO
+!     A = DYDLX*DZDLY - DYDLY*DZDLX
+!     B = DXDLX*DZDLY - DXDLY*DZDLX
+!     C = DXDLX*DYDLY - DXDLY*DYDLX
+!
+!     DETJ=SQRT( A**2 + B**2 + C**2)
+!     !inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
+!     !inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
+!     !inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
+!     !inv_jac=inv_jac/detj
+!     SDETWE(GI)=DETJ*SWEIGH(GI)
+!     SAREA=SAREA+SDETWE(GI)
+!
+!     ! Calculate the normal at the Gauss pts...
+!     ! Perform x-product. N=T1 x T2
+!     CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+!                DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
+!                NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
+!   END DO
+!
+!   RETURN
+!
+! END SUBROUTINE det_snlx_all
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! program arraycons
 !   implicit none
@@ -1491,17 +1491,35 @@ END SUBROUTINE det_snlx_all
 !
 !
 ! end program test_2
-
-program test
-  implicit NONE
-  integer:: gi,iloc
-
-  call phii(gi,iloc)
-
-end program test
-
-subroutine phii(gi,iloc)
-  implicit none
-  integer:: gi,iloc
-
-end subroutine phii
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   implicit none
+!   integer :: ele, row, col,iloc, idim
+!   integer :: totele=4,no_ele_row=4, no_ele_col=1, nloc=4, ndim=2
+!   real :: dx=0.125, dy=1.6667
+!   real, allocatable :: x_all(:,:,:)
+!   allocate(x_all(ndim,nloc,totele))
+!
+!   call coordinates(ndim, totele, x_all, no_ele_row, no_ele_col, row, col, nloc, dx, dy)
+!   do iloc=1,nloc
+!     print*, x_all(:,iloc,4)
+!   end do
+! end program test
+!
+! subroutine coordinates(ndim, totele, x_all, no_ele_row, no_ele_col, row, col, nloc, dx, dy)
+!   implicit none
+!   integer :: ele, row, col
+!   integer, intent(in) :: totele,no_ele_row, no_ele_col, nloc, ndim
+!   real, intent(in) :: dx, dy
+!   real :: x_all(ndim,nloc,totele)
+!
+!   do ele = 1,totele
+!     row = ceiling(real(ele)/no_ele_row)
+!     col = ele-(no_ele_row*((ceiling(real(ele)/no_ele_row))-1))
+!
+!     x_all(1,1,ele) = dx*(col-1); x_all(2,1,ele) = dy*(row-1)
+!     x_all(1,2,ele) = dx*col    ; x_all(2,2,ele) = dy*(row-1)
+!     x_all(1,3,ele) = dx*(col-1); x_all(2,3,ele) = dy*row
+!     x_all(1,4,ele) = dx*col    ; x_all(2,4,ele) = dy*row
+!   end do
+! end subroutine coordinates
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
