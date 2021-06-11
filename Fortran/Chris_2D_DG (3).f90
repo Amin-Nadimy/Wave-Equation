@@ -5,7 +5,7 @@ program wave_equation
 
   logical :: LOWQUA
   integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
-  integer:: itime, ntime, nonods, idim, ndim, nonodes, snloc, mloc
+  integer:: itime, ntime, idim, ndim, nonodes, snloc, mloc
   integer :: no_ele_col, no_ele_row, errorflag
 
   integer, allocatable :: face_ele(:,:), face_list_no(:,:)
@@ -38,13 +38,10 @@ program wave_equation
   nloc = 4
   ntime = 10
 
-
-  ! x_all() =
-  nonods=nloc*totele ! no of dg nodes...
-
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
   allocate(face_ele( nface, totele), face_list_no( nface, totele))
+!AMIN l1, l2, l3, l4 aren't used anywhere
   ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi))
   allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
@@ -53,10 +50,12 @@ program wave_equation
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,max_face_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
   allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc))
+!AMIN, rdum isn't used anywhere
   ! allocate(rdum(10))
 
 
   mloc=1
+!AMIN mdum isn't used anywhere
   ! mdum(1:10)=0.0
   LOWQUA=.false.
   ! initial conditions
@@ -64,7 +63,7 @@ program wave_equation
   U_ele(:,:,:) = 0.1
   dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
 
-  call RE2DN4(LOWQUA,NGI,NLOC,MLOC,   M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
+  call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
 
   do itime=1,ntime
     t_old =t_new
@@ -137,7 +136,8 @@ program wave_equation
           tsgi(:)  = tsgi(:)  + sn(:,iloc)*t_loc(iloc)
           tsgi2(:) = tsgi2(:) + sn2(:,iloc)*t_loc2(iloc)
         end do
-! this is the approximate normal direction...
+
+        ! this is the approximate normal direction...
         do idim=1,ndim
            norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(:,idim)/real(nloc))
         end do
@@ -280,9 +280,7 @@ end subroutine det_nlx
 
 
 
-SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,&
-                  M,WEIGHT,N,NLX,NLY, &
-                  SNGI,SNLOC,SWEIGH,SN,SNLX)
+SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,SNLX)
   ! use FLDebug
   IMPLICIT NONE
   ! NB might have to define surface elements for p and (u,v,w)

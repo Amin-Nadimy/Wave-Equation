@@ -901,9 +901,9 @@
 !   ! nlx_nod are the derivatives of the local coordinates at the nods.
 !   ! nlx_lxx = the 3rd order local derivatives at the nodes.
 !   ! face info:
-!   ! face_ele(iface, ele) = given the face no iface and element no return the element next to
+!   !   face_ele(iface, ele) = given the face no iface and element no return the element next to
 !   ! the surface or if negative return the negative of the surface element number between element ele and face iface.
-!   ! face_list_no(iface, ele) returns the possible origantation number which defines the numbering
+!   !   face_list_no(iface, ele) returns the possible origantation number which defines the numbering
 !   ! of the non-zeros of the nabouting element.
 !   logical, intent(inout) :: got_shape_funs
 !   real, intent(inout) :: n(ngi,nloc), nlx(ngi,ndim,nloc), nlxx(ngi,nloc), nlx_lxx(ngi,ndim,nloc), weight(ngi)
@@ -1523,3 +1523,65 @@
 !   end do
 ! end subroutine coordinates
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
+module test
+contains
+  subroutine ele_neighbour(iface, totele, nface, ele, face_ele, no_ele_row, row, row2, s_list_no)
+    ! ordering the face numbers: bottom face=1, right=1, left=3 and top=4
+    ! row and row2 are row number associated with ele and ele2
+    ! no_ele_row is total number of element in each row
+    ! face_ele(iface, ele) = given the face no iface and element no return the element next to
+    ! the surface or if negative return the negative of the surface element number between element ele and face iface.
+    implicit none
+    integer, intent(in) :: ele, iface, no_ele_row, totele, nface
+    integer, intent(inout) :: row, row2, face_ele, s_list_no
+
+    row = ceiling(real(ele)/no_ele_row)
+    if (iface==1) then
+      face_ele = ele - no_ele_row
+      s_list_no = 4
+      row2 = ceiling(real(ele)/no_ele_row)
+      if (row2.EQ.1) s_list_no = -1*s_list_no
+
+    elseif ( iface==2 ) then
+      face_ele = ele + 1
+      s_list_no = 3
+      row2 = ceiling(real(face_ele)/no_ele_row)
+      if (row2.NE.row) then
+        face_ele = -1*face_ele  !It is a boundary element located at the right side of the domain
+        s_list_no = -1*s_list_no
+      end if
+
+    elseif ( iface==3 ) then
+      face_ele = ele -1   !It is a boundary element
+      s_list_no = 2
+      row2 = ceiling(real(face_ele)/no_ele_row)
+      if (row2.NE.row) then
+        face_ele = -1*face_ele  !It is a boundary element located at the lest side of the domain
+        s_list_no = -1*s_list_no
+      end if
+
+    elseif ( iface==4 ) then
+      face_ele = ele + no_ele_row
+      s_list_no = 1
+      if (face_ele.GT.totele) then
+        face_ele = -1*face_ele  !It is a boundary element located at the top of the domain
+        s_list_no = -1*s_list_no
+      end if
+    end if
+  end subroutine ele_neighbour
+end module test
+
+program test2
+  use test
+  implicit none
+  integer :: ele3,iface, ele, totele, nface, face_ele,no_ele_row, row, row2, s_list_no
+  nface =4
+  iface=4
+  totele = 12
+  no_ele_row = 4
+  ele = 12
+  call ele_neighbour(iface, totele, nface, ele, face_ele, no_ele_row, row, row2, s_list_no)
+  print*,face_ele, s_list_no
+  ! ele3 = face_ele(iface,ele)
+
+end program test2
