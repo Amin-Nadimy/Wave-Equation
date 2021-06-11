@@ -1,16 +1,14 @@
 ! 2D DG-FEM wave equation
-! face_ele(iface, ele) = given the face no iface and element no return the element next to
-! the surface or if negative return the negative of the surface element number between element ele and face iface.
-
 program wave_equation
+  use cross_product
   implicit none
 
   logical :: LOWQUA
   integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
   integer:: itime, ntime, idim, ndim, nonodes, snloc, mloc
-  integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no
-  integer :: face_ele!(1,1)
-  integer :: face_list_no!(:,:)
+  integer :: no_ele_col, no_ele_row, errorflag
+
+  integer, allocatable :: face_ele(:,:), face_list_no(:,:)
 
   real :: sarea, volume, dt, CFL, L, dx, dy
 
@@ -42,7 +40,7 @@ program wave_equation
 
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
-  !allocate(face_list_no( nface, totele))
+  allocate(face_ele( nface, totele), face_list_no( nface, totele))
 !AMIN l1, l2, l3, l4 aren't used anywhere
   ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi))
@@ -66,7 +64,7 @@ program wave_equation
   dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
 
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
-  call ele_neighbour(totele, nface, ele, face_ele, no_ele_row, row, row2, face_list_no)
+
   do itime=1,ntime
     t_old =t_new
 
@@ -116,14 +114,14 @@ program wave_equation
 
       ! Include the surface integral here:
       do iface = 1,nface
-        ele2 = face_ele( iface, ele)
-        t_loc2(:)=t_new(:,ele2)
+        ele2 = face_ele( iface, ele) ! calculate this somehwere!
+        t_loc2(:)=t_new(ele2,:)
         u_loc2(:,:)=u_new(:,:,ele2)
 
         !Surface integral along an element
         !if(ele>ele2) then ! perform integration along both sides...
 
-        ! need to work on this also
+!AMIN s_list_no is local face number - need to work on this also
         s_list_no = face_list_no( iface, ele)
         sn = face_sn(:,:,iface); snlx(:,:,:) = face_snlx(:,:,:,iface)
         sn2 =face_sn2(:,:,s_list_no)
@@ -171,7 +169,7 @@ program wave_equation
     end do ! do ele=1,totele
   end do ! do itime=1,ntime
 
-  deallocate(x_loc, x_all, n, nx, nlx, weight, detwei, sdetwei,&
+  deallocate(x_loc, x_all, n, nx, nlx, weight, detwei, sdetwei, face_ele, face_list_no,&
               sn, sn2, snlx, sweigh, u_loc, u_loc2, ugi,u_ele, xsgi, usgi,usgi2,income,&
               snorm,norm,t_loc,t_old,t_new,tgi,u_new, u_old,mass_ele,rhs_loc)
 end program wave_equation
@@ -194,59 +192,6 @@ subroutine coordinates(ndim, totele, x_all, no_ele_row, no_ele_col, row, col, nl
     x_all(1,4,ele) = dx*col    ; x_all(2,4,ele) = dy*row
   end do
 end subroutine coordinates
-
-
-
-subroutine ele_neighbour(totele, nface, face_ele, no_ele_row, row, row2, face_list_no)
-  ! ordering the face numbers: bottom face=1, right=1, left=3 and top=4
-  ! row and row2 are row number associated with ele and ele2
-  ! no_ele_row is total number of element in each row
-  ! face_ele(iface, ele) = given the face no iface and element no return the element next to
-  ! the surface or if negative return the negative of the surface element number between element ele and face iface.
-  implicit none
-  integer, intent(in) :: no_ele_row, totele, nface
-  integer, intent(inout) :: row, row2
-  integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
-
-  do ele=1,totele
-    do iface=1,nface
-      row = ceiling(real(ele)/no_ele_row)
-      if (iface==1) then
-        face_ele(iface,ele) = ele - no_ele_row
-        face_list_no(iface,ele) = 4
-        row2 = ceiling(real(ele)/no_ele_row)
-        if (row2.EQ.1) face_list_no(iface,ele) = -1*face_list_no(iface,ele)
-
-      elseif ( iface==2 ) then
-        face_ele(iface,ele) = ele + 1
-        face_list_no(iface,ele) = 3
-        row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
-        if (row2.NE.row) then
-          face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the right side of the domain
-          face_list_no(iface,ele) = -1*face_list_no(iface,ele)
-        end if
-
-      elseif ( iface==3 ) then
-        face_ele(iface,ele) = ele -1   !It is a boundary element
-        face_list_no(iface,ele) = 2
-        row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
-        if (row2.NE.row) then
-          face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the lest side of the domain
-          face_list_no(iface,ele) = -1*face_list_no(iface,ele)
-        end if
-
-      elseif ( iface==4 ) then
-        face_ele(iface,ele) = ele + no_ele_row
-        face_list_no(iface,ele) = 1
-        if (face_ele(iface,ele).GT.totele) then
-          face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the top of the domain
-          face_list_no(iface,ele) = -1*face_list_no(iface,ele)
-        end if
-      end if
-    end do
-  end do
-end subroutine ele_neighbour
-
 
 
 subroutine det_nlx( x_all, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
@@ -345,18 +290,18 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
   ! This subroutine defines the shape functions M and N and their
   ! derivatives at the Gauss points
   ! REAL M(1,NGI),WEIGHT(NGI),N(4,NGI),NLX(4,NGI),NLY(4,NGI)
-  INTEGER, intent(in):: NGI,NLOC,MLOC
-  REAL:: M(MLOC,NGI),WEIGHT(NGI)
-  REAL:: N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
-  REAL:: POSI,TLY
-  REAL:: LX(16),LY(16),LXP(4),LYP(4)
-  REAL:: WEIT(16)
-  INTEGER:: SNGI,SNLOC
-  REAL ::SWEIGH(SNGI)
-  REAL:: SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
-  INTEGER:: P,Q,CORN,GPOI,ILOC,JLOC,NDGI
-  LOGICAL:: LOWQUA,GETNDP
-  INTEGER:: I
+  INTEGER NGI,NLOC,MLOC
+  REAL M(MLOC,NGI),WEIGHT(NGI)
+  REAL N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
+  REAL POSI,TLY
+  REAL LX(16),LY(16),LXP(4),LYP(4)
+  REAL WEIT(16)
+  INTEGER SNGI,SNLOC
+  REAL SWEIGH(SNGI)
+  REAL SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
+  INTEGER P,Q,CORN,GPOI,ILOC,JLOC,NDGI
+  LOGICAL LOWQUA,GETNDP
+  INTEGER I
   ! NB LXP(I) AND LYP(I) ARE THE LOCAL X AND Y COORDS OF NODAL POINT I
 
   ! ewrite(3,*)'inside re2dn4, nloc,mloc,ngi',&
@@ -492,13 +437,13 @@ SUBROUTINE LAGROT(WEIT,QUAPOS,NDGI,GETNDP)
   ! This computes the weight and points for standard Gaussian quadrature.
   ! IF(GETNDP) then get the POSITION OF THE NODES
   ! AND DONT BOTHER WITH THE WEITS.
-  INTEGER:: NDGI
-  REAL:: WEIT(NDGI),QUAPOS(NDGI)
-  LOGICAL:: GETNDP
-  LOGICAL:: WEIGHT
-  INTEGER ::IG
+  INTEGER NDGI
+  REAL WEIT(NDGI),QUAPOS(NDGI)
+  LOGICAL GETNDP
+  LOGICAL WEIGHT
+  INTEGER IG
   !real function...
-  real:: RGPTWE
+  real RGPTWE
 
   IF(.NOT.GETNDP) THEN
     WEIGHT=.TRUE.

@@ -1525,63 +1525,240 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
 module test
 contains
-  subroutine ele_neighbour(iface, totele, nface, ele, face_ele, no_ele_row, row, row2, s_list_no)
+  subroutine ele_neighbour(totele, nface, face_ele, no_ele_row, row, row2, face_list_no)
     ! ordering the face numbers: bottom face=1, right=1, left=3 and top=4
     ! row and row2 are row number associated with ele and ele2
     ! no_ele_row is total number of element in each row
     ! face_ele(iface, ele) = given the face no iface and element no return the element next to
     ! the surface or if negative return the negative of the surface element number between element ele and face iface.
     implicit none
-    integer, intent(in) :: ele, iface, no_ele_row, totele, nface
-    integer, intent(inout) :: row, row2, face_ele, s_list_no
+    integer, intent(in) :: no_ele_row, totele, nface
+    integer, intent(inout) :: row, row2
+    integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
 
-    row = ceiling(real(ele)/no_ele_row)
-    if (iface==1) then
-      face_ele = ele - no_ele_row
-      s_list_no = 4
-      row2 = ceiling(real(ele)/no_ele_row)
-      if (row2.EQ.1) s_list_no = -1*s_list_no
+    do ele=1,totele
+      do iface=1,nface
+        row = ceiling(real(ele)/no_ele_row)
+        if (iface==1) then
+          face_ele(iface,ele) = ele - no_ele_row
+          face_list_no(iface,ele) = 4
+          row2 = ceiling(real(ele)/no_ele_row)
+          if (row2.EQ.1) face_list_no(iface,ele) = -1*face_list_no(iface,ele)
 
-    elseif ( iface==2 ) then
-      face_ele = ele + 1
-      s_list_no = 3
-      row2 = ceiling(real(face_ele)/no_ele_row)
-      if (row2.NE.row) then
-        face_ele = -1*face_ele  !It is a boundary element located at the right side of the domain
-        s_list_no = -1*s_list_no
-      end if
+        elseif ( iface==2 ) then
+          face_ele(iface,ele) = ele + 1
+          face_list_no(iface,ele) = 3
+          row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
+          if (row2.NE.row) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the right side of the domain
+            face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
 
-    elseif ( iface==3 ) then
-      face_ele = ele -1   !It is a boundary element
-      s_list_no = 2
-      row2 = ceiling(real(face_ele)/no_ele_row)
-      if (row2.NE.row) then
-        face_ele = -1*face_ele  !It is a boundary element located at the lest side of the domain
-        s_list_no = -1*s_list_no
-      end if
+        elseif ( iface==3 ) then
+          face_ele(iface,ele) = ele -1   !It is a boundary element
+          face_list_no(iface,ele) = 2
+          row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
+          if (row2.NE.row) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the lest side of the domain
+            face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
 
-    elseif ( iface==4 ) then
-      face_ele = ele + no_ele_row
-      s_list_no = 1
-      if (face_ele.GT.totele) then
-        face_ele = -1*face_ele  !It is a boundary element located at the top of the domain
-        s_list_no = -1*s_list_no
-      end if
-    end if
+        elseif ( iface==4 ) then
+          face_ele(iface,ele) = ele + no_ele_row
+          face_list_no(iface,ele) = 1
+          if (face_ele(iface,ele).GT.totele) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the top of the domain
+            face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
+        end if
+      end do
+    end do
   end subroutine ele_neighbour
+
+
+  SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,SNLX)
+    ! use FLDebug
+    IMPLICIT NONE
+    ! NB might have to define surface elements for p and (u,v,w)
+    ! in here as well.
+    ! This subroutine defines the shape functions M and N and their
+    ! derivatives at the Gauss points
+    ! REAL M(1,NGI),WEIGHT(NGI),N(4,NGI),NLX(4,NGI),NLY(4,NGI)
+    INTEGER, intent(in):: NGI,NLOC,MLOC
+    REAL:: M(MLOC,NGI),WEIGHT(NGI)
+    REAL:: N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
+    REAL:: POSI,TLY
+    REAL:: LX(16),LY(16),LXP(4),LYP(4)
+    REAL:: WEIT(16)
+    INTEGER:: SNGI,SNLOC
+    REAL ::SWEIGH(SNGI)
+    REAL:: SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
+    INTEGER:: P,Q,CORN,GPOI,ILOC,JLOC,NDGI
+    LOGICAL:: LOWQUA,GETNDP
+    INTEGER:: I
+    ! NB LXP(I) AND LYP(I) ARE THE LOCAL X AND Y COORDS OF NODAL POINT I
+
+    ! ewrite(3,*)'inside re2dn4, nloc,mloc,ngi',&
+                  ! nloc,mloc,ngi
+
+    LXP(1)=-1
+    LYP(1)=-1
+
+    LXP(2)=1
+    LYP(2)=-1
+
+    ! LXP(3)=1
+    ! LYP(3)=1
+
+    ! LXP(4)=-1
+    ! LYP(4)=1
+
+    LXP(3)=-1
+    LYP(3)=1
+
+    LXP(4)=1
+    LYP(4)=1
+
+    IF(NGI.EQ.4) THEN
+      POSI=1.0/SQRT(3.0)
+      LX(1)=-POSI
+      LY(1)=-POSI
+      LX(2)= POSI
+      LY(2)= POSI
+
+      do  Q=1,2! Was loop 23
+        do  P=1,2! Was loop 24
+          do  CORN=1,4! Was loop 25
+            GPOI=(Q-1)*2 + P
+
+            IF(MLOC.EQ.1)  M(1,GPOI)=1.
+              WEIGHT(GPOI)=1.
+
+              N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
+                          *(1.+LYP(CORN)*LY(Q))
+              NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
+              NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
+          end do ! Was loop 25
+        end do ! Was loop 24
+      end do ! Was loop 23
+      ! ewrite(3,*) 'here 1'
+      ! ewrite(3,*) 'N:',N
+      ! ewrite(3,*) 'NLX:',NLX
+      ! ewrite(3,*) 'NLY:',NLY
+      ! Surface shape functions
+      IF((SNGI.GT.1).AND.(SNLOC.GT.1)) THEN
+         ! ewrite(3,*) '***************** SNGI=',SNGI
+        do  P=1,2! Was loop 27
+          do  CORN=1,2! Was loop 27
+                       GPOI=P
+                       SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
+                       SNLX(CORN,GPOI)=0.5*LXP(CORN)
+                       SWEIGH(GPOI)=1.
+          end do ! Was loop 27
+        end do ! Was loop 27
+      ENDIF
+    ! IF(NGI.EQ.4) THEN ...
+    ELSE
+      NDGI =INT(SQRT(NGI+0.1) +0.1)
+      ! ewrite(3,*) 'ndgi,ngi,sngi:',ndgi,ngi,sngi
+
+      GETNDP=.FALSE.
+      CALL LAGROT(WEIT,LX,NDGI,GETNDP)
+      LY(1:NDGI) = LX(1:NDGI)
+      ! ewrite(3,*) 'weit:',weit
+      ! ewrite(3,*) 'lx:',lx
+
+      do  Q=1,NDGI! Was loop 323
+        do  P=1,NDGI! Was loop 324
+          do  CORN=1,4! Was loop 325
+            ! ewrite(3,*) 'q,p,corn:',q,p,corn
+            GPOI=(Q-1)*NDGI + P
+            IF(MLOC.EQ.1)  M(1,GPOI)=1.
+            WEIGHT(GPOI)=WEIT(P)*WEIT(Q)
+            ! ewrite(3,*) 'here1'
+            N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
+                             *(1.+LYP(CORN)*LY(Q))
+            ! ewrite(3,*) 'here2'
+            NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
+            NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
+            ! ewrite(3,*) 'here3'
+          end do ! Was loop 325
+        end do ! Was loop 324
+      end do ! Was loop 323
+      ! ewrite(3,*) 'here 1'
+      ! ewrite(3,*) 'N:',N
+      ! ewrite(3,*) 'NLX:',NLX
+      ! ewrite(3,*) 'NLY:',NLY
+      ! Surface shape functions
+      ! ewrite(3,*) '***************** SNGI=',SNGI
+      IF(SNGI.GT.0) THEN
+        GETNDP=.FALSE.
+        CALL LAGROT(WEIT,LX,SNGI,GETNDP)
+        do  P=1,SNGI! Was loop 327
+          do  CORN=1,2! Was loop 327
+            GPOI=P
+            SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
+            SNLX(CORN,GPOI)=0.5*LXP(CORN)
+            SWEIGH(GPOI)=WEIT(P)
+          end do ! Was loop 327
+        end do ! Was loop 327
+      ! ENDOF IF(SNGI.GT.0) THEN...
+      ENDIF
+    ! END OF IF(NGI.EQ.4) THEN ELSE ...
+    ENDIF
+
+    IF(MLOC.EQ.NLOC) THEN
+      do  I=1,4! Was loop 2545
+        do  CORN=1,4! Was loop 2545
+          M(CORN,I)=N(CORN,I)
+        end do ! Was loop 2545
+      end do ! Was loop 2545
+    ENDIF
+    ! ewrite(3,*) 'in re2dn4.f here 2 ngi,sngi',ngi,sngi
+    ! ewrite(3,*) 'N:',N
+    ! ewrite(3,*) 'NLX:',NLX
+    ! ewrite(3,*) 'NLY:',NLY
+    ! END
+  END SUBROUTINE RE2DN4
+
+
+  subroutine face_element()
+    implicit none
+    INTEGER, intent(in):: NGI,NLOC,MLOC
+    REAL:: M(MLOC,NGI),WEIGHT(NGI)
+    REAL:: N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
+    REAL:: POSI,TLY
+    REAL:: LX(16),LY(16),LXP(4),LYP(4)
+    REAL:: WEIT(16)
+    INTEGER:: SNGI,SNLOC
+    REAL ::SWEIGH(SNGI)
+    REAL:: SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
+    INTEGER:: P,Q,CORN,GPOI,ILOC,JLOC,NDGI
+    LOGICAL:: LOWQUA,GETNDP
+    INTEGER:: I
+
+    
+    call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,SNLX)
+
+
+
+  end subroutine face_element
 end module test
 
 program test2
   use test
   implicit none
-  integer :: ele3,iface, ele, totele, nface, face_ele,no_ele_row, row, row2, s_list_no
+  integer :: ele3,iface, ele, totele, nface,no_ele_row, row, row2
+  integer,dimension(:,:),allocatable:: face_ele, face_list_no
+
   nface =4
-  iface=4
+  iface=2
   totele = 12
   no_ele_row = 4
-  ele = 12
-  call ele_neighbour(iface, totele, nface, ele, face_ele, no_ele_row, row, row2, s_list_no)
-  print*,face_ele, s_list_no
-  ! ele3 = face_ele(iface,ele)
-
+  ele = 1
+  allocate(face_ele(nface,totele), face_list_no(nface,totele))
+  call ele_neighbour(totele, nface, face_ele, no_ele_row, row, row2, face_list_no)
+  print*,face_ele(:,ele)
+  print*, face_list_no(:,ele)
+deallocate(face_ele, face_list_no)
 end program test2
