@@ -55,7 +55,6 @@ program wave_equation
 !AMIN, rdum isn't used anywhere
   ! allocate(rdum(10))
 
-
   mloc=1
 !AMIN mdum isn't used anywhere
   ! mdum(1:10)=0.0
@@ -66,13 +65,14 @@ program wave_equation
   dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
 
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
-  call ele_neighbour(totele, nface, ele, face_ele, no_ele_row, row, row2, face_list_no)
+  call ele_info(totele, nface, face_ele, no_ele_row, row, row2, face_list_no, &
+                dx, dy, ndim, nloc, no_ele_col, col)
+
   do itime=1,ntime
     t_old =t_new
 
     do ele=1,totele
       ! volume integration
-      !x_loc(1:ndim,:)=x_all(ele,1:ndim,:) ! x_all contains the coordinates of the corner nodes
       x_loc(1:ndim,:)=x_all(1:ndim,:,ele) ! x_all contains the coordinates of the corner nodes
       call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
       !volume=sum(detwei)
@@ -177,40 +177,39 @@ program wave_equation
 end program wave_equation
 
 
-subroutine coordinates(ndim, totele, x_all, no_ele_row, no_ele_col, row, col, nloc, dx, dy)
+
+subroutine ele_info(totele, nface, face_ele, no_ele_row, row, row2, face_list_no, &
+                         dx, dy, ndim, nloc, no_ele_col, col)
+  ! this subroutine gives corner element coordinates, neighbour ele and surface numbers
+  ! ordering the face numbers: bottom face=1, right=1, left=3 and top=4
+  ! row and row2 are row number associated with ele and ele2
+  ! no_ele_row is total number of element in each row
+  ! no_ele_col is total number of element in each column
+  ! ndim is no of dimensions
+  ! nloc is no of corner nodes
+  ! face_ele(iface, ele) = given the face no iface and element no return the element next to
+  ! the surface or if negative return the negative of the surface element number between element ele and face iface.
+
   implicit none
-  integer :: ele, row, col
-  integer, intent(in) :: totele,no_ele_row, no_ele_col, nloc, ndim
+  integer, intent(in) :: no_ele_row, totele, no_ele_col, nloc, ndim, nface
+  integer, intent(inout) :: row, row2 , col
+  integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
+
   real, intent(in) :: dx, dy
   real :: x_all(ndim,nloc,totele)
 
-  do ele = 1,totele
+  do ele=1,totele
     row = ceiling(real(ele)/no_ele_row)
     col = ele-(no_ele_row*(row-1))
 
+    ! corner node coordinates
     x_all(1,1,ele) = dx*(col-1); x_all(2,1,ele) = dy*(row-1)
     x_all(1,2,ele) = dx*col    ; x_all(2,2,ele) = dy*(row-1)
     x_all(1,3,ele) = dx*(col-1); x_all(2,3,ele) = dy*row
     x_all(1,4,ele) = dx*col    ; x_all(2,4,ele) = dy*row
-  end do
-end subroutine coordinates
 
-
-
-subroutine ele_neighbour(totele, nface, face_ele, no_ele_row, row, row2, face_list_no)
-  ! ordering the face numbers: bottom face=1, right=1, left=3 and top=4
-  ! row and row2 are row number associated with ele and ele2
-  ! no_ele_row is total number of element in each row
-  ! face_ele(iface, ele) = given the face no iface and element no return the element next to
-  ! the surface or if negative return the negative of the surface element number between element ele and face iface.
-  implicit none
-  integer, intent(in) :: no_ele_row, totele, nface
-  integer, intent(inout) :: row, row2
-  integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
-
-  do ele=1,totele
+    ! findin neighbiuring ele and face numbers
     do iface=1,nface
-      row = ceiling(real(ele)/no_ele_row)
       if (iface==1) then
         face_ele(iface,ele) = ele - no_ele_row
         face_list_no(iface,ele) = 4
@@ -245,7 +244,7 @@ subroutine ele_neighbour(totele, nface, face_ele, no_ele_row, row, row2, face_li
       end if
     end do
   end do
-end subroutine ele_neighbour
+end subroutine ele_info
 
 
 
