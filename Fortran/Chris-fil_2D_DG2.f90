@@ -7,22 +7,22 @@ program wave_equation
 
   logical :: LOWQUA
   integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
-  integer:: itime, ntime, idim, ndim, nonodes, snloc, mloc
+  integer:: itime, ntime, idim, ndim, nonodes, snloc, mloc, col, n_s_list_no, row, row2
   integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no
-  integer :: face_ele!(1,1)
-  integer :: face_list_no!(:,:)
+  integer, allocatable :: face_ele(:,:), face_list_no(:,:)
 
   real :: sarea, volume, dt, CFL, L, dx, dy
 
-  real :: n(:,:), nlx(:,:,:), nx(:,:,:)
-  real :: weight(:), detwei(:), sdetwei(:)
-  real :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:)
-  real :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), tgi(:), tsgi(:), tsgi2(:)
-  real :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
-  real :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:), u_new(:),u_old(:)
-  real :: x_all(:,:,:)
-  real :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:)
-  real :: mass_ele(:,:), mass_ele_inv(:,:), rhs_loc(:)
+  real, allocatable :: n(:,:), nlx(:,:,:), nx(:,:,:), M(:,:)
+  real, allocatable :: weight(:), detwei(:), sdetwei(:)
+  real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:,:)
+  real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), tgi(:), tsgi(:), tsgi2(:)
+  real, allocatable :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
+  real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:),u_old(:)
+  real, allocatable :: x_all(:,:,:)
+  real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:)
+  real, allocatable :: mass_ele(:,:), mass_ele_inv(:,:), rhs_loc(:)
+  real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:)
   ! real :: rdum(:)
 
   CFL = 0.05
@@ -38,24 +38,26 @@ program wave_equation
   ngi = 4
   sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
   nloc = 4
+  mloc=1
   ntime = 10
+  n_s_list_no = 4
 
-  allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ))
+  allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ), M(ngi,nloc))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
-  !allocate(face_list_no( nface, totele))
+  allocate(face_list_no( nface, totele), face_ele(nface,totele))
 !AMIN l1, l2, l3, l4 aren't used anywhere
   ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi))
+  allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,ndim-1,snloc) )
   allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
   allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
-  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele), tgi(ngi), tsgi(sngi), tsgi2(sngi))
+  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele), tgi(ngi), tsgi(sngi), tsgi2(sngi), s_cont(sngi,ndim))
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,max_face_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
   allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc))
 !AMIN, rdum isn't used anywhere
   ! allocate(rdum(10))
 
-  mloc=1
 !AMIN mdum isn't used anywhere
   ! mdum(1:10)=0.0
   LOWQUA=.false.
@@ -64,16 +66,20 @@ program wave_equation
   U_ele(:,:,:) = 0.1
   dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
 
-  call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN,SNLX)
+  call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
   call ele_info(totele, nface, face_ele, no_ele_row, row, row2, face_list_no, &
-                dx, dy, ndim, nloc, no_ele_col, col)
+                x_all, dx, dy, ndim, nloc, no_ele_col, col)
+!
+! calculate face_list_no( iface, ele), face_sn(:,:,iface); face_snlx(:,:,:,iface), face_sn2(:,:,s_list_no)
+  call surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, no_ele_row, no_ele_col, &
+               sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
 
   do itime=1,ntime
     t_old =t_new
 
     do ele=1,totele
       ! volume integration
-      x_loc(1:ndim,:)=x_all(1:ndim,:,ele) ! x_all contains the coordinates of the corner nodes
+      x_loc(:,:)=x_all(:,:,ele) ! x_all contains the coordinates of the corner nodes
       call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
       !volume=sum(detwei)
 
@@ -118,15 +124,16 @@ program wave_equation
       do iface = 1,nface
         ele2 = face_ele( iface, ele)
         t_loc2(:)=t_new(:,ele2)
-        u_loc2(:,:)=u_new(:,:,ele2)
+        u_loc2(:,:)=u_ele(:,:,ele2)
 
         !Surface integral along an element
         !if(ele>ele2) then ! perform integration along both sides...
 
         ! need to work on this also
         s_list_no = face_list_no( iface, ele)
-        sn = face_sn(:,:,iface); snlx(:,:,:) = face_snlx(:,:,:,iface)
-        sn2 =face_sn2(:,:,s_list_no)
+        sn(:,:)     = face_sn(:,:,iface)
+        snlx(:,:,:) = face_snlx(:,:,:,iface)
+        sn2(:,:)    = face_sn2(:,:,s_list_no)
 
         usgi=0.0; usgi2=0.0; xsgi=0.0; tsgi=0.0; tsgi2=0.0
         do iloc=1,nloc ! use all of the nodes not just the surface nodes.
@@ -143,7 +150,7 @@ program wave_equation
 
         ! this is the approximate normal direction...
         do idim=1,ndim
-           norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(:,idim)/real(nloc))
+           norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(:,idim))/real(nloc)
         end do
         ! start to do the integration
         call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
@@ -152,18 +159,18 @@ program wave_equation
           income(s_gi)=0.5 + 0.5*sign(1.0, sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
         end do
         ! sloc_vec=0.0; sloc_vec2=0.0
+        do idim=1,ndim
+          s_cont(:,idim) = snorm(:,idim)*sdetwei(:) &
+                      *( (1.-income(:))* usgi(:,idim)*tsgi(:) + income(:)*usgi2(:,idim)*tsgi2(:) )
+        end do
         do iloc=1,nloc
           do idim=1,ndim
-            s_cont(:) = snorm(:,idim)*sdetwei(:) &
-!AMIN got rid of (:)
-                      *( (1.-income(:))* usgi(:,idim)*tsgi(:) + income(:)*usgi2(:,idim)*tsgi2(:) )
-            rhs_loc(iloc)  = rhs_loc(iloc)  + sum( sn(:,iloc)*s_cont(:) )
-            !sloc_vec2(ic,iloc) = sloc_vec2(ic,iloc) + sum( sn2(:,iloc)*s_cont(:) )
+            rhs_loc(iloc)  = rhs_loc(iloc)  + sum( sn(:,iloc)*s_cont(:,idim) )
           end do
         end do
       end do ! iface
 
-      call FINDInv(mass_ele, mass_ele_inv, size(mass_ele(1,:)), errorflag)
+      call FINDInv(mass_ele, mass_ele_inv, nloc, errorflag)
       !mass_ele_inv=invert(mass_ele) ! inverse of the mass matric (nloc,nloc)
       do iloc=1,nloc
          t_new(iloc,ele)=t_old(iloc,ele) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
@@ -172,15 +179,129 @@ program wave_equation
   end do ! do itime=1,ntime
 
   deallocate(x_loc, x_all, n, nx, nlx, weight, detwei, sdetwei,&
-              sn, sn2, snlx, sweigh, u_loc, u_loc2, ugi,u_ele, xsgi, usgi,usgi2,income,&
-              snorm,norm,t_loc,t_old,t_new,tgi,u_new, u_old,mass_ele,rhs_loc)
+              sn, sn2, snlx, sweigh, u_loc, u_loc2, ugi,u_ele, xsgi, usgi,usgi2,income, &
+              snorm,norm,t_loc,t_old,t_new,tgi, u_old,mass_ele,rhs_loc)
 end program wave_equation
+!
+!
+!
+!
+  subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y, &
+               sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
+! ********************************************************************************************************
+! calculate face_list_no( iface, ele), face_sn(:,:,iface); face_snlx(:,:,:,iface), face_sn2(:,:,s_list_no)
+! ********************************************************************************************************
+! ****integers:
+! nface=no of faces of each elemenet.
+! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
+! snloc=no of nodes on a surface element.
+! nloc=no of nodes within a volume element.
+! ndim=no of dimensions - including time possibly.
+! totele=no of elements.
+! n_s_list_no= no of different oriantations for the surface element numbering.
+! nele_x = no of elements across in the x-direction.
+! nele_y = no of elements across in the y-direction.
+!
+! ****original surface element shape functions:
+! sn_orig(sgi,siloc) = shape function at quadrature point sgi and surface node siloc
+! snlx_orig(sgi,1,siloc) = shape function derivative (only one in 2D) at quadrature point sgi and surface node siloc
+!
+! ****new surface element shape functions designed to be highly efficient:
+! face_sn(sgi,iloc,iface) = shape function at quadrature point sgi and volume node iloc for face iface of element.
+! face_slxn(sgi,1,iloc,iface) = shape function derivative at quadrature point sgi and volume node iloc for face iface of element.
+! face_sn2(sgi,iloc,n_s_list_no) = shape function at quadrature point sgi but on the otherside of face and volume node iloc for face iface of element.
+! This works from: sn2 =face_sn2(:,:,s_list_no) in which  s_list_no = face_list_no( iface, ele) .
+  implicit none
+  integer, intent(in) :: nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y
+  real, intent(in) :: sn_orig(sngi,snloc), snlx_orig(sngi,ndim-1,snloc)
+  real, intent(out) :: face_sn(sngi,nloc,nface), face_snlx(sngi,ndim-1,nloc,nface), face_sn2(sngi,nloc,n_s_list_no)
+  integer, intent(out) :: face_list_no(nface,totele)
+! local variables...
+  integer iface,lnod1,lnod2,i_s_list_no
+!
+  face_sn(:,:,:)=0.0
+  face_snlx(:,:,:,:)=0.0
+  face_sn2(:,:,:)=0.0
+!
+! local node numbers:
+!  3   4
+!  1   2
+!
+! face numbers:
+!    4
+!  2   3
+!    1
+
+  iface=1
+  lnod1=2
+  lnod2=1
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=3
+  lnod2=4
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+
+!
+  iface=2
+  lnod1=1
+  lnod2=3
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=2
+  lnod2=4
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+!
+  iface=3
+  lnod1=4
+  lnod2=2
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=3
+  lnod2=1
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+!
+  iface=4
+  lnod1=3
+  lnod2=4
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=1
+  lnod2=2
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+!
+! calculate face_list_no(nface,totele) =
+!  do jele=1,nele_y
+!    do iele=1,nele_x
+!       ele=(jele-1)*nele_x + iele
+!    end do
+!  end do
+
+  end subroutine surface_pointers_sn
 
 
 
 subroutine ele_info(totele, nface, face_ele, no_ele_row, row, row2, face_list_no, &
-                         dx, dy, ndim, nloc, no_ele_col, col)
-  ! this subroutine gives corner element coordinates, neighbour ele and surface numbers
+                         x_all, dx, dy, ndim, nloc, no_ele_col, col)
   ! ordering the face numbers: bottom face=1, right=1, left=3 and top=4
   ! row and row2 are row number associated with ele and ele2
   ! no_ele_row is total number of element in each row
@@ -192,11 +313,11 @@ subroutine ele_info(totele, nface, face_ele, no_ele_row, row, row2, face_list_no
 
   implicit none
   integer, intent(in) :: no_ele_row, totele, no_ele_col, nloc, ndim, nface
-  integer, intent(inout) :: row, row2 , col
+  integer, intent(inout) :: row, row2 , col ! why are these inout????
   integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
 
   real, intent(in) :: dx, dy
-  real :: x_all(ndim,nloc,totele)
+  real, intent(out) :: x_all(ndim,nloc,totele)
 
   do ele=1,totele
     row = ceiling(real(ele)/no_ele_row)
@@ -335,150 +456,6 @@ subroutine det_nlx( x_all, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
 end subroutine det_nlx
 
 
-! SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,SNLX)
-!   ! use FLDebug
-!   IMPLICIT NONE
-!   ! NB might have to define surface elements for p and (u,v,w)
-!   ! in here as well.
-!   ! This subroutine defines the shape functions M and N and their
-!   ! derivatives at the Gauss points
-!   ! REAL M(1,NGI),WEIGHT(NGI),N(4,NGI),NLX(4,NGI),NLY(4,NGI)
-!   INTEGER, intent(in):: NGI,NLOC,MLOC
-!   REAL:: M(MLOC,NGI),WEIGHT(NGI)
-!   REAL:: N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
-!   REAL:: POSI,TLY
-!   REAL:: LX(16),LY(16),LXP(4),LYP(4)
-!   REAL:: WEIT(16)
-!   INTEGER:: SNGI,SNLOC
-!   REAL ::SWEIGH(SNGI)
-!   REAL:: SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
-!   INTEGER:: P,Q,CORN,GPOI,ILOC,JLOC,NDGI
-!   LOGICAL:: LOWQUA,GETNDP
-!   INTEGER:: I
-!   ! NB LXP(I) AND LYP(I) ARE THE LOCAL X AND Y COORDS OF NODAL POINT I
-!
-!   ! ewrite(3,*)'inside re2dn4, nloc,mloc,ngi',&
-!                 ! nloc,mloc,ngi
-!
-!   LXP(1)=-1
-!   LYP(1)=-1
-!
-!   LXP(2)=1
-!   LYP(2)=-1
-!
-!   ! LXP(3)=1
-!   ! LYP(3)=1
-!
-!   ! LXP(4)=-1
-!   ! LYP(4)=1
-!
-!   LXP(3)=-1
-!   LYP(3)=1
-!
-!   LXP(4)=1
-!   LYP(4)=1
-!
-!   IF(NGI.EQ.4) THEN
-!     POSI=1.0/SQRT(3.0)
-!     LX(1)=-POSI
-!     LY(1)=-POSI
-!     LX(2)= POSI
-!     LY(2)= POSI
-!
-!     do  Q=1,2! Was loop 23
-!       do  P=1,2! Was loop 24
-!         do  CORN=1,4! Was loop 25
-!           GPOI=(Q-1)*2 + P
-!
-!           IF(MLOC.EQ.1)  M(1,GPOI)=1.
-!             WEIGHT(GPOI)=1.
-!
-!             N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
-!                         *(1.+LYP(CORN)*LY(Q))
-!             NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
-!             NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
-!         end do ! Was loop 25
-!       end do ! Was loop 24
-!     end do ! Was loop 23
-!     ! ewrite(3,*) 'here 1'
-!     ! ewrite(3,*) 'N:',N
-!     ! ewrite(3,*) 'NLX:',NLX
-!     ! ewrite(3,*) 'NLY:',NLY
-!     ! Surface shape functions
-!     IF((SNGI.GT.1).AND.(SNLOC.GT.1)) THEN
-!        ! ewrite(3,*) '***************** SNGI=',SNGI
-!       do  P=1,2! Was loop 27
-!         do  CORN=1,2! Was loop 27
-!                      GPOI=P
-!                      SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
-!                      SNLX(CORN,GPOI)=0.5*LXP(CORN)
-!                      SWEIGH(GPOI)=1.
-!         end do ! Was loop 27
-!       end do ! Was loop 27
-!     ENDIF
-!   ! IF(NGI.EQ.4) THEN ...
-!   ELSE
-!     NDGI =INT(SQRT(NGI+0.1) +0.1)
-!     ! ewrite(3,*) 'ndgi,ngi,sngi:',ndgi,ngi,sngi
-!
-!     GETNDP=.FALSE.
-!     CALL LAGROT(WEIT,LX,NDGI,GETNDP)
-!     LY(1:NDGI) = LX(1:NDGI)
-!     ! ewrite(3,*) 'weit:',weit
-!     ! ewrite(3,*) 'lx:',lx
-!
-!     do  Q=1,NDGI! Was loop 323
-!       do  P=1,NDGI! Was loop 324
-!         do  CORN=1,4! Was loop 325
-!           ! ewrite(3,*) 'q,p,corn:',q,p,corn
-!           GPOI=(Q-1)*NDGI + P
-!           IF(MLOC.EQ.1)  M(1,GPOI)=1.
-!           WEIGHT(GPOI)=WEIT(P)*WEIT(Q)
-!           ! ewrite(3,*) 'here1'
-!           N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
-!                            *(1.+LYP(CORN)*LY(Q))
-!           ! ewrite(3,*) 'here2'
-!           NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
-!           NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
-!           ! ewrite(3,*) 'here3'
-!         end do ! Was loop 325
-!       end do ! Was loop 324
-!     end do ! Was loop 323
-!     ! ewrite(3,*) 'here 1'
-!     ! ewrite(3,*) 'N:',N
-!     ! ewrite(3,*) 'NLX:',NLX
-!     ! ewrite(3,*) 'NLY:',NLY
-!     ! Surface shape functions
-!     ! ewrite(3,*) '***************** SNGI=',SNGI
-!     IF(SNGI.GT.0) THEN
-!       GETNDP=.FALSE.
-!       CALL LAGROT(WEIT,LX,SNGI,GETNDP)
-!       do  P=1,SNGI! Was loop 327
-!         do  CORN=1,2! Was loop 327
-!           GPOI=P
-!           SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
-!           SNLX(CORN,GPOI)=0.5*LXP(CORN)
-!           SWEIGH(GPOI)=WEIT(P)
-!         end do ! Was loop 327
-!       end do ! Was loop 327
-!     ! ENDOF IF(SNGI.GT.0) THEN...
-!     ENDIF
-!   ! END OF IF(NGI.EQ.4) THEN ELSE ...
-!   ENDIF
-!
-!   IF(MLOC.EQ.NLOC) THEN
-!     do  I=1,4! Was loop 2545
-!       do  CORN=1,4! Was loop 2545
-!         M(CORN,I)=N(CORN,I)
-!       end do ! Was loop 2545
-!     end do ! Was loop 2545
-!   ENDIF
-!   ! ewrite(3,*) 'in re2dn4.f here 2 ngi,sngi',ngi,sngi
-!   ! ewrite(3,*) 'N:',N
-!   ! ewrite(3,*) 'NLX:',NLX
-!   ! ewrite(3,*) 'NLY:',NLY
-!   ! END
-! END SUBROUTINE RE2DN4
 
 SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,SNLX)
   ! use FLDebug
@@ -489,14 +466,14 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
   ! derivatives at the Gauss points
   ! REAL M(1,NGI),WEIGHT(NGI),N(4,NGI),NLX(4,NGI),NLY(4,NGI)
   INTEGER, intent(in):: NGI,NLOC,MLOC
-  REAL:: M(NGI,MLOC),WEIGHT(NGI)
-  REAL:: N(NGI,NLOC),NLX(NGI,NLOC),NLY(NGI,NLOC)
+  REAL:: M(MLOC,NGI),WEIGHT(NGI)
+  REAL:: N(NLOC,NGI),NLX(NLOC,NGI),NLY(NLOC,NGI)
   REAL:: POSI,TLY
   REAL:: LX(16),LY(16),LXP(4),LYP(4)
   REAL:: WEIT(16)
   INTEGER:: SNGI,SNLOC
   REAL ::SWEIGH(SNGI)
-  REAL:: SN(SNGI,SNLOC),SNLX(SNGI,SNLOC)
+  REAL:: SN(SNLOC,SNGI),SNLX(SNLOC,SNGI)
   INTEGER:: P,Q,CORN,GPOI,ILOC,JLOC,NDGI
   LOGICAL:: LOWQUA,GETNDP
   INTEGER:: I
@@ -535,13 +512,13 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
         do  CORN=1,4! Was loop 25
           GPOI=(Q-1)*2 + P
 
-          IF(MLOC.EQ.1)  M(GPOI,1)=1.
+          IF(MLOC.EQ.1)  M(1,GPOI)=1.
             WEIGHT(GPOI)=1.
 
-            N(GPOI,CORN)=0.25*(1.+LXP(CORN)*LX(P))&
+            N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
                         *(1.+LYP(CORN)*LY(Q))
-            NLX(GPOI,CORN)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
-            NLY(GPOI,CORN)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
+            NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
+            NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
         end do ! Was loop 25
       end do ! Was loop 24
     end do ! Was loop 23
@@ -555,8 +532,8 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
       do  P=1,2! Was loop 27
         do  CORN=1,2! Was loop 27
                      GPOI=P
-                     SN(GPOI,CORN)=0.5*(1.+LXP(CORN)*LX(P))
-                     SNLX(GPOI,CORN)=0.5*LXP(CORN)
+                     SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
+                     SNLX(CORN,GPOI)=0.5*LXP(CORN)
                      SWEIGH(GPOI)=1.
         end do ! Was loop 27
       end do ! Was loop 27
@@ -577,14 +554,14 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
         do  CORN=1,4! Was loop 325
           ! ewrite(3,*) 'q,p,corn:',q,p,corn
           GPOI=(Q-1)*NDGI + P
-          IF(MLOC.EQ.1)  M(GPOI,1)=1.
+          IF(MLOC.EQ.1)  M(1,GPOI)=1.
           WEIGHT(GPOI)=WEIT(P)*WEIT(Q)
           ! ewrite(3,*) 'here1'
-          N(GPOI,CORN)=0.25*(1.+LXP(CORN)*LX(P))&
+          N(CORN,GPOI)=0.25*(1.+LXP(CORN)*LX(P))&
                            *(1.+LYP(CORN)*LY(Q))
           ! ewrite(3,*) 'here2'
-          NLX(GPOI,CORN)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
-          NLY(GPOI,CORN)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
+          NLX(CORN,GPOI)=0.25*LXP(CORN)*(1.+LYP(CORN)*LY(Q))
+          NLY(CORN,GPOI)=0.25*LYP(CORN)*(1.+LXP(CORN)*LX(P))
           ! ewrite(3,*) 'here3'
         end do ! Was loop 325
       end do ! Was loop 324
@@ -601,8 +578,8 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
       do  P=1,SNGI! Was loop 327
         do  CORN=1,2! Was loop 327
           GPOI=P
-          SN(GPOI,CORN)=0.5*(1.+LXP(CORN)*LX(P))
-          SNLX(GPOI,CORN)=0.5*LXP(CORN)
+          SN(CORN,GPOI)=0.5*(1.+LXP(CORN)*LX(P))
+          SNLX(CORN,GPOI)=0.5*LXP(CORN)
           SWEIGH(GPOI)=WEIT(P)
         end do ! Was loop 327
       end do ! Was loop 327
@@ -614,7 +591,7 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
   IF(MLOC.EQ.NLOC) THEN
     do  I=1,4! Was loop 2545
       do  CORN=1,4! Was loop 2545
-        M(I,CORN)=N(I,CORN)
+        M(CORN,I)=N(CORN,I)
       end do ! Was loop 2545
     end do ! Was loop 2545
   ENDIF
@@ -639,7 +616,9 @@ SUBROUTINE LAGROT(WEIT,QUAPOS,NDGI,GETNDP)
   LOGICAL:: WEIGHT
   INTEGER ::IG
   !real function...
-  real:: RGPTWE
+  real :: RGPTWE
+  !real, allocatable:: RGPTWE(:,:,:)
+  !allocate(RGPTWE(ndgi,1,1))
 
   IF(.NOT.GETNDP) THEN
     WEIGHT=.TRUE.
@@ -661,6 +640,8 @@ SUBROUTINE LAGROT(WEIT,QUAPOS,NDGI,GETNDP)
     ENDIF
   ENDIF
 END SUBROUTINE LAGROT
+
+
 
 
 
@@ -722,7 +703,208 @@ SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SD
   END DO
 
   RETURN
+
 END SUBROUTINE det_snlx_all
+
+
+
+  REAL FUNCTION RGPTWE(IG,ND,WEIGHT)
+    IMPLICIT NONE
+    !     NB If WEIGHT is TRUE in function RGPTWE then return the Gauss-pt weight 
+    !     else return the Gauss-pt. 
+    !     NB there are ND Gauss points we are looking for either the 
+    !     weight or the x-coord of the IG'th Gauss point. 
+    INTEGER IG,ND
+    LOGICAL WEIGHT
+
+    IF(WEIGHT) THEN
+       GO TO (10,20,30,40,50,60,70,80,90,100) ND
+       !     +++++++++++++++++++++++++++++++
+       !     For N=1 +++++++++++++++++++++++
+10     CONTINUE
+       RGPTWE=2.0
+       GO TO 1000
+       !     For N=2 +++++++++++++++++++++++
+20     CONTINUE
+       RGPTWE=1.0
+       GO TO 1000
+       ! For N=3 +++++++++++++++++++++++
+30     CONTINUE
+       GO TO (11,12,11) IG
+11     RGPTWE= 0.555555555555556
+       GO TO 1000
+12     RGPTWE= 0.888888888888889
+       GO TO 1000
+       ! For N=4 +++++++++++++++++++++++
+40     CONTINUE
+       GO TO (21,22,22,21) IG
+21     RGPTWE= 0.347854845137454
+       GO TO 1000
+22     RGPTWE= 0.652145154862546
+       GO TO 1000
+       ! For N=5 +++++++++++++++++++++++
+50     CONTINUE
+       GO TO (31,32,33,32,31) IG
+31     RGPTWE= 0.236926885056189
+       GO TO 1000
+32     RGPTWE= 0.478628670499366
+       GO TO 1000
+33     RGPTWE= 0.568888888888889
+       GO TO 1000
+       ! For N=6 +++++++++++++++++++++++
+60     CONTINUE
+       GO TO (41,42,43,43,42,41) IG
+41     RGPTWE= 0.171324492379170
+       GO TO 1000
+42     RGPTWE= 0.360761573048139
+       GO TO 1000
+43     RGPTWE= 0.467913934572691
+       GO TO 1000
+       ! For N=7 +++++++++++++++++++++++
+70     CONTINUE
+       GO TO (51,52,53,54,53,52,51) IG
+51     RGPTWE= 0.129484966168870
+       GO TO 1000
+52     RGPTWE= 0.279705391489277
+       GO TO 1000
+53     RGPTWE= 0.381830050505119
+       GO TO 1000
+54     RGPTWE= 0.417959183673469
+       GO TO 1000
+       ! For N=8 +++++++++++++++++++++++
+80     CONTINUE
+       GO TO (61,62,63,64,64,63,62,61) IG
+61     RGPTWE= 0.101228536290376
+       GO TO 1000
+62     RGPTWE= 0.222381034453374
+       GO TO 1000
+63     RGPTWE= 0.313706645877877
+       GO TO 1000
+64     RGPTWE= 0.362683783378362
+       GO TO 1000
+       ! For N=9 +++++++++++++++++++++++
+90     CONTINUE
+       GO TO (71,72,73,74,75,74,73,72,71) IG
+71     RGPTWE= 0.081274388361574
+       GO TO 1000
+72     RGPTWE= 0.180648160694857
+       GO TO 1000
+73     RGPTWE= 0.260610696402935
+       GO TO 1000
+74     RGPTWE= 0.312347077040003
+       GO TO 1000
+75     RGPTWE= 0.330239355001260
+       GO TO 1000
+       ! For N=10 +++++++++++++++++++++++
+100    CONTINUE
+       GO TO (81,82,83,84,85,85,84,83,82,81) IG
+81     RGPTWE= 0.066671344308688
+       GO TO 1000
+82     RGPTWE= 0.149451349150581
+       GO TO 1000
+83     RGPTWE= 0.219086362515982
+       GO TO 1000
+84     RGPTWE= 0.269266719309996
+       GO TO 1000
+85     RGPTWE= 0.295524224714753
+       !
+1000   CONTINUE
+    ELSE
+       GO TO (210,220,230,240,250,260,270,280,290,200) ND
+       ! +++++++++++++++++++++++++++++++
+       ! For N=1 +++++++++++++++++++++++ THE GAUSS POINTS...
+210    CONTINUE
+       RGPTWE=0.0
+       GO TO 2000
+       ! For N=2 +++++++++++++++++++++++
+220    CONTINUE
+       RGPTWE= 0.577350269189626
+       GO TO 2000
+       ! For N=3 +++++++++++++++++++++++
+230    CONTINUE
+       GO TO (211,212,211) IG
+211    RGPTWE= 0.774596669241483
+       GO TO 2000
+212    RGPTWE= 0.0
+       GO TO 2000
+       ! For N=4 +++++++++++++++++++++++
+240    CONTINUE
+       GO TO (221,222,222,221) IG
+221    RGPTWE= 0.861136311594953
+       GO TO 2000
+222    RGPTWE= 0.339981043584856
+       GO TO 2000
+       ! For N=5 +++++++++++++++++++++++
+250    CONTINUE
+       GO TO (231,232,233,232,231) IG
+231    RGPTWE= 0.906179845938664
+       GO TO 2000
+232    RGPTWE= 0.538469310105683
+       GO TO 2000
+233    RGPTWE= 0.0
+       GO TO 2000
+       ! For N=6 +++++++++++++++++++++++
+260    CONTINUE
+       GO TO (241,242,243,243,242,241) IG
+241    RGPTWE= 0.932469514203152
+       GO TO 2000
+242    RGPTWE= 0.661209386466265
+       GO TO 2000
+243    RGPTWE= 0.238619186083197
+       GO TO 2000
+       ! For N=7 +++++++++++++++++++++++
+270    CONTINUE
+       GO TO (251,252,253,254,253,252,251) IG
+251    RGPTWE= 0.949107912342759
+       GO TO 2000
+252    RGPTWE= 0.741531185599394
+       GO TO 2000
+253    RGPTWE= 0.405845151377397
+       GO TO 2000
+254    RGPTWE= 0.0
+       GO TO 2000
+       ! For N=8 +++++++++++++++++++++++
+280    CONTINUE
+       GO TO (261,262,263,264,264,263,262,261) IG
+261    RGPTWE= 0.960289856497536
+       GO TO 2000
+262    RGPTWE= 0.796666477413627
+       GO TO 2000
+263    RGPTWE= 0.525532409916329
+       GO TO 2000
+264    RGPTWE= 0.183434642495650
+       GO TO 2000
+       ! For N=9 +++++++++++++++++++++++
+290    CONTINUE
+       GO TO (271,272,273,274,275,274,273,272,271) IG
+271    RGPTWE= 0.968160239507626
+       GO TO 2000
+272    RGPTWE= 0.836031107326636
+       GO TO 2000
+273    RGPTWE= 0.613371432700590
+       GO TO 2000
+274    RGPTWE= 0.324253423403809
+       GO TO 2000
+275    RGPTWE= 0.0
+       GO TO 2000
+       ! For N=10 +++++++++++++++++++++++
+200    CONTINUE
+       GO TO (281,282,283,284,285,285,284,283,282,281) IG
+281    RGPTWE= 0.973906528517172
+       GO TO 2000
+282    RGPTWE= 0.865063366688985
+       GO TO 2000
+283    RGPTWE= 0.679409568299024
+       GO TO 2000
+284    RGPTWE= 0.433395394129247
+       GO TO 2000
+285    RGPTWE= 0.148874338981631
+       !
+2000   CONTINUE
+       IF(IG.LE.INT((ND/2)+0.1)) RGPTWE=-RGPTWE
+    ENDIF
+  END FUNCTION RGPTWE
+
 
 
 
