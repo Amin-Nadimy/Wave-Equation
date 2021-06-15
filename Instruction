@@ -133,19 +133,7 @@ sudo gedit /etc/group    # which opens a txt file, then add the username whereve
 # one can use vim or cat instead of gedit too. after tht the computer should be rebooted, the command is:
 # sudo reboot
 
-                                                             # FORTRAN
-to compile, which if no name passes, creates an executable file named a.out in linux and a.exe in windows: 
-$ gfortran <file name>.f/f90/f95
-If need to have specific name then:
-$ gfortran myfile.f -o program.out
-then to run the executable file, navigate to hte file location and type 
-$ ./<file name>.out
-
-to debug thereeare different options, see link below: https://gcc.gnu.org/onlinedocs/gfortran/Code-Gen-Options.html
-$ gfortran -fcheck=bounds <file name>.f90
-
-
-                                                              # Gnuplot
+# Gnuplot
 1- type gnuplot in terminal to run the program
 2- plot (2D) splot for 3D : splot "<file name 1>" using(u) 1:2 with(w) lines(l) title "anything", "<file name 2>" using(u) 1:2 with(w) lines(l) title "anything" ,...
 3- set xlabel "x"
