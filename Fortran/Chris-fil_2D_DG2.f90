@@ -48,10 +48,11 @@ program wave_equation
 !AMIN l1, l2, l3, l4 aren't used anywhere
   ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi))
-  allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,ndim-1,snloc) )
-  allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
-  allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
-  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele), tgi(ngi), tsgi(sngi), tsgi2(sngi), s_cont(sngi,ndim))
+  allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,ndim-1,snloc), s_cont(sngi,ndim) )
+  allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,-totele-no_ele_row:totele))
+  allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,3), norm(3))
+  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,-totele:totele), t_new(nloc,-totele-no_ele_row:totele))
+  allocate(tgi(ngi), tsgi(sngi), tsgi2(sngi))
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,max_face_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
   allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc))
@@ -62,8 +63,10 @@ program wave_equation
   ! mdum(1:10)=0.0
   LOWQUA=.false.
   ! initial conditions
+  t_new(:,:) = 0
   t_new(:,2:5) = 1
-  U_ele(:,:,:) = 0.1
+    U_ele(:,:,:) = 0
+  U_ele(:,:,1:totele) = 0.1
   dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
 
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
@@ -127,8 +130,6 @@ program wave_equation
         u_loc2(:,:)=u_ele(:,:,ele2)
 
         !Surface integral along an element
-        !if(ele>ele2) then ! perform integration along both sides...
-
         ! need to work on this also
         s_list_no = face_list_no( iface, ele)
         sn(:,:)     = face_sn(:,:,iface)
@@ -156,7 +157,7 @@ program wave_equation
         call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
 
         do s_gi=1,sngi
-          income(s_gi)=0.5 + 0.5*sign(1.0, sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
+          income(s_gi)=0.5 + 0.5*sign(1.0, sum(snorm(s_gi,1:ndim)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
         end do
         ! sloc_vec=0.0; sloc_vec2=0.0
         do idim=1,ndim
@@ -182,55 +183,55 @@ program wave_equation
               sn, sn2, snlx, sweigh, u_loc, u_loc2, ugi,u_ele, xsgi, usgi,usgi2,income, &
               snorm,norm,t_loc,t_old,t_new,tgi, u_old,mass_ele,rhs_loc)
 end program wave_equation
-!
-!
-!
-!
-  subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y, &
+
+
+
+
+subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y, &
                sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
-! ********************************************************************************************************
-! calculate face_list_no( iface, ele), face_sn(:,:,iface); face_snlx(:,:,:,iface), face_sn2(:,:,s_list_no)
-! ********************************************************************************************************
-! ****integers:
-! nface=no of faces of each elemenet.
-! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
-! snloc=no of nodes on a surface element.
-! nloc=no of nodes within a volume element.
-! ndim=no of dimensions - including time possibly.
-! totele=no of elements.
-! n_s_list_no= no of different oriantations for the surface element numbering.
-! nele_x = no of elements across in the x-direction.
-! nele_y = no of elements across in the y-direction.
-!
-! ****original surface element shape functions:
-! sn_orig(sgi,siloc) = shape function at quadrature point sgi and surface node siloc
-! snlx_orig(sgi,1,siloc) = shape function derivative (only one in 2D) at quadrature point sgi and surface node siloc
-!
-! ****new surface element shape functions designed to be highly efficient:
-! face_sn(sgi,iloc,iface) = shape function at quadrature point sgi and volume node iloc for face iface of element.
-! face_slxn(sgi,1,iloc,iface) = shape function derivative at quadrature point sgi and volume node iloc for face iface of element.
-! face_sn2(sgi,iloc,n_s_list_no) = shape function at quadrature point sgi but on the otherside of face and volume node iloc for face iface of element.
-! This works from: sn2 =face_sn2(:,:,s_list_no) in which  s_list_no = face_list_no( iface, ele) .
+  ! ********************************************************************************************************
+  ! calculate face_list_no( iface, ele), face_sn(:,:,iface); face_snlx(:,:,:,iface), face_sn2(:,:,s_list_no)
+  ! ********************************************************************************************************
+  ! ****integers:
+  ! nface=no of faces of each elemenet.
+  ! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
+  ! snloc=no of nodes on a surface element.
+  ! nloc=no of nodes within a volume element.
+  ! ndim=no of dimensions - including time possibly.
+  ! totele=no of elements.
+  ! n_s_list_no= no of different oriantations for the surface element numbering.
+  ! nele_x = no of elements across in the x-direction.
+  ! nele_y = no of elements across in the y-direction.
+  !
+  ! ****original surface element shape functions:
+  ! sn_orig(sgi,siloc) = shape function at quadrature point sgi and surface node siloc
+  ! snlx_orig(sgi,1,siloc) = shape function derivative (only one in 2D) at quadrature point sgi and surface node siloc
+  !
+  ! ****new surface element shape functions designed to be highly efficient:
+  ! face_sn(sgi,iloc,iface) = shape function at quadrature point sgi and volume node iloc for face iface of element.
+  ! face_slxn(sgi,1,iloc,iface) = shape function derivative at quadrature point sgi and volume node iloc for face iface of element.
+  ! face_sn2(sgi,iloc,n_s_list_no) = shape function at quadrature point sgi but on the otherside of face and volume node iloc for face iface of element.
+  ! This works from: sn2 =face_sn2(:,:,s_list_no) in which  s_list_no = face_list_no( iface, ele) .
   implicit none
   integer, intent(in) :: nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y
   real, intent(in) :: sn_orig(sngi,snloc), snlx_orig(sngi,ndim-1,snloc)
   real, intent(out) :: face_sn(sngi,nloc,nface), face_snlx(sngi,ndim-1,nloc,nface), face_sn2(sngi,nloc,n_s_list_no)
   integer, intent(out) :: face_list_no(nface,totele)
-! local variables...
+  ! local variables...
   integer iface,lnod1,lnod2,i_s_list_no
-!
+
   face_sn(:,:,:)=0.0
   face_snlx(:,:,:,:)=0.0
   face_sn2(:,:,:)=0.0
-!
-! local node numbers:
-!  3   4
-!  1   2
-!
-! face numbers:
-!    4
-!  2   3
-!    1
+
+  ! local node numbers:
+  !  3   4
+  !  1   2
+  !
+  ! face numbers:
+  !    4
+  !  2   3
+  !    1
 
   iface=1
   lnod1=2
@@ -246,7 +247,7 @@ end program wave_equation
   face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
   face_list_no(iface,:) = i_s_list_no
 
-!
+
   iface=2
   lnod1=1
   lnod2=3
@@ -260,7 +261,7 @@ end program wave_equation
   face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
   face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
   face_list_no(iface,:) = i_s_list_no
-!
+
   iface=3
   lnod1=4
   lnod2=2
@@ -274,7 +275,7 @@ end program wave_equation
   face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
   face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
   face_list_no(iface,:) = i_s_list_no
-!
+
   iface=4
   lnod1=3
   lnod2=4
@@ -288,15 +289,15 @@ end program wave_equation
   face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
   face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
   face_list_no(iface,:) = i_s_list_no
-!
-! calculate face_list_no(nface,totele) =
-!  do jele=1,nele_y
-!    do iele=1,nele_x
-!       ele=(jele-1)*nele_x + iele
-!    end do
-!  end do
+  !
+  ! calculate face_list_no(nface,totele) =
+  !  do jele=1,nele_y
+  !    do iele=1,nele_x
+  !       ele=(jele-1)*nele_x + iele
+  !    end do
+  !  end do
 
-  end subroutine surface_pointers_sn
+end subroutine surface_pointers_sn
 
 
 
@@ -370,15 +371,15 @@ end subroutine ele_info
 
 
 subroutine det_nlx( x_all, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
-! ****************************************************
-! This sub form the derivatives of the shape functions
-! ****************************************************
-! x_all: spatial nodes.
-! n, nlx, nlx_lxx: shape function and local derivatives of the shape functions (nlx_lxx is local grad of the local laplacian)- defined by shape functional library.
-! nx, nx_lxx: derivatives of the shape functions.
-! detwei, inv_jac: determinant at the quadrature pots and inverse of Jacobian at quadrature pts.
-! ndim,nloc,ngi: no of dimensions, no of local nodes within an element, no of quadrature points.
-! nlx_nod, nx_nod: same as nlx and nx but formed at the nodes not quadrature points.
+  ! ****************************************************
+  ! This sub form the derivatives of the shape functions
+  ! ****************************************************
+  ! x_all: spatial nodes.
+  ! n, nlx, nlx_lxx: shape function and local derivatives of the shape functions (nlx_lxx is local grad of the local laplacian)- defined by shape functional library.
+  ! nx, nx_lxx: derivatives of the shape functions.
+  ! detwei, inv_jac: determinant at the quadrature pots and inverse of Jacobian at quadrature pts.
+  ! ndim,nloc,ngi: no of dimensions, no of local nodes within an element, no of quadrature points.
+  ! nlx_nod, nx_nod: same as nlx and nx but formed at the nodes not quadrature points.
   implicit none
   integer, intent( in ) :: ndim,nloc,ngi
 
@@ -393,66 +394,102 @@ subroutine det_nlx( x_all, n, nlx, nx, detwei, weight, ndim,nloc,ngi )
           A22, A23, A31, A32, A33, DETJ
   INTEGER :: GI, L, IGLX, ii
 
-  ! conventional:
-  do  GI=1,NGI! Was loop 331
+  if (ndim==2) then
+   ! conventional:
+    do  GI=1,NGI! Was loop 331
 
-    AGI=0.
-    BGI=0.
-    CGI=0.
+      AGI=0.
+      BGI=0.
 
-    DGI=0.
-    EGI=0.
-    FGI=0.
+      DGI=0.
+      EGI=0.
 
-    GGI=0.
-    HGI=0.
-    KGI=0.
+      do  L=1,NLOC! Was loop 79
+        IGLX=L
 
-    do  L=1,NLOC! Was loop 79
-      IGLX=L
-      !ewrite(3,*)'xndgln, x, nl:', &
-      !     iglx, l, x(iglx), y(iglx), z(iglx), NLX(L,GI), NLY(L,GI), NLZ(L,GI)
-      ! NB R0 does not appear here although the z-coord might be Z+R0.
-      AGI=AGI+NLX(GI,1,L)*X_ALL(1,IGLX)
-      BGI=BGI+NLX(GI,1,L)*X_ALL(2,IGLX)
-      CGI=CGI+NLX(GI,1,L)*X_ALL(3,IGLX)
+        AGI=AGI+NLX(GI,1,L)*X_ALL(1,IGLX)
+        BGI=BGI+NLX(GI,1,L)*X_ALL(2,IGLX)
 
-      DGI=DGI+NLX(GI,2,L)*X_ALL(1,IGLX)
-      EGI=EGI+NLX(GI,2,L)*X_ALL(2,IGLX)
-      FGI=FGI+NLX(GI,2,L)*X_ALL(3,IGLX)
+        DGI=DGI+NLX(GI,2,L)*X_ALL(1,IGLX)
+        EGI=EGI+NLX(GI,2,L)*X_ALL(2,IGLX)
 
-      GGI=GGI+NLX(GI,3,L)*X_ALL(1,IGLX)
-      HGI=HGI+NLX(GI,3,L)*X_ALL(2,IGLX)
-      KGI=KGI+NLX(GI,3,L)*X_ALL(3,IGLX)
-    end do ! Was loop 79
+      end do ! Was loop 79
 
-    DETJ=AGI*(EGI*KGI-FGI*HGI)&
-        -BGI*(DGI*KGI-FGI*GGI)&
-        +CGI*(DGI*HGI-EGI*GGI)
-    DETWEI(GI)=ABS(DETJ)*WEIGHT(GI)
-    ! ewrite(3,*)'gi, detj, weight(gi)', gi, detj, weight(gi)
-    ! rsum = rsum + detj
-    ! rsumabs = rsumabs + abs( detj )
-    ! For coefficient in the inverse mat of the jacobian.
-    A11= (EGI*KGI-FGI*HGI) /DETJ
-    A21=-(DGI*KGI-FGI*GGI) /DETJ
-    A31= (DGI*HGI-EGI*GGI) /DETJ
+      DETJ=AGI*EGI-BGI*DGI
+      DETWEI(GI)=ABS(DETJ)*WEIGHT(GI)
+      ! For coefficient in the inverse mat of the jacobian.
+      A11= (DGI) /DETJ
+      A21=-(CGI) /DETJ
 
-    A12=-(BGI*KGI-CGI*HGI) /DETJ
-    A22= (AGI*KGI-CGI*GGI) /DETJ
-    A32=-(AGI*HGI-BGI*GGI) /DETJ
+      A12=-(BGI) /DETJ
+      A22= (AGI) /DETJ
 
-    A13= (BGI*FGI-CGI*EGI) /DETJ
-    A23=-(AGI*FGI-CGI*DGI) /DETJ
-    A33= (AGI*EGI-BGI*DGI) /DETJ
+      do  L=1,NLOC! Was loop 373
+        NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)
+        NX(GI,2,L)= A21*NLX(GI,1,L)+A22*NLX(GI,2,L)
+      end do ! Was loop 373
+    end do ! GI Was loop 331
 
-    do  L=1,NLOC! Was loop 373
-      NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(2,L,GI)+A13*NLX(GI,3,L)
-      NX(GI,2,L)= A21*NLX(GI,1,L)+A22*NLX(2,L,GI)+A23*NLX(GI,3,L)
-      NX(GI,3,L)= A31*NLX(GI,1,L)+A32*NLX(2,L,GI)+A33*NLX(GI,3,L)
-    end do ! Was loop 373
+  elseif ( ndim.eq.3 ) then
+    do  GI=1,NGI! Was loop 331
 
-  end do ! GI Was loop 331
+      AGI=0.
+      BGI=0.
+      CGI=0.
+
+      DGI=0.
+      EGI=0.
+      FGI=0.
+
+      GGI=0.
+      HGI=0.
+      KGI=0.
+
+      do  L=1,NLOC! Was loop 79
+        IGLX=L
+        !ewrite(3,*)'xndgln, x, nl:', &
+        !     iglx, l, x(iglx), y(iglx), z(iglx), NLX(L,GI), NLY(L,GI), NLZ(L,GI)
+        ! NB R0 does not appear here although the z-coord might be Z+R0.
+        AGI=AGI+NLX(GI,1,L)*X_ALL(1,IGLX)
+        BGI=BGI+NLX(GI,1,L)*X_ALL(2,IGLX)
+        CGI=CGI+NLX(GI,1,L)*X_ALL(3,IGLX)
+
+        DGI=DGI+NLX(GI,2,L)*X_ALL(1,IGLX)
+        EGI=EGI+NLX(GI,2,L)*X_ALL(2,IGLX)
+        FGI=FGI+NLX(GI,2,L)*X_ALL(3,IGLX)
+
+        GGI=GGI+NLX(GI,3,L)*X_ALL(1,IGLX)
+        HGI=HGI+NLX(GI,3,L)*X_ALL(2,IGLX)
+        KGI=KGI+NLX(GI,3,L)*X_ALL(3,IGLX)
+      end do ! Was loop 79
+
+      DETJ=AGI*(EGI*KGI-FGI*HGI)&
+          -BGI*(DGI*KGI-FGI*GGI)&
+          +CGI*(DGI*HGI-EGI*GGI)
+      DETWEI(GI)=ABS(DETJ)*WEIGHT(GI)
+      ! ewrite(3,*)'gi, detj, weight(gi)', gi, detj, weight(gi)
+      ! rsum = rsum + detj
+      ! rsumabs = rsumabs + abs( detj )
+      ! For coefficient in the inverse mat of the jacobian.
+      A11= (EGI*KGI-FGI*HGI) /DETJ
+      A21=-(DGI*KGI-FGI*GGI) /DETJ
+      A31= (DGI*HGI-EGI*GGI) /DETJ
+
+      A12=-(BGI*KGI-CGI*HGI) /DETJ
+      A22= (AGI*KGI-CGI*GGI) /DETJ
+      A32=-(AGI*HGI-BGI*GGI) /DETJ
+
+      A13= (BGI*FGI-CGI*EGI) /DETJ
+      A23=-(AGI*FGI-CGI*DGI) /DETJ
+      A33= (AGI*EGI-BGI*DGI) /DETJ
+
+      do  L=1,NLOC! Was loop 373
+        NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)+A13*NLX(GI,3,L)
+        NX(GI,2,L)= A21*NLX(GI,1,L)+A22*NLX(GI,2,L)+A23*NLX(GI,3,L)
+        NX(GI,3,L)= A31*NLX(GI,1,L)+A32*NLX(GI,2,L)+A33*NLX(GI,3,L)
+      end do ! Was loop 373
+    end do ! GI Was loop 331
+  end if
 end subroutine det_nlx
 
 
@@ -655,8 +692,8 @@ SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SD
   REAL, DIMENSION( SNGI ), intent( in ) :: SWEIGH
   REAL, DIMENSION( SNGI ), intent( inout ) :: SDETWE
   REAL, intent( inout ) ::  SAREA
-  REAL, DIMENSION( sngi, NDIM ), intent( inout ) :: NORMXN_ALL
-  REAL, DIMENSION( NDIM ), intent( in ) :: NORMX_ALL
+  REAL, DIMENSION( sngi, 3 ), intent( inout ) :: NORMXN_ALL
+  REAL, DIMENSION( 3 ), intent( in ) :: NORMX_ALL
   !REAL, DIMENSION( NDIM,ndim ), intent( in ) :: inv_jac
   ! Local variables
   INTEGER :: GI, SL, IGLX
@@ -665,42 +702,82 @@ SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SD
 
   SAREA=0.
 
-  DO GI=1,SNGI
+  if (ndim==2) then
+    DO GI=1,SNGI
 
-    DXDLX=0.
-    DXDLY=0.
-    DYDLX=0.
-    DYDLY=0.
-    DZDLX=0.
-    DZDLY=0.
+      DXDLX=0.
+      DXDLY=0.
+      DYDLX=0.
+      DYDLY=0.
+      DZDLX=0.
+      DZDLY=0.
 
-    DO SL=1,SNLOC
-      DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
-      DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
-      DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
-      DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
-      DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
-      DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+      DO SL=1,SNLOC
+        DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
+        ! DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
+        DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
+        ! DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
+        ! DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
+        ! DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+      END DO
+
+      A = DYDLX!*DZDLY - DYDLY*DZDLX
+      B = DXDLX!*DZDLY - DXDLY*DZDLX
+      ! C = DXDLX*DYDLY - DXDLY*DYDLX
+
+      DETJ=SQRT( A**2 + B**2)! + C**2)
+      ! inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
+      ! inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
+      ! inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
+      ! inv_jac=inv_jac/detj
+      SDETWE(GI)=DETJ*SWEIGH(GI)
+      SAREA=SAREA+SDETWE(GI)
+
+      ! Calculate the normal at the Gauss pts...
+      ! Perform x-product. N=T1 x T2
+      CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+                  DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
+                  NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
     END DO
 
-    A = DYDLX*DZDLY - DYDLY*DZDLX
-    B = DXDLX*DZDLY - DXDLY*DZDLX
-    C = DXDLX*DYDLY - DXDLY*DYDLX
+  elseif ( ndim==3 ) then
+    DO GI=1,SNGI
 
-    DETJ=SQRT( A**2 + B**2 + C**2)
-    ! inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
-    ! inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
-    ! inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
-    ! inv_jac=inv_jac/detj
-    SDETWE(GI)=DETJ*SWEIGH(GI)
-    SAREA=SAREA+SDETWE(GI)
+      DXDLX=0.
+      DXDLY=0.
+      DYDLX=0.
+      DYDLY=0.
+      DZDLX=0.
+      DZDLY=0.
 
-    ! Calculate the normal at the Gauss pts...
-    ! Perform x-product. N=T1 x T2
-    CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
-                DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
-                NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
-  END DO
+      DO SL=1,SNLOC
+        DXDLX=DXDLX + SNLX(GI,1,SL)*XSL_ALL(1,SL)
+        DXDLY=DXDLY + SNLX(GI,2,SL)*XSL_ALL(1,SL)
+        DYDLX=DYDLX + SNLX(GI,1,SL)*XSL_ALL(2,SL)
+        DYDLY=DYDLY + SNLX(GI,2,SL)*XSL_ALL(2,SL)
+        DZDLX=DZDLX + SNLX(GI,1,SL)*XSL_ALL(3,SL)
+        DZDLY=DZDLY + SNLX(GI,2,SL)*XSL_ALL(3,SL)
+      END DO
+
+      A = DYDLX*DZDLY - DYDLY*DZDLX
+      B = DXDLX*DZDLY - DXDLY*DZDLX
+      C = DXDLX*DYDLY - DXDLY*DYDLX
+
+      DETJ=SQRT( A**2 + B**2 + C**2)
+      ! inv_jac(1,1)=DXDLX; inv_jac(1,2)=DXDLY; inv_jac(1,3)=DXDLZ
+      ! inv_jac(2,1)=DyDLX; inv_jac(2,2)=DyDLY; inv_jac(2,3)=DyDLZ
+      ! inv_jac(3,1)=DzDLX; inv_jac(3,2)=DzDLY; inv_jac(3,3)=DzDLZ
+      ! inv_jac=inv_jac/detj
+      SDETWE(GI)=DETJ*SWEIGH(GI)
+      SAREA=SAREA+SDETWE(GI)
+
+      ! Calculate the normal at the Gauss pts...
+      ! Perform x-product. N=T1 x T2
+      CALL NORMGI(NORMXN_ALL(GI,1),NORMXN_ALL(GI,2),NORMXN_ALL(GI,3), &
+                  DXDLX,DYDLX,DZDLX, DXDLY,DYDLY,DZDLY, &
+                  NORMX_ALL(1),NORMX_ALL(2),NORMX_ALL(3))
+    END DO
+  end if
 
   RETURN
 
@@ -708,206 +785,206 @@ END SUBROUTINE det_snlx_all
 
 
 
-  REAL FUNCTION RGPTWE(IG,ND,WEIGHT)
+REAL FUNCTION RGPTWE(IG,ND,WEIGHT)
     IMPLICIT NONE
-    !     NB If WEIGHT is TRUE in function RGPTWE then return the Gauss-pt weight 
-    !     else return the Gauss-pt. 
-    !     NB there are ND Gauss points we are looking for either the 
-    !     weight or the x-coord of the IG'th Gauss point. 
+    !     NB If WEIGHT is TRUE in function RGPTWE then return the Gauss-pt weight
+    !     else return the Gauss-pt.
+    !     NB there are ND Gauss points we are looking for either the
+    !     weight or the x-coord of the IG'th Gauss point.
     INTEGER IG,ND
     LOGICAL WEIGHT
 
-    IF(WEIGHT) THEN
-       GO TO (10,20,30,40,50,60,70,80,90,100) ND
-       !     +++++++++++++++++++++++++++++++
-       !     For N=1 +++++++++++++++++++++++
-10     CONTINUE
-       RGPTWE=2.0
-       GO TO 1000
-       !     For N=2 +++++++++++++++++++++++
-20     CONTINUE
-       RGPTWE=1.0
-       GO TO 1000
-       ! For N=3 +++++++++++++++++++++++
-30     CONTINUE
-       GO TO (11,12,11) IG
-11     RGPTWE= 0.555555555555556
-       GO TO 1000
-12     RGPTWE= 0.888888888888889
-       GO TO 1000
-       ! For N=4 +++++++++++++++++++++++
-40     CONTINUE
-       GO TO (21,22,22,21) IG
-21     RGPTWE= 0.347854845137454
-       GO TO 1000
-22     RGPTWE= 0.652145154862546
-       GO TO 1000
-       ! For N=5 +++++++++++++++++++++++
-50     CONTINUE
-       GO TO (31,32,33,32,31) IG
-31     RGPTWE= 0.236926885056189
-       GO TO 1000
-32     RGPTWE= 0.478628670499366
-       GO TO 1000
-33     RGPTWE= 0.568888888888889
-       GO TO 1000
-       ! For N=6 +++++++++++++++++++++++
-60     CONTINUE
-       GO TO (41,42,43,43,42,41) IG
-41     RGPTWE= 0.171324492379170
-       GO TO 1000
-42     RGPTWE= 0.360761573048139
-       GO TO 1000
-43     RGPTWE= 0.467913934572691
-       GO TO 1000
-       ! For N=7 +++++++++++++++++++++++
-70     CONTINUE
-       GO TO (51,52,53,54,53,52,51) IG
-51     RGPTWE= 0.129484966168870
-       GO TO 1000
-52     RGPTWE= 0.279705391489277
-       GO TO 1000
-53     RGPTWE= 0.381830050505119
-       GO TO 1000
-54     RGPTWE= 0.417959183673469
-       GO TO 1000
-       ! For N=8 +++++++++++++++++++++++
-80     CONTINUE
-       GO TO (61,62,63,64,64,63,62,61) IG
-61     RGPTWE= 0.101228536290376
-       GO TO 1000
-62     RGPTWE= 0.222381034453374
-       GO TO 1000
-63     RGPTWE= 0.313706645877877
-       GO TO 1000
-64     RGPTWE= 0.362683783378362
-       GO TO 1000
-       ! For N=9 +++++++++++++++++++++++
-90     CONTINUE
-       GO TO (71,72,73,74,75,74,73,72,71) IG
-71     RGPTWE= 0.081274388361574
-       GO TO 1000
-72     RGPTWE= 0.180648160694857
-       GO TO 1000
-73     RGPTWE= 0.260610696402935
-       GO TO 1000
-74     RGPTWE= 0.312347077040003
-       GO TO 1000
-75     RGPTWE= 0.330239355001260
-       GO TO 1000
-       ! For N=10 +++++++++++++++++++++++
-100    CONTINUE
-       GO TO (81,82,83,84,85,85,84,83,82,81) IG
-81     RGPTWE= 0.066671344308688
-       GO TO 1000
-82     RGPTWE= 0.149451349150581
-       GO TO 1000
-83     RGPTWE= 0.219086362515982
-       GO TO 1000
-84     RGPTWE= 0.269266719309996
-       GO TO 1000
-85     RGPTWE= 0.295524224714753
-       !
-1000   CONTINUE
-    ELSE
-       GO TO (210,220,230,240,250,260,270,280,290,200) ND
-       ! +++++++++++++++++++++++++++++++
-       ! For N=1 +++++++++++++++++++++++ THE GAUSS POINTS...
-210    CONTINUE
-       RGPTWE=0.0
-       GO TO 2000
-       ! For N=2 +++++++++++++++++++++++
-220    CONTINUE
-       RGPTWE= 0.577350269189626
-       GO TO 2000
-       ! For N=3 +++++++++++++++++++++++
-230    CONTINUE
-       GO TO (211,212,211) IG
-211    RGPTWE= 0.774596669241483
-       GO TO 2000
-212    RGPTWE= 0.0
-       GO TO 2000
-       ! For N=4 +++++++++++++++++++++++
-240    CONTINUE
-       GO TO (221,222,222,221) IG
-221    RGPTWE= 0.861136311594953
-       GO TO 2000
-222    RGPTWE= 0.339981043584856
-       GO TO 2000
-       ! For N=5 +++++++++++++++++++++++
-250    CONTINUE
-       GO TO (231,232,233,232,231) IG
-231    RGPTWE= 0.906179845938664
-       GO TO 2000
-232    RGPTWE= 0.538469310105683
-       GO TO 2000
-233    RGPTWE= 0.0
-       GO TO 2000
-       ! For N=6 +++++++++++++++++++++++
-260    CONTINUE
-       GO TO (241,242,243,243,242,241) IG
-241    RGPTWE= 0.932469514203152
-       GO TO 2000
-242    RGPTWE= 0.661209386466265
-       GO TO 2000
-243    RGPTWE= 0.238619186083197
-       GO TO 2000
-       ! For N=7 +++++++++++++++++++++++
-270    CONTINUE
-       GO TO (251,252,253,254,253,252,251) IG
-251    RGPTWE= 0.949107912342759
-       GO TO 2000
-252    RGPTWE= 0.741531185599394
-       GO TO 2000
-253    RGPTWE= 0.405845151377397
-       GO TO 2000
-254    RGPTWE= 0.0
-       GO TO 2000
-       ! For N=8 +++++++++++++++++++++++
-280    CONTINUE
-       GO TO (261,262,263,264,264,263,262,261) IG
-261    RGPTWE= 0.960289856497536
-       GO TO 2000
-262    RGPTWE= 0.796666477413627
-       GO TO 2000
-263    RGPTWE= 0.525532409916329
-       GO TO 2000
-264    RGPTWE= 0.183434642495650
-       GO TO 2000
-       ! For N=9 +++++++++++++++++++++++
-290    CONTINUE
-       GO TO (271,272,273,274,275,274,273,272,271) IG
-271    RGPTWE= 0.968160239507626
-       GO TO 2000
-272    RGPTWE= 0.836031107326636
-       GO TO 2000
-273    RGPTWE= 0.613371432700590
-       GO TO 2000
-274    RGPTWE= 0.324253423403809
-       GO TO 2000
-275    RGPTWE= 0.0
-       GO TO 2000
-       ! For N=10 +++++++++++++++++++++++
-200    CONTINUE
-       GO TO (281,282,283,284,285,285,284,283,282,281) IG
-281    RGPTWE= 0.973906528517172
-       GO TO 2000
-282    RGPTWE= 0.865063366688985
-       GO TO 2000
-283    RGPTWE= 0.679409568299024
-       GO TO 2000
-284    RGPTWE= 0.433395394129247
-       GO TO 2000
-285    RGPTWE= 0.148874338981631
-       !
-2000   CONTINUE
-       IF(IG.LE.INT((ND/2)+0.1)) RGPTWE=-RGPTWE
-    ENDIF
-  END FUNCTION RGPTWE
+      IF(WEIGHT) THEN
+         GO TO (10,20,30,40,50,60,70,80,90,100) ND
+         !     +++++++++++++++++++++++++++++++
+         !     For N=1 +++++++++++++++++++++++
+  10     CONTINUE
+         RGPTWE=2.0
+         GO TO 1000
+         !     For N=2 +++++++++++++++++++++++
+  20     CONTINUE
+         RGPTWE=1.0
+         GO TO 1000
+         ! For N=3 +++++++++++++++++++++++
+  30     CONTINUE
+         GO TO (11,12,11) IG
+  11     RGPTWE= 0.555555555555556
+         GO TO 1000
+  12     RGPTWE= 0.888888888888889
+         GO TO 1000
+         ! For N=4 +++++++++++++++++++++++
+  40     CONTINUE
+         GO TO (21,22,22,21) IG
+  21     RGPTWE= 0.347854845137454
+         GO TO 1000
+  22     RGPTWE= 0.652145154862546
+         GO TO 1000
+         ! For N=5 +++++++++++++++++++++++
+  50     CONTINUE
+         GO TO (31,32,33,32,31) IG
+  31     RGPTWE= 0.236926885056189
+         GO TO 1000
+  32     RGPTWE= 0.478628670499366
+         GO TO 1000
+  33     RGPTWE= 0.568888888888889
+         GO TO 1000
+         ! For N=6 +++++++++++++++++++++++
+  60     CONTINUE
+         GO TO (41,42,43,43,42,41) IG
+  41     RGPTWE= 0.171324492379170
+         GO TO 1000
+  42     RGPTWE= 0.360761573048139
+         GO TO 1000
+  43     RGPTWE= 0.467913934572691
+         GO TO 1000
+         ! For N=7 +++++++++++++++++++++++
+  70     CONTINUE
+         GO TO (51,52,53,54,53,52,51) IG
+  51     RGPTWE= 0.129484966168870
+         GO TO 1000
+  52     RGPTWE= 0.279705391489277
+         GO TO 1000
+  53     RGPTWE= 0.381830050505119
+         GO TO 1000
+  54     RGPTWE= 0.417959183673469
+         GO TO 1000
+         ! For N=8 +++++++++++++++++++++++
+  80     CONTINUE
+         GO TO (61,62,63,64,64,63,62,61) IG
+  61     RGPTWE= 0.101228536290376
+         GO TO 1000
+  62     RGPTWE= 0.222381034453374
+         GO TO 1000
+  63     RGPTWE= 0.313706645877877
+         GO TO 1000
+  64     RGPTWE= 0.362683783378362
+         GO TO 1000
+         ! For N=9 +++++++++++++++++++++++
+  90     CONTINUE
+         GO TO (71,72,73,74,75,74,73,72,71) IG
+  71     RGPTWE= 0.081274388361574
+         GO TO 1000
+  72     RGPTWE= 0.180648160694857
+         GO TO 1000
+  73     RGPTWE= 0.260610696402935
+         GO TO 1000
+  74     RGPTWE= 0.312347077040003
+         GO TO 1000
+  75     RGPTWE= 0.330239355001260
+         GO TO 1000
+         ! For N=10 +++++++++++++++++++++++
+  100    CONTINUE
+         GO TO (81,82,83,84,85,85,84,83,82,81) IG
+  81     RGPTWE= 0.066671344308688
+         GO TO 1000
+  82     RGPTWE= 0.149451349150581
+         GO TO 1000
+  83     RGPTWE= 0.219086362515982
+         GO TO 1000
+  84     RGPTWE= 0.269266719309996
+         GO TO 1000
+  85     RGPTWE= 0.295524224714753
+         !
+  1000   CONTINUE
+      ELSE
+         GO TO (210,220,230,240,250,260,270,280,290,200) ND
+         ! +++++++++++++++++++++++++++++++
+         ! For N=1 +++++++++++++++++++++++ THE GAUSS POINTS...
+  210    CONTINUE
+         RGPTWE=0.0
+         GO TO 2000
+         ! For N=2 +++++++++++++++++++++++
+  220    CONTINUE
+         RGPTWE= 0.577350269189626
+         GO TO 2000
+         ! For N=3 +++++++++++++++++++++++
+  230    CONTINUE
+         GO TO (211,212,211) IG
+  211    RGPTWE= 0.774596669241483
+         GO TO 2000
+  212    RGPTWE= 0.0
+         GO TO 2000
+         ! For N=4 +++++++++++++++++++++++
+  240    CONTINUE
+         GO TO (221,222,222,221) IG
+  221    RGPTWE= 0.861136311594953
+         GO TO 2000
+  222    RGPTWE= 0.339981043584856
+         GO TO 2000
+         ! For N=5 +++++++++++++++++++++++
+  250    CONTINUE
+         GO TO (231,232,233,232,231) IG
+  231    RGPTWE= 0.906179845938664
+         GO TO 2000
+  232    RGPTWE= 0.538469310105683
+         GO TO 2000
+  233    RGPTWE= 0.0
+         GO TO 2000
+         ! For N=6 +++++++++++++++++++++++
+  260    CONTINUE
+         GO TO (241,242,243,243,242,241) IG
+  241    RGPTWE= 0.932469514203152
+         GO TO 2000
+  242    RGPTWE= 0.661209386466265
+         GO TO 2000
+  243    RGPTWE= 0.238619186083197
+         GO TO 2000
+         ! For N=7 +++++++++++++++++++++++
+  270    CONTINUE
+         GO TO (251,252,253,254,253,252,251) IG
+  251    RGPTWE= 0.949107912342759
+         GO TO 2000
+  252    RGPTWE= 0.741531185599394
+         GO TO 2000
+  253    RGPTWE= 0.405845151377397
+         GO TO 2000
+  254    RGPTWE= 0.0
+         GO TO 2000
+         ! For N=8 +++++++++++++++++++++++
+  280    CONTINUE
+         GO TO (261,262,263,264,264,263,262,261) IG
+  261    RGPTWE= 0.960289856497536
+         GO TO 2000
+  262    RGPTWE= 0.796666477413627
+         GO TO 2000
+  263    RGPTWE= 0.525532409916329
+         GO TO 2000
+  264    RGPTWE= 0.183434642495650
+         GO TO 2000
+         ! For N=9 +++++++++++++++++++++++
+  290    CONTINUE
+         GO TO (271,272,273,274,275,274,273,272,271) IG
+  271    RGPTWE= 0.968160239507626
+         GO TO 2000
+  272    RGPTWE= 0.836031107326636
+         GO TO 2000
+  273    RGPTWE= 0.613371432700590
+         GO TO 2000
+  274    RGPTWE= 0.324253423403809
+         GO TO 2000
+  275    RGPTWE= 0.0
+         GO TO 2000
+         ! For N=10 +++++++++++++++++++++++
+  200    CONTINUE
+         GO TO (281,282,283,284,285,285,284,283,282,281) IG
+  281    RGPTWE= 0.973906528517172
+         GO TO 2000
+  282    RGPTWE= 0.865063366688985
+         GO TO 2000
+  283    RGPTWE= 0.679409568299024
+         GO TO 2000
+  284    RGPTWE= 0.433395394129247
+         GO TO 2000
+  285    RGPTWE= 0.148874338981631
+         !
+  2000   CONTINUE
+         IF(IG.LE.INT((ND/2)+0.1)) RGPTWE=-RGPTWE
+      ENDIF
+END FUNCTION RGPTWE
 
 
 
-
+! normal at GI
 SUBROUTINE NORMGI( NORMXN, NORMYN, NORMZN, &
                    DXDLX, DYDLX, DZDLX, DXDLY, DYDLY, DZDLY, &
                    NORMX, NORMY, NORMZ)
@@ -936,7 +1013,7 @@ SUBROUTINE NORMGI( NORMXN, NORMYN, NORMZN, &
 END SUBROUTINE NORMGI
 
 
-
+! cross product
 SUBROUTINE XPROD1( AX, AY, AZ, &
                    BX, BY, BZ, &
                    CX, CY, CZ )
@@ -944,7 +1021,7 @@ SUBROUTINE XPROD1( AX, AY, AZ, &
   REAL, intent( inout ) :: AX, AY, AZ
   REAL, intent( in )    :: BX, BY, BZ, CX, CY, CZ
 
-  ! Perform x-product. a=b x c
+  ! Perform cross product(x-product). a=b x c
   AX =    BY * CZ - BZ * CY
   AY = -( BX * CZ - BZ * CX )
   AZ =    BX * CY - BY * CX
@@ -953,7 +1030,7 @@ SUBROUTINE XPROD1( AX, AY, AZ, &
 END subroutine XPROD1
 
 
-
+! Finds inverse of a matrix
 subroutine FINDInv(matrix, inverse, n, errorflag)
   ! Returns the inverse of a matrix calculated by finding the LU
   ! decomposition.  Depends on LAPACK.
