@@ -6,17 +6,19 @@ program wave_equation
   implicit none
 
   logical :: LOWQUA
-  integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
+  integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, ele22
+  integer :: s_list_no, s_gi, iloc, jloc
   integer:: itime, ntime, idim, ndim, nonodes, snloc, mloc, col, n_s_list_no, row, row2
   integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no
   integer, allocatable :: face_ele(:,:), face_list_no(:,:)
 
-  real :: sarea, volume, dt, CFL, L, dx, dy
+  real :: sarea, volume, dt, CFL, L, dx, dy, r_got_boundary
 
   real, allocatable :: n(:,:), nlx(:,:,:), nx(:,:,:), M(:,:)
   real, allocatable :: weight(:), detwei(:), sdetwei(:)
   real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:,:)
-  real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), tgi(:), tsgi(:), tsgi2(:)
+  real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), t_bc(:,:), u_bc(:,:,:)
+  real, allocatable :: tgi(:), tsgi(:), tsgi2(:)
   real, allocatable :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
   real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:),u_old(:)
   real, allocatable :: x_all(:,:,:), jac(:)
@@ -52,7 +54,7 @@ program wave_equation
   allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,ndim-1,snloc), s_cont(sngi,ndim) )
   allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
   allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
-  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele))
+  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele), t_bc(nloc,totele), u_bc(ndim,nloc,totele))
   allocate(tgi(ngi), tsgi(sngi), tsgi2(sngi))
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,n_s_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc), jac(ndim*ndim))
@@ -62,14 +64,17 @@ program wave_equation
 
 !AMIN mdum isn't used anywhere
   ! mdum(1:10)=0.0
-  LOWQUA=.false.
+  t_bc(:,:)=0.0 ! this contains the boundary conditions just outside the domain
+  u_bc(:,:,:)=0.0 ! this contains the boundary conditions on velocity just outside the domain
   ! initial conditions
-  t_new(:,:) = 0
-  t_new(:,no_ele_row/5:no_ele_row/2) = 1
+  t_new(:,:) = 0.0
+  t_new(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct? 
   U_ele(:,:,:) = 0
-  U_ele(1,:,1:totele) = 0.1
+  U_ele(1,:,1:totele) = 1.0 ! suggest this should be unity
+  u_bc(:,:,:)=u_ele(:,:,:) ! this contains the boundary conditions on velocity just outside the domain
   dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
 
+  LOWQUA=.false.
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
   call ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
                 x_all, dx, dy, ndim, nloc, no_ele_col, col)
@@ -123,16 +128,14 @@ program wave_equation
 
       !Include the surface integral here:
       do iface = 1,nface
-        ele2 = face_ele( iface, ele)
-
-        if ( ele2 <= 0 ) then
-          t_loc2(:) = 0 ! BCs
-          u_loc2(:,:) = 0 ! BCs
-
-        else
-          t_loc2(:)=t_new(:,ele2)
-          u_loc2(:,:)=u_ele(:,:,ele2)
-        end if
+        ele22 = face_ele( iface, ele) ! if ele22 is negative assume on boundary
+        ele2=sign(ele, -ele22) 
+        r_got_boundary = sign(1.0, -real(ele22) ) 
+! r_got_boundary=1.0 if we want to use the boundary conditions and have incomming velocity. 
+! r_got_boundary=0.0 not on boundary
+        
+        t_loc2(:)=t_new(:,ele2) * (1.0-r_got_boundary)     + t_bc(:,ele)  * r_got_boundary
+        u_loc2(:,:)=u_ele(:,:,ele2)* (1.0-r_got_boundary)  + u_bc(:,:,ele)* r_got_boundary
 
         !Surface integral along an element
         ! need to work on this also
