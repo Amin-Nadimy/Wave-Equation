@@ -6,8 +6,9 @@ program wave_equation
   implicit none
 
   logical :: LOWQUA
-  integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, s_list_no, s_gi, iloc, jloc
-  integer:: itime, ntime, idim, ndim, nonodes, snloc, mloc, col, n_s_list_no, row, row2
+  integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2
+  integer :: s_list_no, s_gi, iloc, jloc
+  integer:: itime, ntime, idim, ndim, sndim, nonodes, snloc, mloc, col, n_s_list_no, row, row2
   integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no
   integer, allocatable :: face_ele(:,:), face_list_no(:,:)
 
@@ -16,7 +17,8 @@ program wave_equation
   real, allocatable :: n(:,:), nlx(:,:,:), nx(:,:,:), M(:,:)
   real, allocatable :: weight(:), detwei(:), sdetwei(:)
   real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:,:)
-  real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), tgi(:), tsgi(:), tsgi2(:)
+  real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:)
+  real, allocatable :: tgi(:), tsgi(:), tsgi2(:)
   real, allocatable :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
   real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:),u_old(:)
   real, allocatable :: x_all(:,:,:), jac(:)
@@ -25,64 +27,60 @@ program wave_equation
   real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:)
   ! real :: rdum(:)
 
-  CFL = 0.05
-  L = 0.5   ! length of the domain in each direction
-  no_ele_row = 10
+  CFL = 0.01
+  L = 1.0   ! length of the domain in each direction
+  no_ele_row = 100
   no_ele_col = 1
   totele = no_ele_row * no_ele_col
   nface =  4
-  dx = L/(no_ele_row)
-  dy = L/(no_ele_col)
+  !dx = L/(no_ele_row)
+  !dy = L/(no_ele_col)
+  dx = 1.0
+  dy = 1.0
   ndim = 2
+  sndim = ndim-1 ! dimensions of the surface element coordinates.
   snloc = 2 ! no of nodes on each boundary line
   ngi = 4
   sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
   nloc = 4
   mloc=1
-  ntime = 1
+  ntime = 3000
   n_s_list_no = 4
-  ! max_face_list_no = 4
 
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ), M(ngi,nloc))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
   allocate(face_list_no( nface, totele), face_ele(nface,totele))
-!AMIN l1, l2, l3, l4 aren't used anywhere
-  ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
-  allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,ndim,nloc),sweigh(sngi))
-  allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,ndim-1,snloc), s_cont(sngi,ndim) )
+  allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,sndim,nloc),sweigh(sngi))
+  allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,sndim,snloc), s_cont(sngi,ndim) )
   allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
   allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
   allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele))
   allocate(tgi(ngi), tsgi(sngi), tsgi2(sngi))
-  allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,n_s_list_no), face_snlx(sngi,ndim,nloc,nface), face_sweigh(sngi,nface))
+  allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,n_s_list_no), face_snlx(sngi,sndim,nloc,nface) )
+  allocate(face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc), jac(ndim*ndim))
   allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc))
-!AMIN, rdum isn't used anywhere
-  ! allocate(rdum(10))
 
-!AMIN mdum isn't used anywhere
-  ! mdum(1:10)=0.0
-  LOWQUA=.false.
   ! initial conditions
-  t_new(:,:) = 0
-  t_new(:,no_ele_row/5:no_ele_row/2) = 1
+  t_new(:,:) = 0.0
+  t_new(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct -only correct for 1D?
   U_ele(:,:,:) = 0
-  U_ele(1,:,1:totele) = 0.1
-  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
-
+  U_ele(1,:,1:totele) = 1.0 ! suggest this should be unity
+  !dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
+  LOWQUA=.false.
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
   call ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
                 x_all, dx, dy, ndim, nloc, no_ele_col, col)
-  call surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, no_ele_row, no_ele_col, &
+  call surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, no_ele_row, no_ele_col, &
                sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
 ! print*, face_snlx(:,:,4,1) ! it gives results for iloc 1,3 and 4 but not 2.
 
   do itime=1,ntime
-    t_old =t_new
+    t_old =t_new ! prepare for next time step
     do ele=1,totele
       ! volume integration
       x_loc(:,:)=x_all(:,:,ele) ! x_all contains the coordinates of the corner nodes
-      call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi, jac )
+      call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       !volume=sum(detwei)
 
       u_loc(:,:) = u_ele(:,:,ele) ! this is the
@@ -140,7 +138,6 @@ program wave_equation
         sn(:,:)     = face_sn(:,:,iface)  ! correct
         snlx(:,:,:) = face_snlx(:,:,:,iface)
         sn2(:,:)    = face_sn2(:,:,s_list_no) ! correct
-        print*, ele, iface, snlx(1,:,1)
 
         usgi=0.0; usgi2=0.0; xsgi=0.0; tsgi=0.0; tsgi2=0.0
         do iloc=1,nloc ! use all of the nodes not just the surface nodes.
@@ -160,11 +157,10 @@ program wave_equation
            norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(idim,:))/real(nloc)
         end do
         ! start to do the integration
-        call det_snlx_all( nloc, sngi, ndim-1, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
+        call det_snlx_all( nloc, sngi, sndim, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
 
         do s_gi=1,sngi
           income(s_gi)=0.5 + 0.5*sign(1.0, sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
-
         end do
 
         ! sloc_vec=0.0; sloc_vec2=0.0
@@ -201,7 +197,7 @@ end program wave_equation
 
 
 
-subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y, &
+subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, nele_x, nele_y, &
                sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
   ! ********************************************************************************************************
   ! calculate face_list_no( iface, ele), face_sn(:,:,iface); face_snlx(:,:,:,iface), face_sn2(:,:,s_list_no)
@@ -212,6 +208,7 @@ subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_
   ! snloc=no of nodes on a surface element.
   ! nloc=no of nodes within a volume element.
   ! ndim=no of dimensions - including time possibly.
+  ! sndim=ndim-1 dimensions of the surface elements.
   ! totele=no of elements.
   ! n_s_list_no= no of different oriantations for the surface element numbering.
   ! nele_x = no of elements across in the x-direction.
@@ -227,9 +224,9 @@ subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_
   ! face_sn2(sgi,iloc,n_s_list_no) = shape function at quadrature point sgi but on the otherside of face and volume node iloc for face iface of element.
   ! This works from: sn2 =face_sn2(:,:,s_list_no) in which  s_list_no = face_list_no( iface, ele) .
   implicit none
-  integer, intent(in) :: nface, sngi, snloc, nloc, ndim, totele, n_s_list_no, nele_x, nele_y
-  real, intent(in) :: sn_orig(sngi,snloc), snlx_orig(sngi,ndim-1,snloc)
-  real, intent(out) :: face_sn(sngi,nloc,nface), face_snlx(sngi,ndim-1,nloc,nface), face_sn2(sngi,nloc,n_s_list_no)
+  integer, intent(in) :: nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, nele_x, nele_y
+  real, intent(in) :: sn_orig(sngi,snloc), snlx_orig(sngi,sndim,snloc)
+  real, intent(out) :: face_sn(sngi,nloc,nface), face_snlx(sngi,sndim,nloc,nface), face_sn2(sngi,nloc,n_s_list_no)
   integer, intent(out) :: face_list_no(nface,totele)
   ! local variables...
   integer iface,lnod1,lnod2,i_s_list_no
@@ -255,12 +252,11 @@ subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, totele, n_s_list_
   face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
   face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
   i_s_list_no = iface
-  lnod1=3
-  lnod2=4
+  lnod1=4
+  lnod2=3
   face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
   face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
   face_list_no(iface,:) = i_s_list_no
-
 
   iface=2
   lnod1=1
@@ -384,7 +380,8 @@ end subroutine ele_info
 
 
 
-subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi, jac )
+!subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, jac )
+subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
   ! ****************************************************
   ! This sub form the derivatives of the shape functions
   ! ****************************************************
@@ -403,7 +400,7 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi, jac )
   REAL, DIMENSION( ngi ), intent( in ) :: WEIGHT
   REAL, DIMENSION( ngi ), intent( inout ) :: DETWEI
   REAL, DIMENSION( ngi, ndim, nloc ), intent( inout ) :: nx
-  real, DIMENSION( ndim*ndim ) :: jac
+  !  real, DIMENSION( ndim*ndim ) :: jac
   ! Local variables
   REAL :: AGI, BGI, CGI, DGI, EGI, FGI, GGI, HGI, KGI, A11, A12, A13, A21, &
           A22, A23, A31, A32, A33, DETJ
@@ -416,8 +413,8 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi, jac )
       AGI=0.
       BGI=0.
 
+      CGI=0.
       DGI=0.
-      EGI=0.
 
       do  L=1,NLOC! Was loop 79
         IGLX=L
@@ -425,19 +422,19 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi, jac )
         AGI=AGI+NLX(GI,1,L)*x_loc(1,L)
         BGI=BGI+NLX(GI,1,L)*x_loc(2,L)
 
-        DGI=DGI+NLX(GI,2,L)*x_loc(1,L)
-        EGI=EGI+NLX(GI,2,L)*x_loc(2,L)
+        CGI=CGI+NLX(GI,2,L)*x_loc(1,L)
+        DGI=DGI+NLX(GI,2,L)*x_loc(2,L)
 
       end do ! Was loop 79
 
-      DETJ=AGI*EGI-BGI*DGI
+      DETJ= AGI*DGI-BGI*CGI
       DETWEI(GI)=ABS(DETJ)*WEIGHT(GI)
       ! For coefficient in the inverse mat of the jacobian.
-      A11= (EGI) /DETJ
-      A21=-(DGI) /DETJ
+      A11= DGI /DETJ
+      A21=-BGI /DETJ
 
-      A12=-(BGI) /DETJ
-      A22= (AGI) /DETJ
+      A12=-CGI /DETJ
+      A22= AGI /DETJ
 
       do  L=1,NLOC! Was loop 373
         NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)
@@ -445,7 +442,7 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim,nloc,ngi, jac )
       end do ! Was loop 373
     end do ! GI Was loop 331
 
-    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
+    !    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
 
   elseif ( ndim.eq.3 ) then
     do  GI=1,NGI! Was loop 331

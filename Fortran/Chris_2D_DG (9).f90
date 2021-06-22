@@ -22,15 +22,15 @@ program wave_equation
   real, allocatable :: t_bc(:,:), u_bc(:,:,:)
   real, allocatable :: tgi(:), tsgi(:), tsgi2(:)
   real, allocatable :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
-  real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:),u_old(:)
-  real, allocatable :: x_all(:,:,:), jac(:)
+  real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:)
+  real, allocatable :: x_all(:,:,:)
   real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:)
   real, allocatable :: mass_ele(:,:), mass_ele_inv(:,:), rhs_loc(:), ml_ele(:), rhs_jac(:), mass_t_new(:)
   real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:)
   ! real :: rdum(:)
 
   CFL = 0.01
-  L = 1.0   ! length of the domain in each direction
+  !L = 1.0   ! length of the domain in each direction
   no_ele_row = 100
   no_ele_col = 1
   totele = no_ele_row * no_ele_col
@@ -46,17 +46,14 @@ program wave_equation
   sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
   nloc = 4
   mloc=1
-  ntime = 3000
+  ntime = 100
   n_s_list_no = 4
   njac_its=10 ! no of Jacobi iterations
-  direct_solver=.false. ! use directi solver?
-  ! max_face_list_no = 4
+  direct_solver=.false. ! use direct solver?
 
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ), M(ngi,nloc))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
   allocate(face_list_no( nface, totele), face_ele(nface,totele))
-!AMIN l1, l2, l3, l4 aren't used anywhere
-  ! allocate(l1(ngi), l2(ngi), l3(ngi), l4(ngi))
   allocate(sn(sngi,nloc),sn2(sngi,nloc),snlx(sngi,sndim,nloc),sweigh(sngi))
   allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,sndim,snloc), s_cont(sngi,ndim) )
   allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
@@ -66,14 +63,10 @@ program wave_equation
   allocate(tgi(ngi), tsgi(sngi), tsgi2(sngi))
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,n_s_list_no), face_snlx(sngi,sndim,nloc,nface) )
   allocate(face_sweigh(sngi,nface))
-  allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc), jac(ndim*ndim))
+  allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
   allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc), ml_ele(nloc))
   allocate(rhs_jac(nloc), mass_t_new(nloc) )
-!AMIN, rdum isn't used anywhere
-  ! allocate(rdum(10))
 
-!AMIN mdum isn't used anywhere
-  ! mdum(1:10)=0.0
   t_bc(:,:)=0.0 ! this contains the boundary conditions just outside the domain
   u_bc(:,:,:)=0.0 ! this contains the boundary conditions on velocity just outside the domain
   ! initial conditions
@@ -82,9 +75,9 @@ program wave_equation
   U_ele(:,:,:) = 0
   U_ele(1,:,1:totele) = 1.0 ! suggest this should be unity
   u_bc(:,:,:)=u_ele(:,:,:) ! this contains the boundary conditions on velocity just outside the domain
-!  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
+  !dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
   dt = CFL*dx
-  print *,'dt=',dt
+!  print *,'dt=',dt
 
   LOWQUA=.false.
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
@@ -140,7 +133,7 @@ program wave_equation
             Mass_ele(iloc,jloc) = Mass_ele(iloc,jloc) + n(gi,iloc)*n(gi,jloc)*detwei(gi)
           end do ! quadrature
         end do ! ijloc
-!
+
         ml_ele(iloc)=sum(n(:,iloc)*detwei(:)) ! lumped mass matrix in element (use later for solver).
         do gi=1,ngi
           do idim=1,ndim
@@ -215,51 +208,59 @@ program wave_equation
       end do ! iface
 
       if(direct_solver) then
-      ! inverse of the mass matric (nloc,nloc)
-         call FINDInv(mass_ele, mass_ele_inv, nloc, errorflag)
-         do iloc=1,nloc
-            t_new_nonlin(iloc,ele)=t_old(iloc,ele) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
-         end do
+        ! inverse of the mass matric (nloc,nloc)
+        call FINDInv(mass_ele, mass_ele_inv, nloc, errorflag)
+        do iloc=1,nloc
+          t_new_nonlin(iloc,ele)=t_old(iloc,ele) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
+        end do
+!
       else ! iterative solver
-         do iloc=1,nloc
-            rhs_jac(iloc)= sum( mass_ele(iloc,:) * t_old(:,ele) ) + dt*rhs_loc(iloc)
-         end do
+        do iloc=1,nloc
+          rhs_jac(iloc)= sum( mass_ele(iloc,:) * t_old(:,ele) ) + dt*rhs_loc(iloc)
+        end do
 
-         do jac_its=1,njac_its ! jacobi iterations...
+        do jac_its=1,njac_its ! jacobi iterations...
+          do iloc=1,nloc
+            mass_t_new(iloc)= sum( mass_ele(iloc,:) * t_new_nonlin(:,ele) )
+          end do
             do iloc=1,nloc
-               mass_t_new(iloc)= sum( mass_ele(iloc,:) * t_new_nonlin(:,ele) )
+              t_new_nonlin(iloc,ele)=  (ml_ele(iloc)*t_new_nonlin(iloc,ele) - mass_t_new(iloc) + rhs_jac(iloc) ) / ml_ele(iloc)
             end do
-            do iloc=1,nloc
-               t_new_nonlin(iloc,ele)=  (ml_ele(iloc)*t_new_nonlin(iloc,ele) - mass_t_new(iloc) + rhs_jac(iloc) ) / ml_ele(iloc)
-            end do
-         end do
+        end do
       endif ! endof if(direct_solver) then else
 
-      ! print*, ele, t_new(:,ele)
     end do ! do ele=1,totele
     t_new=t_new_nonlin
   end do ! do itime=1,ntime
 
+  OPEN(unit=10, file='Timestep=100')
+    do ele=1,totele
+      write(10,*) x_all(1,1,ele), t_new(1,ele)
+      write(10,*) x_all(1,2,ele), t_new(2,ele)
+    end do
+  close(10)
 !       print *,'t_new:',t_new
 !       print *,'t_old:',t_old
-   print *,' '
-   do ele=1,totele
-      print *,dx*real(ele-1),t_new(1,ele)
-      print *,dx*real(ele),  t_new(2,ele)
-   end do
-   print *,' '
-   do ele=1,totele
+!   print *,' '
+!   do ele=1,totele
 !      print *,dx*real(ele-1),t_new(1,ele)
 !      print *,dx*real(ele),  t_new(2,ele)
-      print *,dx*real(ele-1),t_old(1,ele)
-      print *,dx*real(ele),  t_old(2,ele)
-   end do
+!   end do
+!   print *,' '
+!   do ele=1,totele
+!      print *,dx*real(ele-1),t_new(1,ele)
+!      print *,dx*real(ele),  t_new(2,ele)
+!      print *,dx*real(ele-1),t_old(1,ele)
+!      print *,dx*real(ele),  t_old(2,ele)
+!   end do
 
-  deallocate(n, nx, nlx, M, weight, detwei, sdetwei, face_list_no, face_ele, &
-             sn,sn2,snlx,sweigh, SN_orig,SNLX_orig, s_cont, u_loc, u_loc2, ugi, u_ele, &
-             xsgi, usgi, usgi2, income, snorm, norm, t_loc, t_loc2, t_old, t_new, &
-             tgi, tsgi, tsgi2, face_sn, face_sn2, face_snlx, x_all, x_loc, &
-             mass_ele, mass_ele_inv, rhs_loc)
+  deallocate(face_ele, face_list_no, n, nlx, nx, M, weight, detwei, sdetwei,&
+             sn,sn2,snlx,sweigh, s_cont, t_loc, t_loc2, t_old, t_new, t_new_nonlin,&
+             t_bc, u_bc, tgi, tsgi, tsgi2, face_sn, face_sn2, face_snlx, face_sweigh,&
+             u_loc, u_ele, u_loc2, x_loc, ugi, x_all,&
+             xsgi, usgi, usgi2, income, snorm, norm, &
+             mass_ele, mass_ele_inv, rhs_loc, ml_ele, rhs_jac, mass_t_new,&
+             SN_orig,SNLX_orig)
 
 end program wave_equation
 
@@ -469,7 +470,7 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
   REAL, DIMENSION( ngi ), intent( in ) :: WEIGHT
   REAL, DIMENSION( ngi ), intent( inout ) :: DETWEI
   REAL, DIMENSION( ngi, ndim, nloc ), intent( inout ) :: nx
-!  real, DIMENSION( ndim*ndim ) :: jac
+  !  real, DIMENSION( ndim*ndim ) :: jac
   ! Local variables
   REAL :: AGI, BGI, CGI, DGI, EGI, FGI, GGI, HGI, KGI, A11, A12, A13, A21, &
           A22, A23, A31, A32, A33, DETJ
@@ -511,7 +512,7 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       end do ! Was loop 373
     end do ! GI Was loop 331
 
-!    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
+    !    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
 
   elseif ( ndim.eq.3 ) then
     do  GI=1,NGI! Was loop 331
