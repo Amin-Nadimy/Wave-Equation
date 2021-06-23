@@ -332,9 +332,9 @@ program wave_equation
   L = 0.5   ! length of the domain in each direction
 
   ! number of elements in each row (r) and column (c)
-  no_ele_per_row = 30
+  no_ele_per_row = 45
   no_ele_per_col= 1
-  no_timesteps = 10 ! number of timesteps
+  no_timesteps = 200 ! number of timesteps
 
   ! normal to the domain
   domain_norm(1) = 0.0
@@ -440,23 +440,23 @@ program wave_equation
   end do
   !!!!!!!!!!!!!!!!!!!!!!!!save plot info !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! save the 1st timestep info
-  open (unit=40, file='n1.dat')
+  open (unit=40, file='Timestep=1')
   do i=1,tot_unknowns
-    write(40,*) x(i), y(i), U_plot(1,i)
+    write(40,*) x(i), U_plot(1,i)!,y(i)
   end do
   close(40)
 
   ! save the mid-timestep info
-  open (unit=41, file='n2.dat')
+  open (unit=41, file='Timestep=100')
   do i=1,tot_unknowns
-    write(41,*) x(i), y(i), U_plot(2,i)
+    write(41,*) x(i), U_plot(2,i)!,y(i)
   end do
   close(41)
 
   ! save the last timestep info
-  open (unit=42, file='n3.dat')
+  open (unit=42, file='Timestep=200')
   do i=1,tot_unknowns
-    write(42,*) x(i), y(i), U_plot(3,i)
+    write(42,*) x(i), U_plot(3,i)!,y(i)
   end do
   close(42)
 

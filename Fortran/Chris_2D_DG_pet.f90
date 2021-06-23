@@ -12,7 +12,7 @@ program wave_equation
   integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no, i_got_boundary, jac_its, njac_its
   integer, allocatable :: face_ele(:,:), face_list_no(:,:)
 
-  real :: sarea, volume, dt, CFL, L, dx, dy, r_got_boundary
+  real :: sarea, volume, dt, CFL, L, dx, dy, r_got_boundary, toler, a_coef
   logical :: direct_solver
 
   real, allocatable :: n(:,:), nlx(:,:,:), nx(:,:,:), M(:,:)
@@ -20,13 +20,14 @@ program wave_equation
   real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:,:)
   real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), t_new_nonlin(:,:)
   real, allocatable :: t_bc(:,:), u_bc(:,:,:)
-  real, allocatable :: tgi(:), tsgi(:), tsgi2(:)
+  real, allocatable :: tgi(:), txgi(:,:), tsgi(:), tsgi2(:), toldgi(:)
   real, allocatable :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
   real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:)
   real, allocatable :: x_all(:,:,:)
   real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:)
   real, allocatable :: mass_ele(:,:), mass_ele_inv(:,:), rhs_loc(:), ml_ele(:), rhs_jac(:), mass_t_new(:)
-  real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:)
+  real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:), inv_jac(:, :, : )
+  real, allocatable :: a_star(:,:), p_star(:), rgi(:), diff_coe(:), told_loc(:), stab(:)
   ! real :: rdum(:)
 
   CFL = 0.01
@@ -45,10 +46,11 @@ program wave_equation
   sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
   nloc = 4
   mloc=1
-  ntime = 3000
+  ntime = 1
   n_s_list_no = 4
   njac_its=10 ! no of Jacobi iterations
-  direct_solver=.false. ! use direct solver?
+  toler = 10**(-10)
+  direct_solver=.true. ! use direct solver?
 
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ), M(ngi,nloc))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
@@ -59,12 +61,13 @@ program wave_equation
   allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
   allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele), t_new_nonlin(nloc,totele))
   allocate(t_bc(nloc,totele), u_bc(ndim,nloc,totele))
-  allocate(tgi(ngi), tsgi(sngi), tsgi2(sngi))
+  allocate(tgi(ngi), txgi(ngi,ndim), tsgi(sngi), tsgi2(sngi), toldgi(ngi))
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,n_s_list_no), face_snlx(sngi,sndim,nloc,nface) )
   allocate(face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
   allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc), ml_ele(nloc))
-  allocate(rhs_jac(nloc), mass_t_new(nloc) )
+  allocate(rhs_jac(nloc), mass_t_new(nloc), inv_jac(ngi, ndim, ndim ) )
+  allocate(a_star(ngi,nloc), p_star(ngi), rgi(ngi), diff_coe(ngi), told_loc(nloc), stab(nloc))
 
   t_bc(:,:)=0.0 ! this contains the boundary conditions just outside the domain
   u_bc(:,:,:)=0.0 ! this contains the boundary conditions on velocity just outside the domain
@@ -92,7 +95,7 @@ program wave_equation
     do ele=1,totele
       ! volume integration
       x_loc(:,:)=x_all(:,:,ele) ! x_all contains the coordinates of the corner nodes
-      call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
+      call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, inv_jac )
       !volume=sum(detwei)
 !      do gi=1,ngi
 !         print *,'gi=',gi
@@ -103,6 +106,7 @@ program wave_equation
 
       u_loc(:,:) = u_ele(:,:,ele) ! this is the
 !AMIN changed to t_old
+      told_loc = t_loc
       t_loc(:) =  t_old(:,ele) ! this is the FEM element - 2nd index is the local node number
 
       ! calculates vel at gi sum = phi_1(gi)*c1 +phi_2(gi)*c2 +phi_3(gi)*c3 +phi_4(gi)*c4
@@ -116,10 +120,24 @@ program wave_equation
       do gi=1,ngi
         do idim=1,ndim
            ugi(gi,idim)=sum(n(gi,:)*u_loc(idim,:))
+           txgi(gi,idim)=sum(nx(gi,idim,:)*t_loc(:))
         end do
         tgi(gi)=sum(n(gi,:)*t_loc(:))
+        toldgi(gi)=sum(n(gi,:)*told_loc(:))
+        rgi(gi)=(tgi(gi)-toldgi(gi))/dt + sum(ugi(gi,:)*txgi(gi,:))
+! a_star
+! eq 4
+        a_coef=sum(ugi(gi,:)*txgi(gi,:))/max(toler, sum( txgi(gi,:)**2 ) )
+        a_star(gi,:) = a_coef * txgi(gi,:)
+! eq 14
+        p_star(gi) =0.0
+        do iloc=1,nloc
+           p_star(gi) = max(p_star(gi), abs(sum( a_star(gi,:)*nx(gi,:,iloc) ))  )
+        end do
+        p_star(gi) = 0.25/max(toler, p_star(gi))
+! eq 18
+        diff_coe(gi) = rgi(gi)**2 *p_star(gi) /max(toler, sum( txgi(gi,:)**2 ) )
       end do
-
       rhs_loc=0.0 ! the local to element rhs vector.
       mass_ele=0.0 ! initialize mass matric to be zero.
       do iloc=1,nloc
@@ -136,25 +154,12 @@ program wave_equation
         ml_ele(iloc)=sum(n(:,iloc)*detwei(:)) ! lumped mass matrix in element (use later for solver).
         do gi=1,ngi
           do idim=1,ndim
+            stab(iloc) = stab(iloc) + nx(gi,idim,iloc)*a_star(gi,iloc)*p_star(gi)*rgi(gi)*detwei(gi)
             rhs_loc(iloc) = rhs_loc(iloc) + nx(gi,idim,iloc)*ugi(gi,idim)*tgi(gi)*detwei(gi)
           end do
         end do ! quadrature
+        rhs_loc(iloc) = rhs_loc(iloc) + stab(iloc)
       end do ! iloc
-
-      ! P_star = 0.25*(SQRT(sum((2*ugi(:,1)/dx)**2 + (2*ugi(:,2)/dy)**2)))**(-1)
-      !
-      ! ! Petrov-Galerkin diffusion coefficient, which must be always positive
-      ! do iloc=1,nloc
-      !   if ( t_new(iloc,ele)/=0 .or. t_old(iloc,ele)/=0 ) then
-      !     diff_coe(iloc) = sum(((t_new(iloc,ele)-t_old(iloc,ele))/dt*n(:,iloc) - &
-      !                            ugi(:,1)*t_old(iloc,ele)*nx(:,1,iloc) - &
-      !                            ugi(:,2)*t_old(iloc,ele)*nx(:,2,iloc))**2 * P_star /&
-      !                         (((t_new(iloc,ele)-t_old(iloc,ele))/dt * n(:,iloc))**2 + &
-      !                           (ugi(:,1)*t_old(iloc,ele)*nx(:,1,iloc))**2 + &
-      !                           (ugi(:,2)*t_old(iloc,ele)*nx(:,2,iloc))**2 ))
-      !   end if
-      ! end do
-      ! print*, diff_coe
 !       print *,'ele,tgi(:):',ele,tgi(:)
 !       print *,'t_loc(:):',t_loc(:)
 !       print *,'ugi(:,:):',ugi(:,:)
@@ -190,8 +195,8 @@ program wave_equation
           tsgi(:)  = tsgi(:)  + sn(:,iloc)*t_loc(iloc)
           tsgi2(:) = tsgi2(:) + sn2(:,iloc)*t_loc2(iloc)
         end do
-        !        usgi=0.0
-        !        usgi2=0.0
+!        usgi=0.0
+!        usgi2=0.0
 
         ! this is the approximate normal direction...
         do idim=1,ndim
@@ -224,31 +229,31 @@ program wave_equation
       end do ! iface
 
       if(direct_solver) then
-        ! inverse of the mass matric (nloc,nloc)
-        call FINDInv(mass_ele, mass_ele_inv, nloc, errorflag)
-        do iloc=1,nloc
-          t_new_nonlin(iloc,ele)=t_old(iloc,ele) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
-        end do
+      ! inverse of the mass matric (nloc,nloc)
+         call FINDInv(mass_ele, mass_ele_inv, nloc, errorflag)
+         do iloc=1,nloc
+            t_new_nonlin(iloc,ele)=t_old(iloc,ele) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
+         end do
       else ! iterative solver
-        do iloc=1,nloc
-          rhs_jac(iloc)= sum( mass_ele(iloc,:) * t_old(:,ele) ) + dt*rhs_loc(iloc)
-        end do
+         do iloc=1,nloc
+            rhs_jac(iloc)= sum( mass_ele(iloc,:) * t_old(:,ele) ) + dt*rhs_loc(iloc)
+         end do
 
-        do jac_its=1,njac_its ! jacobi iterations...
-          do iloc=1,nloc
-            mass_t_new(iloc)= sum( mass_ele(iloc,:) * t_new_nonlin(:,ele) )
-          end do
+         do jac_its=1,njac_its ! jacobi iterations...
             do iloc=1,nloc
-              t_new_nonlin(iloc,ele)=  (ml_ele(iloc)*t_new_nonlin(iloc,ele) - mass_t_new(iloc) + rhs_jac(iloc) ) / ml_ele(iloc)
+               mass_t_new(iloc)= sum( mass_ele(iloc,:) * t_new_nonlin(:,ele) )
             end do
-        end do
+            do iloc=1,nloc
+               t_new_nonlin(iloc,ele)=  (ml_ele(iloc)*t_new_nonlin(iloc,ele) - mass_t_new(iloc) + rhs_jac(iloc) ) / ml_ele(iloc)
+            end do
+         end do
       endif ! endof if(direct_solver) then else
 
     end do ! do ele=1,totele
     t_new=t_new_nonlin
   end do ! do itime=1,ntime
 
-  ! OPEN(unit=10, file='Timestep=100')
+  ! OPEN(unit=10, file='petrov=3000')
   !   do ele=1,totele
   !     write(10,*) x_all(1,1,ele), t_new(1,ele)
   !     write(10,*) x_all(1,2,ele), t_new(2,ele)
@@ -271,11 +276,11 @@ program wave_equation
 
   deallocate(face_ele, face_list_no, n, nlx, nx, M, weight, detwei, sdetwei,&
              sn,sn2,snlx,sweigh, s_cont, t_loc, t_loc2, t_old, t_new, t_new_nonlin,&
-             t_bc, u_bc, tgi, tsgi, tsgi2, face_sn, face_sn2, face_snlx, face_sweigh,&
+             t_bc, u_bc, tgi, tsgi, tsgi2, toldgi, face_sn, face_sn2, face_snlx, face_sweigh,&
              u_loc, u_ele, u_loc2, x_loc, ugi, x_all,&
              xsgi, usgi, usgi2, income, snorm, norm, &
              mass_ele, mass_ele_inv, rhs_loc, ml_ele, rhs_jac, mass_t_new,&
-             SN_orig,SNLX_orig)
+             SN_orig,SNLX_orig, a_star, p_star, rgi, diff_coe, told_loc, stab)
 
 end program wave_equation
 
@@ -466,7 +471,7 @@ end subroutine ele_info
 
 
 !subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, jac )
-subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
+subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, INV_JAC )
   ! ****************************************************
   ! This sub form the derivatives of the shape functions
   ! ****************************************************
@@ -485,7 +490,8 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
   REAL, DIMENSION( ngi ), intent( in ) :: WEIGHT
   REAL, DIMENSION( ngi ), intent( inout ) :: DETWEI
   REAL, DIMENSION( ngi, ndim, nloc ), intent( inout ) :: nx
-  !  real, DIMENSION( ndim*ndim ) :: jac
+  REAL, DIMENSION( ngi, ndim, ndim ), intent( inout ):: INV_JAC
+!  real, DIMENSION( ndim*ndim ) :: jac
   ! Local variables
   REAL :: AGI, BGI, CGI, DGI, EGI, FGI, GGI, HGI, KGI, A11, A12, A13, A21, &
           A22, A23, A31, A32, A33, DETJ
@@ -521,13 +527,19 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       A12=-CGI /DETJ
       A22= AGI /DETJ
 
+      INV_JAC( GI, 1,1 )= A11
+      INV_JAC( GI, 1,2 )= A21
+
+      INV_JAC( GI, 2,1 )= A12
+      INV_JAC( GI, 2,2 )= A22
+
       do  L=1,NLOC! Was loop 373
         NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)
         NX(GI,2,L)= A21*NLX(GI,1,L)+A22*NLX(GI,2,L)
       end do ! Was loop 373
     end do ! GI Was loop 331
 
-    !    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
+!    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
 
   elseif ( ndim.eq.3 ) then
     do  GI=1,NGI! Was loop 331
@@ -581,6 +593,18 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       A13= (BGI*FGI-CGI*EGI) /DETJ
       A23=-(AGI*FGI-CGI*DGI) /DETJ
       A33= (AGI*EGI-BGI*DGI) /DETJ
+!
+      INV_JAC( GI, 1,1 )= A11
+      INV_JAC( GI, 2,1 )= A21
+      INV_JAC( GI, 3,1 )= A31
+          !
+      INV_JAC( GI, 1,2 )= A12
+      INV_JAC( GI, 2,2 )= A22
+      INV_JAC( GI, 3,2 )= A32
+          !
+      INV_JAC( GI, 1,3 )= A13
+      INV_JAC( GI, 2,3 )= A23
+      INV_JAC( GI, 3,3 )= A33
 
       do  L=1,NLOC! Was loop 373
         NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)+A13*NLX(GI,3,L)
