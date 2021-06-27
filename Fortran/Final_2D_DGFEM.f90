@@ -48,7 +48,7 @@ program wave_equation
   ntime = 3000
   n_s_list_no = 4
   njac_its=10 ! no of Jacobi iterations
-  direct_solver=.false. ! use direct solver?
+  direct_solver=.true. ! use direct solver?
 
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ), M(ngi,nloc))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
@@ -78,7 +78,7 @@ program wave_equation
   dt = CFL*dx
 !  print *,'dt=',dt
 
-  LOWQUA=.false.
+  LOWQUA=.True.
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
   call ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
                 x_all, dx, dy, ndim, nloc, no_ele_col, col)
@@ -248,26 +248,13 @@ program wave_equation
     t_new=t_new_nonlin
   end do ! do itime=1,ntime
 
-  ! OPEN(unit=10, file='Timestep=100')
-  !   do ele=1,totele
-  !     write(10,*) x_all(1,1,ele), t_new(1,ele)
-  !     write(10,*) x_all(1,2,ele), t_new(2,ele)
-  !   end do
-  ! close(10)
-!       print *,'t_new:',t_new
-!       print *,'t_old:',t_old
-!   print *,' '
-!   do ele=1,totele
-!      print *,dx*real(ele-1),t_new(1,ele)
-!      print *,dx*real(ele),  t_new(2,ele)
-!   end do
-!   print *,' '
-!   do ele=1,totele
-!      print *,dx*real(ele-1),t_new(1,ele)
-!      print *,dx*real(ele),  t_new(2,ele)
-!      print *,dx*real(ele-1),t_old(1,ele)
-!      print *,dx*real(ele),  t_old(2,ele)
-!   end do
+  OPEN(unit=10, file='Timestep=3000')
+    do ele=1,totele
+      write(10,*) x_all(1,1,ele), t_new(1,ele)
+      write(10,*) x_all(1,2,ele), t_new(2,ele)
+    end do
+  close(10)
+
 
   deallocate(face_ele, face_list_no, n, nlx, nx, M, weight, detwei, sdetwei,&
              sn,sn2,snlx,sweigh, s_cont, t_loc, t_loc2, t_old, t_new, t_new_nonlin,&
