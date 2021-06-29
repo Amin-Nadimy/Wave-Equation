@@ -248,7 +248,7 @@ program wave_equation
     t_new=t_new_nonlin
   end do ! do itime=1,ntime
 
-  OPEN(unit=10, file='Timestep=3000')
+  OPEN(unit=10, file='DG-FEM')
     do ele=1,totele
       write(10,*) x_all(1,1,ele), t_new(1,ele)
       write(10,*) x_all(1,2,ele), t_new(2,ele)
