@@ -9,33 +9,32 @@ program wave_equation
   integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, ele22
   integer :: s_list_no, s_gi, iloc, jloc, i
   integer:: itime, ntime, idim, ndim, sndim, nonodes, snloc, mloc, col, n_s_list_no, row, row2
-  integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no, i_got_boundary, jac_its, njac_its
+  integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no, i_got_boundary, jac_its, njac_its, its, nits
   integer, allocatable :: face_ele(:,:), face_list_no(:,:)
 
-  real :: sarea, volume, dt, CFL, L, dx, dy, r_got_boundary
+  real :: sarea, volume, dt, CFL, L, dx, dy, r_got_boundary, toler, a_coef
   logical :: direct_solver
 
   real, allocatable :: n(:,:), nlx(:,:,:), nx(:,:,:), M(:,:)
   real, allocatable :: weight(:), detwei(:), sdetwei(:)
   real, allocatable :: sn(:,:),sn2(:,:),snlx(:,:,:),sweigh(:), s_cont(:,:)
-  real, allocatable :: t_loc(:), t_loc2(:), t_old(:,:), t_new(:,:), t_new_nonlin(:,:)
+  real, allocatable :: tnew_loc(:), tnew_loc2(:), told(:,:), tnew(:,:), tnew_nonlin(:,:)
+  real, allocatable :: tnew_nonlin_loc(:)
   real, allocatable :: t_bc(:,:), u_bc(:,:,:)
-  real, allocatable :: tgi(:), tsgi(:), tsgi2(:)
+  real, allocatable :: tnew_gi(:), tnew_xgi(:,:), tnew_sgi(:), tnew_sgi2(:), told_gi(:)
   real, allocatable :: face_sn(:,:,:), face_sn2(:,:,:), face_snlx(:,:,:,:), face_sweigh(:,:)
   real, allocatable :: u_loc(:,:), u_ele(:,:,:), u_loc2(:,:), x_loc(:,:), ugi(:,:)
   real, allocatable :: x_all(:,:,:)
   real, allocatable :: xsgi(:,:), usgi(:,:), usgi2(:,:), income(:), snorm(:,:), norm(:)
-  real, allocatable :: mass_ele(:,:), mass_ele_inv(:,:), rhs_loc(:), ml_ele(:), rhs_jac(:), mass_t_new(:)
-  real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:)
-  ! real :: rdum(:)
+  real, allocatable :: mass_ele(:,:), mat_loc(:,:), mat_loc_inv(:,:), rhs_loc(:), ml_ele(:), rhs_jac(:), mass_t_new(:)
+  real, allocatable :: SN_orig(:,:),SNLX_orig(:,:,:), inv_jac(:, :, : ), mat_diag_approx(:)
+  real, allocatable :: a_star(:,:), p_star(:), rgi(:), diff_coe(:), told_loc(:), stab(:,:), mat_tnew(:), mass_told(:)
 
   CFL = 0.01
-  no_ele_row = 70
-  no_ele_col = 70
+  no_ele_row = 100
+  no_ele_col = 100
   totele = no_ele_row * no_ele_col
   nface =  4
-  !dx = L/(no_ele_row)
-  !dy = L/(no_ele_col)
   dx = 1.0
   dy = 1.0
   ndim = 2
@@ -45,10 +44,12 @@ program wave_equation
   sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
   nloc = 4
   mloc=1
-  ntime = 3000
+  ntime = 100
+  nits = 2 ! nonlinear iterations.
   n_s_list_no = 4
   njac_its=10 ! no of Jacobi iterations
-  direct_solver=.true. ! use direct solver?
+  toler = 0.00000000001
+  direct_solver=.false. ! use direct solver?
 
   allocate(n( ngi, nloc ), nx( ngi, ndim, nloc ), nlx( ngi, ndim, nloc ), M(ngi,nloc))
   allocate(weight(ngi), detwei(ngi), sdetwei(sngi))
@@ -57,223 +58,262 @@ program wave_equation
   allocate(SN_orig(sngi,snloc),SNLX_orig(sngi,sndim,snloc), s_cont(sngi,ndim) )
   allocate(u_loc(ndim,nloc), u_loc2(ndim,nloc), ugi(ngi,ndim), u_ele(ndim,nloc,totele))
   allocate(xsgi(sngi,ndim), usgi(sngi,ndim), usgi2(sngi,ndim), income(sngi), snorm(sngi,ndim), norm(ndim))
-  allocate(t_loc(nloc), t_loc2(nloc), t_old(nloc,totele), t_new(nloc,totele), t_new_nonlin(nloc,totele))
+  allocate(tnew_loc(nloc), tnew_loc2(nloc), told(nloc,totele), tnew(nloc,totele), tnew_nonlin(nloc,totele))
+  allocate(tnew_nonlin_loc(nloc))
   allocate(t_bc(nloc,totele), u_bc(ndim,nloc,totele))
-  allocate(tgi(ngi), tsgi(sngi), tsgi2(sngi))
+  allocate(tnew_gi(ngi), tnew_xgi(ngi,ndim), tnew_sgi(sngi), tnew_sgi2(sngi), told_gi(ngi))
   allocate(face_sn(sngi,nloc,nface), face_sn2(sngi,nloc,n_s_list_no), face_snlx(sngi,sndim,nloc,nface) )
   allocate(face_sweigh(sngi,nface))
   allocate(x_all(ndim,nloc,totele), x_loc(ndim,nloc))
-  allocate(mass_ele(nloc,nloc), mass_ele_inv(nloc,nloc), rhs_loc(nloc), ml_ele(nloc))
-  allocate(rhs_jac(nloc), mass_t_new(nloc) )
+  allocate(mass_ele(nloc,nloc), mat_loc_inv(nloc,nloc), rhs_loc(nloc), ml_ele(nloc))
+  allocate(rhs_jac(nloc), mass_t_new(nloc), inv_jac(ngi, ndim, ndim ) )
+  allocate(a_star(ngi,nloc), p_star(ngi), rgi(ngi), diff_coe(ngi), told_loc(nloc), stab(nloc, nloc))
+  allocate(mat_tnew(nloc), mat_diag_approx(nloc), mass_told(nloc))
 
   t_bc(:,:)=0.0 ! this contains the boundary conditions just outside the domain
   u_bc(:,:,:)=0.0 ! this contains the boundary conditions on velocity just outside the domain
-  ! initial conditions
-  t_new(:,:) = 0.0
-  ! t_new(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct -only correct for 1D?
+  ! 1D initial conditions
+  tnew(:,:) = 0.0
+  ! tnew(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct -only correct for 1D?
 
   ! ! 2D initial conditions
   do i=1,no_ele_col/2
-    t_new(:,i*no_ele_row+no_ele_row/5:i*no_ele_row+no_ele_row/2) = 1.0
+    tnew(:,i*no_ele_row+no_ele_row/5:i*no_ele_row+no_ele_row/2) = 1.0
   end do
 
-  U_ele(:,:,:) = 0
-  U_ele(:,:,1:totele) = 1.0 ! suggest this should be unity
+  u_ele(:,:,:) = 0
+  u_ele(:,:,1:totele) = 1.0 ! suggest this should be unity
   u_bc(:,:,:)=u_ele(:,:,:) ! this contains the boundary conditions on velocity just outside the domain
 !  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
   dt = CFL*dx
-!  print *,'dt=',dt
 
-  LOWQUA=.True.
+  LOWQUA=.true.
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
   call ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
                 x_all, dx, dy, ndim, nloc, no_ele_col, col)
   call surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, no_ele_row, no_ele_col, &
                sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
-! print*, face_snlx(:,:,4,1) ! it gives results for iloc 1,3 and 4 but not 2.
 
   do itime=1,ntime
-    t_old =t_new ! prepare for next time step
-    t_new_nonlin = t_new ! for non-linearity
-    do ele=1,totele
-      ! volume integration
-      x_loc(:,:)=x_all(:,:,ele) ! x_all contains the coordinates of the corner nodes
-      call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
-      !volume=sum(detwei)
-!      do gi=1,ngi
-!         print *,'gi=',gi
-!         print *,'nx(gi,1,:):',nx(gi,1,:)
-!         print *,'nx(gi,2,:):',nx(gi,2,:)
-!      end do
-!      stop 221
+    told = tnew ! prepare for next time step
+    tnew_nonlin = tnew
+    do its=1,nits
+      tnew = tnew_nonlin ! for non-linearity
+      do ele=1,totele
+        ! volume integration
+        x_loc(:,:)=x_all(:,:,ele) ! x_all contains the coordinates of the corner nodes
+        call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, inv_jac )
+        !volume=sum(detwei)
+  !      do gi=1,ngi
+  !         print *,'gi=',gi
+  !         print *,'nx(gi,1,:):',nx(gi,1,:)
+  !         print *,'nx(gi,2,:):',nx(gi,2,:)
+  !      end do
+  !      stop 221
 
-      u_loc(:,:) = u_ele(:,:,ele) ! this is the
-!AMIN changed to t_old
-      t_loc(:) =  t_old(:,ele) ! this is the FEM element - 2nd index is the local node number
+        u_loc(:,:) = u_ele(:,:,ele) ! this is the
+  !AMIN changed to t_old
+        tnew_loc(:) =  tnew(:,ele) ! this is the FEM element - 2nd index is the local node number
+        told_loc(:) =  told(:,ele) ! this is the FEM element - 2nd index is the local node number
 
-      ! calculates vel at gi sum = phi_1(gi)*c1 +phi_2(gi)*c2 +phi_3(gi)*c3 +phi_4(gi)*c4
-      ! do idim=1,ndim
-      !   do gi=1,ngi
-      !      !ugi_x(gi,idim)=sum(nx(gi,idim,:)*u_loc(idim,:))
-      !      ugi(gi,idim)=sum(n(gi,:)*u_loc(idim,:))
-      !   end do
-      ! end do
-      ! calculates t at gi sum = phi_1(gi)*t1 +phi_2(gi)*t2 +phi_3(gi)*t3 +phi_4(gi)*t4
-      do gi=1,ngi
-        do idim=1,ndim
-           ugi(gi,idim)=sum(n(gi,:)*u_loc(idim,:))
-        end do
-        tgi(gi)=sum(n(gi,:)*t_loc(:))
-      end do
-
-      rhs_loc=0.0 ! the local to element rhs vector.
-      mass_ele=0.0 ! initialize mass matric to be zero.
-      do iloc=1,nloc
-        !inod = glob_no(iloc,ele)
-        do jloc=1,nloc
-          !jnod = glob_no(ele,jloc)
-
-          do gi=1,ngi
-            !M(inod,jnod) = M(inod,jnod) + ngi_3p_wei(g)*sh_func(iloc)*sh_func(jloc)*det_jac
-            Mass_ele(iloc,jloc) = Mass_ele(iloc,jloc) + n(gi,iloc)*n(gi,jloc)*detwei(gi)
-          end do ! quadrature
-        end do ! ijloc
-
-        ml_ele(iloc)=sum(n(:,iloc)*detwei(:)) ! lumped mass matrix in element (use later for solver).
+        ! calculates vel at gi sum = phi_1(gi)*c1 +phi_2(gi)*c2 +phi_3(gi)*c3 +phi_4(gi)*c4
+        ! do idim=1,ndim
+        !   do gi=1,ngi
+        !      !ugi_x(gi,idim)=sum(nx(gi,idim,:)*u_loc(idim,:))
+        !      ugi(gi,idim)=sum(n(gi,:)*u_loc(idim,:))
+        !   end do
+        ! end do
+        ! calculates t at gi sum = phi_1(gi)*t1 +phi_2(gi)*t2 +phi_3(gi)*t3 +phi_4(gi)*t4
         do gi=1,ngi
           do idim=1,ndim
-            rhs_loc(iloc) = rhs_loc(iloc) + nx(gi,idim,iloc)*ugi(gi,idim)*tgi(gi)*detwei(gi)
+             ugi(gi,idim)=sum(n(gi,:)*u_loc(idim,:))
+             tnew_xgi(gi,idim)=sum(nx(gi,idim,:)*tnew_loc(:))
           end do
-        end do ! quadrature
-      end do ! iloc
-
-      ! P_star = 0.25*(SQRT(sum((2*ugi(:,1)/dx)**2 + (2*ugi(:,2)/dy)**2)))**(-1)
-      !
-      ! ! Petrov-Galerkin diffusion coefficient, which must be always positive
-      ! do iloc=1,nloc
-      !   if ( t_new(iloc,ele)/=0 .or. t_old(iloc,ele)/=0 ) then
-      !     diff_coe(iloc) = sum(((t_new(iloc,ele)-t_old(iloc,ele))/dt*n(:,iloc) - &
-      !                            ugi(:,1)*t_old(iloc,ele)*nx(:,1,iloc) - &
-      !                            ugi(:,2)*t_old(iloc,ele)*nx(:,2,iloc))**2 * P_star /&
-      !                         (((t_new(iloc,ele)-t_old(iloc,ele))/dt * n(:,iloc))**2 + &
-      !                           (ugi(:,1)*t_old(iloc,ele)*nx(:,1,iloc))**2 + &
-      !                           (ugi(:,2)*t_old(iloc,ele)*nx(:,2,iloc))**2 ))
-      !   end if
-      ! end do
-      ! print*, diff_coe
-!       print *,'ele,tgi(:):',ele,tgi(:)
-!       print *,'t_loc(:):',t_loc(:)
-!       print *,'ugi(:,:):',ugi(:,:)
-
-      !Include the surface integral here:
-      do iface = 1,nface
-        ele22 = face_ele( iface, ele) ! if ele22 is negative assume on boundary
-        i_got_boundary = (sign(1, -ele22) + 1 )/2
-        r_got_boundary = real(i_got_boundary)
-        ele2 = ele*i_got_boundary + ele22*(1-i_got_boundary)
-! r_got_boundary=1.0 if we want to use the boundary conditions and have incomming velocity.
-! r_got_boundary=0.0 not on boundary
-
-        t_loc2(:)=t_new(:,ele2) * (1.0-r_got_boundary)     + t_bc(:,ele)  * r_got_boundary
-        u_loc2(:,:)=u_ele(:,:,ele2)* (1.0-r_got_boundary)  + u_bc(:,:,ele)* r_got_boundary
-
-        !Surface integral along an element
-        ! need to work on this also
-        s_list_no = face_list_no( iface, ele) ! correct
-        sn(:,:)     = face_sn(:,:,iface)  ! correct
-        snlx(:,:,:) = face_snlx(:,:,:,iface)
-        sn2(:,:)    = face_sn2(:,:,s_list_no) ! correct
-
-        usgi=0.0; usgi2=0.0; xsgi=0.0; tsgi=0.0; tsgi2=0.0
-        do iloc=1,nloc ! use all of the nodes not just the surface nodes.
+          tnew_gi(gi)=sum(n(gi,:)*tnew_loc(:))
+          told_gi(gi)=sum(n(gi,:)*told_loc(:))
+          rgi(gi)=(tnew_gi(gi)-told_gi(gi))/dt + sum(ugi(gi,:)*tnew_xgi(gi,:))
+  ! a_star
+  ! eq 4
+          ! a_coef=sum(ugi(gi,:)*txgi(gi,:))/max(toler, sum( txgi(gi,:)**2 ) )
+          a_coef=rgi(gi)/max(toler, sum( tnew_xgi(gi,:)**2 ) )
+          a_star(gi,:) = a_coef * tnew_xgi(gi,:)
+  ! eq 14
+          ! p_star(gi) =0.0
+          ! do iloc=1,nloc
+          !    p_star(gi) = max(p_star(gi), abs(sum( a_star(gi,:)*nx(gi,:,iloc) ))  )
+          ! end do
+          ! p_star(gi) = 0.25/max(toler, p_star(gi))
+  ! eq 23 for P*
+          p_star(gi) =0.0
           do idim=1,ndim
-
-            usgi(:,idim)  = usgi(:,idim)  + sn(:,iloc)*u_loc(idim,iloc)
-            usgi2(:,idim) = usgi2(:,idim) + sn2(:,iloc)*u_loc2(idim,iloc)
-            xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
-
-          end do
-          tsgi(:)  = tsgi(:)  + sn(:,iloc)*t_loc(iloc)
-          tsgi2(:) = tsgi2(:) + sn2(:,iloc)*t_loc2(iloc)
-        end do
-        !        usgi=0.0
-        !        usgi2=0.0
-
-        ! this is the approximate normal direction...
-        do idim=1,ndim
-           norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(idim,:))/real(nloc)
-        end do
-        ! start to do the integration
-        call det_snlx_all( nloc, sngi, sndim, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
-!      print *,'iface,sum(sdetwei(:)):',iface,sum(sdetwei(:))
-
-! income=1 if info is comming from neighbouring element.
-        do s_gi=1,sngi
-          income(s_gi)=0.5 + 0.5*sign(1.0, -sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
-        end do
-!        print *,'iface,income:',iface,income
-!        print *,'snorm(1,:):',snorm(1,:)
-!        print *,'snorm(2,:):',snorm(2,:)
-!        print *,'ele22, i_got_boundary, r_got_boundary, ele, ele2:',ele22, i_got_boundary, r_got_boundary, ele, ele2
-
-        ! sloc_vec=0.0; sloc_vec2=0.0
-        do idim=1,ndim
-          s_cont(:,idim) = snorm(:,idim)*sdetwei(:) &
-                      *( (1.-income(:))* usgi(:,idim)*tsgi(:) + income(:)*usgi2(:,idim)*tsgi2(:) )
-        end do
-
-        do iloc=1,nloc
-          do idim=1,ndim
-            rhs_loc(iloc)  = rhs_loc(iloc)  - sum( sn(:,iloc)*s_cont(:,idim) )
-          end do
-        end do
-      end do ! iface
-
-      if(direct_solver) then
-        ! inverse of the mass matric (nloc,nloc)
-        call FINDInv(mass_ele, mass_ele_inv, nloc, errorflag)
-        do iloc=1,nloc
-          t_new_nonlin(iloc,ele)=t_old(iloc,ele) + dt*sum( mass_ele_inv(iloc,:) * rhs_loc(:) )
-        end do
-      else ! iterative solver
-        do iloc=1,nloc
-          rhs_jac(iloc)= sum( mass_ele(iloc,:) * t_old(:,ele) ) + dt*rhs_loc(iloc)
-        end do
-
-        do jac_its=1,njac_its ! jacobi iterations...
-          do iloc=1,nloc
-            mass_t_new(iloc)= sum( mass_ele(iloc,:) * t_new_nonlin(:,ele) )
-          end do
             do iloc=1,nloc
-              t_new_nonlin(iloc,ele)=  (ml_ele(iloc)*t_new_nonlin(iloc,ele) - mass_t_new(iloc) + rhs_jac(iloc) ) / ml_ele(iloc)
+               p_star(gi) = max(p_star(gi), abs(sum( a_star(gi,:)*(inv_jac(gi,:,idim)))  ))
             end do
+          end do
+          p_star(gi) = min(1/toler ,0.25/p_star(gi) )
+  ! eq 18
+          diff_coe(gi) = 0.25*rgi(gi)**2 *p_star(gi) /max(toler, sum( tnew_xgi(gi,:)**2 ) )
         end do
-      endif ! endof if(direct_solver) then else
+        rhs_loc=0.0 ! the local to element rhs vector.
+        mass_ele=0.0 ! initialize mass matric to be zero.
+        stab=0.0
+        do iloc=1,nloc
+          !inod = glob_no(iloc,ele)
+          do jloc=1,nloc
+            !jnod = glob_no(ele,jloc)
 
-    end do ! do ele=1,totele
-    t_new=t_new_nonlin
+            do gi=1,ngi
+              stab(iloc,jloc) = stab(iloc,jloc) + sum(diff_coe(gi)* nx(gi,:,jloc)* nx(gi,:,iloc))* detwei(gi)
+              !M(inod,jnod) = M(inod,jnod) + ngi_3p_wei(g)*sh_func(iloc)*sh_func(jloc)*det_jac
+              mass_ele(iloc,jloc) = mass_ele(iloc,jloc) + n(gi,iloc)*n(gi,jloc)*detwei(gi)
+            end do ! quadrature
+          end do ! ijloc
+
+  ! Amin- How can it be lumped mass matrix as it does not have any mass_ele involved?
+          ml_ele(iloc)=sum(n(:,iloc)*detwei(:)) ! lumped mass matrix in element (use later for solver).
+          do gi=1,ngi
+            do idim=1,ndim
+              rhs_loc(iloc) = rhs_loc(iloc) + nx(gi,idim,iloc)*ugi(gi,idim)*tnew_gi(gi)*detwei(gi)
+            end do
+          end do ! quadrature
+        end do ! iloc
+
+        !Include the surface integral here:
+        do iface = 1,nface
+          ele22 = face_ele( iface, ele) ! if ele22 is negative assume on boundary
+          i_got_boundary = (sign(1, -ele22) + 1 )/2
+          r_got_boundary = real(i_got_boundary)
+          ele2 = ele*i_got_boundary + ele22*(1-i_got_boundary)
+  ! r_got_boundary=1.0 if we want to use the boundary conditions and have incomming velocity.
+  ! r_got_boundary=0.0 not on boundary
+
+          tnew_loc2(:)=tnew(:,ele2) * (1.0-r_got_boundary)     + t_bc(:,ele)  * r_got_boundary
+          u_loc2(:,:)=u_ele(:,:,ele2)* (1.0-r_got_boundary)  + u_bc(:,:,ele)* r_got_boundary
+
+          !Surface integral along an element
+          ! need to work on this also
+          s_list_no = face_list_no( iface, ele) ! correct
+          sn(:,:)     = face_sn(:,:,iface)  ! correct
+          snlx(:,:,:) = face_snlx(:,:,:,iface)
+          sn2(:,:)    = face_sn2(:,:,s_list_no) ! correct
+
+          usgi=0.0; usgi2=0.0; xsgi=0.0; tnew_sgi=0.0; tnew_sgi2=0.0
+          do iloc=1,nloc ! use all of the nodes not just the surface nodes.
+            do idim=1,ndim
+
+              usgi(:,idim)  = usgi(:,idim)  + sn(:,iloc)*u_loc(idim,iloc)
+              usgi2(:,idim) = usgi2(:,idim) + sn2(:,iloc)*u_loc2(idim,iloc)
+              xsgi(:,idim)  = xsgi(:,idim)  + sn(:,iloc)*x_loc(idim,iloc)
+
+            end do
+            tnew_sgi(:)  = tnew_sgi(:)  + sn(:,iloc)*tnew_loc(iloc)
+            tnew_sgi2(:) = tnew_sgi2(:) + sn2(:,iloc)*tnew_loc2(iloc)
+          end do
+  !        usgi=0.0
+  !        usgi2=0.0
+
+          ! this is the approximate normal direction...
+          do idim=1,ndim
+             norm(idim) = sum(xsgi(:,idim))/real(sngi) - sum(x_loc(idim,:))/real(nloc)
+          end do
+          ! start to do the integration
+          call det_snlx_all( nloc, sngi, sndim, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
+  !      print *,'iface,sum(sdetwei(:)):',iface,sum(sdetwei(:))
+
+  ! income=1 if info is comming from neighbouring element.
+          do s_gi=1,sngi
+            income(s_gi)=0.5 + 0.5*sign(1.0, -sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
+          end do
+  !        print *,'iface,income:',iface,income
+  !        print *,'snorm(1,:):',snorm(1,:)
+  !        print *,'snorm(2,:):',snorm(2,:)
+  !        print *,'ele22, i_got_boundary, r_got_boundary, ele, ele2:',ele22, i_got_boundary, r_got_boundary, ele, ele2
+
+          ! sloc_vec=0.0; sloc_vec2=0.0
+          do idim=1,ndim
+            s_cont(:,idim) = snorm(:,idim)*sdetwei(:) &
+                        *( (1.-income(:))* usgi(:,idim)*tnew_sgi(:) + income(:)*usgi2(:,idim)*tnew_sgi2(:) )
+          end do
+
+          do iloc=1,nloc
+            do idim=1,ndim
+              rhs_loc(iloc)  = rhs_loc(iloc)  - sum( sn(:,iloc)*s_cont(:,idim) )
+            end do
+          end do
+        end do ! iface
+
+        mat_loc= mass_ele + dt*stab
+        if(direct_solver) then
+        ! inverse of the mass matric (nloc,nloc)
+        ! AMIN I would say the passed matrix should be mass_ele not mat_loc based on the formula
+          call FINDInv(mass_ele, mat_loc_inv, nloc, errorflag)
+          !can be only this part instead
+          ! do iloc=1,nloc
+          !    tnew_nonlin(iloc,ele)=told_loc(iloc) + dt* sum( mat_loc_inv(iloc,:)* rhs_loc(:) ) &
+          !                                  + told_loc(iloc)* dt* sum( mat_loc_inv(iloc,:) * stab(iloc,:) )
+          ! end do
+          do iloc=1,nloc
+            mass_told(iloc)=sum( mat_loc(iloc,:) * told_loc(:) )
+          end do
+          do iloc=1,nloc
+            tnew_nonlin(iloc,ele)=sum( mat_loc_inv(iloc,:)* (mass_told(:)+dt*rhs_loc(:)))
+          end do
+
+        else ! iterative solver
+           do iloc=1,nloc
+              rhs_jac(iloc)= sum( mass_ele(iloc,:) * told_loc(:) ) + dt*rhs_loc(iloc)
+              mat_diag_approx(iloc) = ml_ele(iloc) + dt * stab(iloc,iloc)
+           end do
+
+           tnew_nonlin_loc(:) = tnew_nonlin(:,ele)
+           do jac_its=1,njac_its ! jacobi iterations...
+              do iloc=1,nloc
+                 mat_tnew(iloc)= sum( mat_loc(iloc,:) * tnew_nonlin_loc(:) )
+              end do
+              do iloc=1,nloc
+                 tnew_nonlin_loc(iloc)=  (mat_diag_approx(iloc)*tnew_nonlin_loc(iloc) - mat_tnew(iloc) + rhs_jac(iloc) )&
+                                                                / mat_diag_approx(iloc)
+              end do
+           end do
+           tnew_nonlin(:,ele) = tnew_nonlin_loc(:)
+        endif ! endof if(direct_solver) then else
+
+      end do ! do ele=1,totele
+      tnew=tnew_nonlin
+    end do ! do its=1,nits
   end do ! do itime=1,ntime
 
-  OPEN(unit=10, file='DG-FEM, time=3000')
+  OPEN(unit=10, file='DPG-FEM,time=100')
     do ele=1,totele
-      write(10,*) x_all(1,1,ele), x_all(2,1,ele), t_new(1,ele)
-      write(10,*) x_all(1,2,ele), x_all(2,2,ele), t_new(2,ele)
-      write(10,*) x_all(1,4,ele), x_all(2,4,ele), t_new(4,ele)
-      write(10,*) x_all(1,3,ele), x_all(2,3,ele), t_new(3,ele)
+      write(10,*) x_all(1,1,ele), x_all(2,1,ele), tnew(1,ele)
+      write(10,*) x_all(1,2,ele), x_all(2,2,ele), tnew(2,ele)
     end do
   close(10)
-
+!       print *,'tnew:',tnew
+!       print *,'told:',told
+   ! print *,' '
+   ! do ele=1,totele
+   !    print *,dx*real(ele-1),tnew(1,ele)
+   !    print *,dx*real(ele),  tnew(2,ele)
+   ! end do
+   ! print *,' '
+   ! do ele=1,totele
+   !    print *,dx*real(ele-1),tnew(1,ele)
+   !    print *,dx*real(ele),  tnew(2,ele)
+   !    print *,dx*real(ele-1),told(1,ele)
+   !    print *,dx*real(ele),  told(2,ele)
+   ! end do
 
   deallocate(face_ele, face_list_no, n, nlx, nx, M, weight, detwei, sdetwei,&
-             sn,sn2,snlx,sweigh, s_cont, t_loc, t_loc2, t_old, t_new, t_new_nonlin,&
-             t_bc, u_bc, tgi, tsgi, tsgi2, face_sn, face_sn2, face_snlx, face_sweigh,&
+             sn,sn2,snlx,sweigh, s_cont, tnew_loc, tnew_loc2, told, tnew, tnew_nonlin,&
+             t_bc, u_bc, tnew_gi, tnew_sgi, tnew_sgi2, told_gi, face_sn, face_sn2, face_snlx, face_sweigh,&
              u_loc, u_ele, u_loc2, x_loc, ugi, x_all,&
              xsgi, usgi, usgi2, income, snorm, norm, &
-             mass_ele, mass_ele_inv, rhs_loc, ml_ele, rhs_jac, mass_t_new,&
-             SN_orig,SNLX_orig)
+             mass_ele, mat_loc_inv, rhs_loc, ml_ele, rhs_jac, mass_t_new,&
+             SN_orig,SNLX_orig, inv_jac, mat_diag_approx,  &
+             a_star, p_star, rgi, diff_coe, told_loc, stab, mat_tnew)
 
 end program wave_equation
-
 
 
 
@@ -461,7 +501,7 @@ end subroutine ele_info
 
 
 !subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, jac )
-subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
+subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, INV_JAC )
   ! ****************************************************
   ! This sub form the derivatives of the shape functions
   ! ****************************************************
@@ -480,7 +520,7 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
   REAL, DIMENSION( ngi ), intent( in ) :: WEIGHT
   REAL, DIMENSION( ngi ), intent( inout ) :: DETWEI
   REAL, DIMENSION( ngi, ndim, nloc ), intent( inout ) :: nx
-  !  real, DIMENSION( ndim*ndim ) :: jac
+  REAL, DIMENSION( ngi, ndim, ndim ), intent( inout ):: INV_JAC
   ! Local variables
   REAL :: AGI, BGI, CGI, DGI, EGI, FGI, GGI, HGI, KGI, A11, A12, A13, A21, &
           A22, A23, A31, A32, A33, DETJ
@@ -516,13 +556,19 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       A12=-CGI /DETJ
       A22= AGI /DETJ
 
+      INV_JAC( GI, 1,1 )= A11
+      INV_JAC( GI, 1,2 )= A21
+
+      INV_JAC( GI, 2,1 )= A12
+      INV_JAC( GI, 2,2 )= A22
+
       do  L=1,NLOC! Was loop 373
         NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)
         NX(GI,2,L)= A21*NLX(GI,1,L)+A22*NLX(GI,2,L)
       end do ! Was loop 373
     end do ! GI Was loop 331
 
-    !    jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
+    !jac(1) = AGI; jac(2) = DGI ; jac(3) = BGI ; jac(4) = EGI
 
   elseif ( ndim.eq.3 ) then
     do  GI=1,NGI! Was loop 331
@@ -576,6 +622,18 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       A13= (BGI*FGI-CGI*EGI) /DETJ
       A23=-(AGI*FGI-CGI*DGI) /DETJ
       A33= (AGI*EGI-BGI*DGI) /DETJ
+
+      INV_JAC( GI, 1,1 )= A11
+      INV_JAC( GI, 2,1 )= A21
+      INV_JAC( GI, 3,1 )= A31
+          !
+      INV_JAC( GI, 1,2 )= A12
+      INV_JAC( GI, 2,2 )= A22
+      INV_JAC( GI, 3,2 )= A32
+          !
+      INV_JAC( GI, 1,3 )= A13
+      INV_JAC( GI, 2,3 )= A23
+      INV_JAC( GI, 3,3 )= A33
 
       do  L=1,NLOC! Was loop 373
         NX(GI,1,L)= A11*NLX(GI,1,L)+A12*NLX(GI,2,L)+A13*NLX(GI,3,L)

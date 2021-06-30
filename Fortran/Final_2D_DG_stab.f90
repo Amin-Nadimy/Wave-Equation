@@ -7,7 +7,7 @@ program wave_equation
 
   logical :: LOWQUA
   integer :: nloc, gi, ngi, sngi, iface, nface, totele, ele, ele2, ele22
-  integer :: s_list_no, s_gi, iloc, jloc
+  integer :: s_list_no, s_gi, iloc, jloc, i
   integer:: itime, ntime, idim, ndim, sndim, nonodes, snloc, mloc, col, n_s_list_no, row, row2
   integer :: no_ele_col, no_ele_row, errorflag, max_face_list_no, i_got_boundary, jac_its, njac_its, its, nits
   integer, allocatable :: face_ele(:,:), face_list_no(:,:)
@@ -31,8 +31,8 @@ program wave_equation
   real, allocatable :: a_star(:,:), p_star(:), rgi(:), diff_coe(:), told_loc(:), stab(:,:), mat_tnew(:), mass_told(:)
 
   CFL = 0.01
-  no_ele_row = 100
-  no_ele_col = 1
+  no_ele_row = 70
+  no_ele_col = 70
   totele = no_ele_row * no_ele_col
   nface =  4
   dx = 1.0
@@ -72,11 +72,17 @@ program wave_equation
 
   t_bc(:,:)=0.0 ! this contains the boundary conditions just outside the domain
   u_bc(:,:,:)=0.0 ! this contains the boundary conditions on velocity just outside the domain
-  ! initial conditions
+  ! 1D initial conditions
   tnew(:,:) = 0.0
-  tnew(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct -only correct for 1D?
+  ! tnew(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct -only correct for 1D?
+
+  ! ! 2D initial conditions
+  do i=1,no_ele_col/2
+    tnew(:,i*no_ele_row+no_ele_row/5:i*no_ele_row+no_ele_row/2) = 1.0
+  end do
+
   u_ele(:,:,:) = 0
-  u_ele(1,:,1:totele) = 1.0 ! suggest this should be unity
+  u_ele(:,:,1:totele) = 1.0 ! suggest this should be unity
   u_bc(:,:,:)=u_ele(:,:,:) ! this contains the boundary conditions on velocity just outside the domain
 !  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
   dt = CFL*dx
@@ -239,6 +245,7 @@ program wave_equation
         mat_loc= mass_ele + dt*stab
         if(direct_solver) then
         ! inverse of the mass matric (nloc,nloc)
+        ! AMIN I would say the passed matrix should be mass_ele not mat_loc based on the formula
           call FINDInv(mass_ele, mat_loc_inv, nloc, errorflag)
           !can be only this part instead
           ! do iloc=1,nloc
@@ -276,12 +283,17 @@ program wave_equation
     end do ! do its=1,nits
   end do ! do itime=1,ntime
 
-  OPEN(unit=10, file='DPG-FEM')
-    do ele=1,totele
-      write(10,*) x_all(1,1,ele), tnew(1,ele)
-      write(10,*) x_all(1,2,ele), tnew(2,ele)
-    end do
+  OPEN(unit=10, file='DPG-FEM, time=3000')
+  ! x_all(ndim,nloc,totele)
+  ! tnew(nloc,totele)
+      do ele=1,totele
+        write(10,*) x_all(1,1,ele), x_all(2,1,ele), tnew(1,ele)
+        write(10,*) x_all(1,2,ele), x_all(2,2,ele), tnew(2,ele)
+        write(10,*) x_all(1,4,ele), x_all(2,4,ele), tnew(4,ele)
+        write(10,*) x_all(1,3,ele), x_all(2,3,ele), tnew(3,ele)
+      end do
   close(10)
+
 !       print *,'tnew:',tnew
 !       print *,'told:',told
    ! print *,' '
