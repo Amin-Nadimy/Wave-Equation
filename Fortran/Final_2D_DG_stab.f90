@@ -283,7 +283,7 @@ program wave_equation
     end do ! do its=1,nits
   end do ! do itime=1,ntime
 
-  OPEN(unit=10, file='DPG-FEM, time=3000')
+  OPEN(unit=10, file='DPG-FEM, time=100')
   ! x_all(ndim,nloc,totele)
   ! tnew(nloc,totele)
       do ele=1,totele
